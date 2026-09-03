@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "io.github.mishrachemist_glitch.twa",
+    "sha256_cert_fingerprints": [
+      "A5:A4:C6:65:67:88:3E:47:E4:E2:2E:A4:58:34:5A:88:BD:5D:8E:9E:C0:3B:24:78:4E:2E:5E:27:2C:2D:72:3E"
+    ]
+  }
+}]
