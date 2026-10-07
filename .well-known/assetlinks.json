@@ -1,11 +1,27 @@
-[{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "io.github.mishrachemist.twa",
-    "sha256_cert_fingerprints": [
-      "7C:4B:34:90:2E:37:0B:A1:A9:AA:D9:9D:01:51:A3:E7:AB:2B:73:2C:0F:36:A1:AE:D7:16:DF:A8:9B:9B:10:9A",
-      "A5:A4:C6:65:67:88:3E:47:E4:E2:2E:A4:58:34:5A:88:BD:5D:8E:9E:C0:3B:24:78:4E:2E:5E:27:2C:2D:72:3E"
-    ]
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.mishrachemist.twa",
+      "sha256_cert_fingerprints": [
+        "7C:4B:34:90:2E:37:0B:A1:A9:AA:D9:9D:01:51:A3:E7:AB:2B:73:2C:0F:36:A1:AE:D7:16:DF:A8:9B:9B:10:9A",
+        "A5:A4:C6:65:67:88:3E:47:E4:E2:2E:A4:58:34:5A:88:BD:5D:8E:9E:C0:3B:24:78:4E:2E:5E:27:2C:2D:72:3E"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.mishrachemist.janseva",
+      "sha256_cert_fingerprints": [
+        "5D:17:05:B6:B2:0C:E8:B9:77:D6:F3:59:BE:E2:E6:2A:80:E2:43:1B:05:F7:C1:73:F8:D8:0A:89:5E:5F:49:91"
+      ]
+    }
   }
-}]
+]
