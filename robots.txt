@@ -1,0 +1,22 @@
+# AI crawlers: please do not read or train on this site (only well-behaved bots follow this file).
+User-agent: GPTBot
+User-agent: ChatGPT-User
+User-agent: OAI-SearchBot
+User-agent: ClaudeBot
+User-agent: Claude-Web
+User-agent: Claude-User
+User-agent: Claude-SearchBot
+User-agent: anthropic-ai
+User-agent: Google-Extended
+User-agent: CCBot
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Bytespider
+User-agent: Applebot-Extended
+User-agent: meta-externalagent
+User-agent: Amazonbot
+Disallow: /
+
+# Normal search engines (Google, Bing) may still list the site.
+User-agent: *
+Allow: /
