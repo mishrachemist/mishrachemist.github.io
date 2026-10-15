@@ -5292,6 +5292,7 @@ document.getElementById("signInBtn").addEventListener("click", async () => {
 function showSignedIn() {
   if (!isAllowedAccount(account)) { blockAccount(); return; }
   setTimeout(() => loadSignature(), 0);
+  setTimeout(() => waCloudPull(), 0);   // WhatsApp Inbox status from OneDrive (same on every device)
   document.getElementById("signedOutMsg").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
   document.getElementById("signInBtn").classList.add("hidden");
@@ -7691,15 +7692,26 @@ function waInboxCfg() {
   };
 }
 
-let waInboxLastInfo = "";
-function waInboxShowInfo(extra) {
+function waInboxShowInfo() {
   const c = waInboxCfg();
   const el = document.getElementById("waInboxInfo");
   if (!el) return;
-  if (extra !== undefined) waInboxLastInfo = extra;
   if (!c.url) { el.textContent = "WhatsApp Inbox not set up yet - tap ⚙️ Inbox Settings."; return; }
-  el.textContent = `WhatsApp Inbox: last processed row = ${c.lastRow}` +
-    (waInboxLastInfo ? ` · ${waInboxLastInfo}` : "");
+  const note = localStorage.getItem("waInboxLastNote") || "";
+  const at = parseInt(localStorage.getItem("waInboxLastAt") || "0", 10) || 0;
+  const dev = localStorage.getItem("waInboxLastDevice") || "";
+  let last = "";
+  if (note && at) {
+    const d = new Date(at);
+    const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const sameDay = d.toDateString() === new Date().toDateString();
+    const when = sameDay ? time : `${d.getDate()} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()]} ${time}`;
+    last = ` · ${note} ${when}` + (dev ? ` (${dev})` : "");
+  }
+  let retry = 0;
+  try { retry = (JSON.parse(localStorage.getItem("waInboxRetry") || "[]") || []).length; } catch (e) {}
+  el.textContent = `WhatsApp Inbox: last processed row = ${c.lastRow}` + last +
+    (retry ? ` · 🔁 ${retry} pending retry` : "") + (waSyncEnabled() ? " · ☁️ synced" : "");
 }
 
 function waInboxEditSettings() {
@@ -7714,7 +7726,9 @@ function waInboxEditSettings() {
   localStorage.setItem("waInboxToken", token.trim());
   localStorage.setItem("waInboxLastRow", String(parseInt(last, 10) || 0));
   localStorage.removeItem("waInboxAutoMin");
+  waStateTouch();
   waInboxShowInfo();
+  waCloudPush();
 }
 
 let waInboxBusy = false;
@@ -7728,7 +7742,88 @@ function waRetryLoad() {
   try { return JSON.parse(localStorage.getItem("waInboxRetry") || "[]") || []; }
   catch (e) { return []; }
 }
-function waRetrySave(list) { localStorage.setItem("waInboxRetry", JSON.stringify(list)); }
+function waRetrySave(list) { localStorage.setItem("waInboxRetry", JSON.stringify(list)); waStateTouch(); }
+
+/* ===================== WHATSAPP INBOX STATE - OneDrive sync (primary account) ===================== */
+// For the primary login (durgesh.mishra@marutisteel.in) the WhatsApp Inbox
+// state is also kept in OneDrive (Apps folder -> wa_inbox_state.json), so every
+// device signed in with that account shows the same last-fetch status and
+// continues from the same last processed row (no re-processing of old rows).
+// Rule: whichever copy (this device / OneDrive) was changed last wins.
+const WA_SYNC_EMAIL = "durgesh.mishra@marutisteel.in";
+const WA_STATE_FILE_URL = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/wa_inbox_state.json:/content";
+const WA_SYNC_KEYS = ["waInboxUrl", "waInboxToken", "waInboxLastRow", "waLastHeat", "waInboxRetry",
+  "rhfPartyApplied2", "waInboxLastNote", "waInboxLastAt", "waInboxLastDevice"];
+function waSyncEnabled() { return !!account && accountEmail(account) === WA_SYNC_EMAIL; }
+function waStateTouch() { try { localStorage.setItem("waStateTs", String(Date.now())); } catch (e) {} }
+function waDeviceLabel() {
+  const ua = navigator.userAgent || "";
+  if (/Android/i.test(ua)) return "Android";
+  if (/iPhone|iPad|iPod/i.test(ua)) return "iPhone/iPad";
+  if (/Windows/i.test(ua)) return "Windows PC";
+  if (/Macintosh|Mac OS/i.test(ua)) return "Mac";
+  return "Browser";
+}
+function waStateSnapshot() {
+  const keys = {};
+  WA_SYNC_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) keys[k] = v; });
+  return { updatedAt: parseInt(localStorage.getItem("waStateTs") || "0", 10) || 0, device: waDeviceLabel(), keys };
+}
+let waCloudBusy = null, waCloudLastPull = 0;
+async function waCloudPush() {
+  if (!waSyncEnabled()) return;
+  try {
+    const token = await getToken(); if (!token) return;
+    const snap = waStateSnapshot();
+    if (!snap.updatedAt) { waStateTouch(); snap.updatedAt = parseInt(localStorage.getItem("waStateTs"), 10); }
+    const r = await fetch(WA_STATE_FILE_URL, { method: "PUT",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(snap) });
+    if (!r.ok) console.warn("WA state upload failed", r.status);
+  } catch (e) { console.warn("WA state upload failed", e); }
+}
+// Returns "pulled" (OneDrive copy applied here), "pushed" (this device was newer),
+// "same", "off" or "error".
+function waCloudPull() {
+  if (!waSyncEnabled()) return Promise.resolve("off");
+  if (waCloudBusy) return waCloudBusy;
+  waCloudBusy = (async () => {
+    try {
+      const token = await getToken(); if (!token) return "error";
+      const r = await fetch(WA_STATE_FILE_URL + "?t=" + Date.now(), { headers: { Authorization: "Bearer " + token }, cache: "no-store" });
+      const localTs = parseInt(localStorage.getItem("waStateTs") || "0", 10) || 0;
+      if (r.status === 404) {   // first time: upload what this device has
+        if (localStorage.getItem("waInboxUrl")) { await waCloudPush(); return "pushed"; }
+        return "same";
+      }
+      if (!r.ok) return "error";
+      const cloud = await r.json();
+      const cloudTs = Number(cloud && cloud.updatedAt) || 0;
+      if (cloudTs > localTs && cloud.keys) {
+        WA_SYNC_KEYS.forEach(k => {
+          if (k in cloud.keys) localStorage.setItem(k, cloud.keys[k]);
+          else localStorage.removeItem(k);
+        });
+        localStorage.setItem("waStateTs", String(cloudTs));
+        return "pulled";
+      }
+      if (localTs > cloudTs) { await waCloudPush(); return "pushed"; }
+      return "same";
+    } catch (e) { console.warn("WA state download failed", e); return "error"; }
+    finally { waCloudLastPull = Date.now(); waCloudBusy = null; waInboxShowInfo(); }
+  })();
+  return waCloudBusy;
+}
+// Remember the result of the latest fetch (shown under the Fetch button, synced).
+function waInboxSetLast(note) {
+  localStorage.setItem("waInboxLastNote", note);
+  localStorage.setItem("waInboxLastAt", String(Date.now()));
+  localStorage.setItem("waInboxLastDevice", waDeviceLabel());
+  waStateTouch();
+}
+// App brought back to the screen -> refresh the status from OneDrive (max once a minute).
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && account && !waInboxBusy && Date.now() - waCloudLastPull > 60000) waCloudPull();
+});
 /* ===================== "Billets Transferred - SMS TO RHF" messages (SMS-QAD MIPPL group) ===================== */
 // MIPPL / no party  -> Prod. sheet RHF cells of that date (same cells as RHF Billets Entry;
 //                      a later message for the same date = full total, so it overwrites)
@@ -7845,6 +7940,7 @@ async function submitRhfTransferMessage(text) {
         { method: "PATCH", body: JSON.stringify({ formulas: [[nf]] }) });
       applied[doneKey] = want;
       localStorage.setItem("rhfPartyApplied2", JSON.stringify(applied));
+      waStateTouch();
       log.push(`${name} ${size}: ${delta > 0 ? "-" + delta : "+" + (-delta)} pcs in E${row + 1}`);
     }
   }
@@ -7862,6 +7958,13 @@ async function waInboxFetch() {
     return;
   }
   const statusEl = document.getElementById("status");
+  // Another device may have fetched meanwhile - take the latest row / status from OneDrive first.
+  if (waSyncEnabled()) {
+    waInboxBusy = true;   // block a second tap while checking
+    statusEl.className = "wait";
+    statusEl.textContent = "Checking last WhatsApp update status...";
+    try { await waCloudPull(); } finally { waInboxBusy = false; }
+  }
   let c = waInboxCfg();
   if (!c.url || !c.token) {
     waInboxEditSettings();
@@ -7898,7 +8001,8 @@ async function waInboxFetch() {
     const msgs = fresh.concat(retries).sort((a, b) => a.row - b.row);
 
     if (msgs.length === 0) {
-      waInboxShowInfo(`checked ${stamp()}, nothing new`);
+      waInboxSetLast("checked, nothing new");
+      waInboxShowInfo();
       statusEl.className = "ok";
       statusEl.textContent = "No new WhatsApp messages since row " + c.lastRow + ".";
       return;
@@ -7982,6 +8086,7 @@ async function waInboxFetch() {
             let hy = rt.getFullYear();
             if (hm === 12 && rt.getMonth() === 0) hy -= 1;
             localStorage.setItem("waLastHeat", JSON.stringify({ d: hd, m: hm, y: hy, n: hn, t: rt.getTime() }));
+            waStateTouch();
           }
         }
 
@@ -7995,6 +8100,7 @@ async function waInboxFetch() {
         if (!m.isRetry) {
           maxRow = Math.max(maxRow, Number(m.row) || 0);
           localStorage.setItem("waInboxLastRow", String(maxRow));
+          waStateTouch();
         }
         waRetrySave(retryList);
       }
@@ -8028,10 +8134,12 @@ async function waInboxFetch() {
 
     statusEl.className = failN === 0 ? "ok" : "err";
     statusEl.textContent = summary;
-    waInboxShowInfo(`fetched ${stamp()}` + (retryList.length ? ` · 🔁 ${retryList.length} pending retry` : ""));
+    waInboxSetLast(`fetched ${okN} saved` + (failN ? `, ${failN} failed` : ""));
+    waInboxShowInfo();
     showCompletionPopup(summary);
   } finally {
     waInboxBusy = false;
+    waCloudPush();   // save the new row / status to OneDrive for the other devices
   }
 }
 
