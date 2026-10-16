@@ -2772,8 +2772,8 @@
 
             <div id="teamSetupBox" class="ownerOnly" style="margin-top:18px;">
               <label>👥 Team (view-only) access</label>
-              <div style="font-size:12.5px;color:var(--muted);">Gives these accounts view-only access to the report files: <b id="teamEmailsList"></b></div>
-              <div class="btnRow"><button class="secondary" id="teamSetupBtn" type="button">👥 Team Setup</button></div>
+              <div style="font-size:12.5px;color:var(--muted);">Team access is OFF. This takes back the OneDrive access given earlier to: <b id="teamEmailsList"></b></div>
+              <div class="btnRow"><button class="secondary" id="teamRevokeBtn" type="button">🚫 Remove team access</button></div>
               <div id="teamSetupResult" style="font-size:12.5px;margin-top:8px;"></div>
             </div>
           </div>
@@ -4381,9 +4381,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.16.13";
+const APP_VERSION = "2026.10.16.14";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🚫 Team access switched off - only your own accounts can sign in; one tap removes the OneDrive sharing",
   "👥 Team Setup shares with each person separately and shows who got access",
   "🩺 Team sign-in problems now show Microsoft's exact reason on screen",
   "👥 Team Setup (File Location page) - team accounts now read your reports view-only",
@@ -5886,10 +5887,9 @@ function accountEmail(acc) {
 }
 // Team members who may only LOOK at reports (no download, share, print, copy or Excel changes).
 // Filled in when the team login is set up.
-const VIEWER_EMAILS = [
-  "rajalok100@gmail.com",           // iPhone - Safari
-  "smsproduction@marutisteel.in"    // Android - SMS Viewer app
-];
+const VIEWER_EMAILS = [];   // no team access (removed 16 Oct 2026)
+// accounts that were given access once - "Remove team access" takes it back from OneDrive
+const TEAM_REVOKE_EMAILS = ["rajalok100@gmail.com", "smsproduction@marutisteel.in"];
 function accountRole(acc) {
   const e = accountEmail(acc);
   if (!e) return "";
@@ -6173,10 +6173,48 @@ async function runTeamSetup() {
   }
 }
 (function teamSetupUi() {
-  const b = document.getElementById("teamSetupBtn"), l = document.getElementById("teamEmailsList");
-  if (l) l.textContent = VIEWER_EMAILS.join(", ") || "(none)";
-  if (b) b.addEventListener("click", () => { if (confirm("Share the report files VIEW-ONLY with:\n" + VIEWER_EMAILS.join("\n") + "\n\nThey will get an e-mail from OneDrive.")) runTeamSetup(); });
+  const b = document.getElementById("teamRevokeBtn"), l = document.getElementById("teamEmailsList");
+  if (l) l.textContent = TEAM_REVOKE_EMAILS.join(", ");
+  if (b) b.addEventListener("click", () => { if (confirm("Remove OneDrive access to the report files for:\n" + TEAM_REVOKE_EMAILS.join("\n") + " ?")) runTeamRevoke(); });
 })();
+// Owner: take back every OneDrive permission given to the team accounts and delete the file list.
+async function runTeamRevoke() {
+  const out = document.getElementById("teamSetupResult");
+  const say = (h) => { if (out) out.innerHTML = h; };
+  if (isViewer()) return;
+  try {
+    const token = await getToken(); if (!token) return;
+    say("⏳ Finding the shared files...");
+    const targets = TEAM_REVOKE_EMAILS.map(e => e.toLowerCase());
+    const got = await Promise.all(teamCandidatePaths().map(pth => tryGetItem(token, pth).then(it => it ? { path: pth, id: it.id, folder: !!it.folder } : null)));
+    const items = []; got.forEach(x => { if (x && !items.some(f => f.id === x.id)) items.push(x); });
+    const lines = []; let removed = 0;
+    for (let i = 0; i < items.length; i++) {
+      say(`⏳ Removing access (${i + 1}/${items.length}): ${items[i].path}`);
+      let n = 0, fail = "";
+      try {
+        const perms = await graphFetch(`${TEAM_GRAPH}/me/drive/items/${items[i].id}/permissions`, token, { noCache: true });
+        for (const pm of (perms.value || [])) {
+          if (pm.inheritedFrom) continue;
+          const mails = JSON.stringify([pm.grantedToV2, pm.grantedTo, pm.grantedToIdentitiesV2, pm.grantedToIdentities, pm.invitation]).toLowerCase();
+          if (!targets.some(t => mails.includes(t))) continue;
+          try { await graphFetch(`${TEAM_GRAPH}/me/drive/items/${items[i].id}/permissions/${pm.id}`, token, { method: "DELETE" }); n++; }
+          catch (e) { fail = String(e.message || e).slice(0, 100); }
+        }
+      } catch (e) { fail = String(e.message || e).slice(0, 100); }
+      removed += n;
+      lines.push(`${fail ? "❌" : "✅"} ${items[i].path.replace(/</g, "&lt;")} - ${n} removed${fail ? ": " + fail.replace(/</g, "&lt;") : ""}`);
+    }
+    // the file list (inside MIPPL or in the app folder)
+    const mippl = items.find(it => it.folder && it.path.toLowerCase() === "desktop/mippl");
+    for (const u of [mippl ? `${TEAM_GRAPH}/me/drive/items/${mippl.id}:/${TEAM_MAP_PATH}` : null, `${TEAM_GRAPH}/me/drive/special/approot:/${TEAM_MAP_PATH}`].filter(Boolean)) {
+      try { const it = await graphFetch(u, token, { noCache: true }); await graphFetch(`${TEAM_GRAPH}/me/drive/items/${it.id}`, token, { method: "DELETE" }); lines.push("✅ team file list deleted"); } catch (e) {}
+    }
+    try { localStorage.removeItem("teamMapCache"); } catch (e) {}
+    say(`<div style="margin-bottom:6px;"><b>Team access removed</b> (${removed} permission${removed === 1 ? "" : "s"}) for: ${TEAM_REVOKE_EMAILS.join(", ")}</div>` +
+      `<div style="max-height:200px;overflow:auto;font-size:12px;line-height:1.55;">${lines.join("<br>")}</div>`);
+  } catch (e) { say(`❌ ${String(e.message || e).replace(/</g, "&lt;")}`); }
+}
 // A new month file made by "Create Next Month File" is shared with the team automatically.
 async function teamAfterNewFile(path, id, token) {
   let map = null;
