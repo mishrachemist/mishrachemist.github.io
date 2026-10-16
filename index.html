@@ -2437,6 +2437,28 @@
   body.theme-light .sidebar.subNav[data-ico="ring"] > .navItem:not(.active) .navIcon{ background:#ffffff; }
   body.theme-light .sidebar.subNav[data-ico="cards"] > .navItem:not(.active){ background:#ffffff; border:1px solid #e1e7f0; box-shadow:0 2px 8px rgba(16,35,61,.08); color:#16233d; }
   body.theme-light .sidebar.subNav[data-ico="cards"] > .navItem:not(.active) .navIcon{ background:#eef2f8; }
+  /* ===== PC / wide screens: banners stretch edge-to-edge over a fixed tile grid ===== */
+  @media (min-width:821px){
+    #mainSidebar[data-ico]{ grid-template-columns:repeat(8, minmax(0,1fr)); gap:14px; padding:20px; }
+    #mainSidebar[data-ico="cards"]{ grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; }
+    #mainSidebar[data-ico] > .homeHeroRow{ max-width:none; justify-self:stretch; gap:14px; padding:0 0 4px; }
+    #mainSidebar[data-ico] .homeHeroRow > .quickInsights,
+    #mainSidebar[data-ico] .homeHeroRow > #dayStickerWrap{ aspect-ratio:auto; height:210px; }
+    #mainSidebar[data-ico] .greetingCardInner{ padding:18px 22px; gap:8px; }
+    #mainSidebar[data-ico] .greetingAvatar{ width:68px; height:68px; }
+    #mainSidebar[data-ico] .greetingHello{ font-size:16px; }
+    #mainSidebar[data-ico] .greetingName{ font-size:24px; }
+    #mainSidebar[data-ico] .greetingRole{ font-size:13px; }
+    #mainSidebar[data-ico] #dayStickerWrap .glassFrame > span:first-child{ height:100%; display:flex; align-items:center; justify-content:center; }
+    #mainSidebar[data-ico] #dayStickerWrap .glassFrame > span:first-child img{ height:100% !important; width:auto !important; max-width:100% !important; object-fit:contain; }
+    #mainSidebar[data-ico] #dayStickerWrap .dayCard{ padding:18px 22px; }
+    #mainSidebar[data-ico] .dcNum{ width:72px; height:72px; }
+    #mainSidebar[data-ico] .dcDate{ font-size:30px; }
+    #mainSidebar[data-ico] .dcWeekday{ font-size:24px; }
+    #mainSidebar[data-ico] .dcSub{ font-size:13px; }
+    /* bottom bar: buttons grouped in the middle instead of spread over the whole screen */
+    .bottomTabBar{ padding-left:max(0px, calc(50% - 340px)); padding-right:max(0px, calc(50% - 340px)); }
+  }
   /* Day sticker art has a hard straight bottom edge - fade it softly into the tile (all themes) */
   .sidebar[data-ico] #dayStickerWrap .glassFrame > span:first-child img{
     -webkit-mask-image:linear-gradient(to bottom, #000 80%, transparent 100%); mask-image:linear-gradient(to bottom, #000 80%, transparent 100%);
@@ -4351,9 +4373,11 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.16.4";
+const APP_VERSION = "2026.10.16.6";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🖥️ PC home page - banners now stretch edge to edge over a neat 8-column tile grid",
+  "📱 Team accounts can open reports only in the SMS Viewer app (screenshots blocked there)",
   "✨ What's New now shows just the latest change - short popup, OK button always in view",
   "🔒 View-only protection ready for team accounts - no download, share, print or copy, with a name watermark",
   "🌐 Hindi now also covers forms - labels, buttons, headings and hints inside every page",
@@ -5955,7 +5979,7 @@ function applyViewerMode(on) {
     .observe(document.body, { childList: true, subtree: true });
   if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
 })();
-function blockAccount() {
+function blockAccount(reason) {
   const acc = account;
   try { logLoginEvent("Blocked"); } catch (e) {}
   account = null; cachedAccessToken = null; cachedTokenExpiry = 0; SIGNATURE_IMG = "";
@@ -5968,7 +5992,9 @@ function blockAccount() {
     const em = accountEmail(acc).replace(/[&<>"']/g, ch => "&#" + ch.charCodeAt(0) + ";");
     msg.classList.remove("hidden");
     msg.innerHTML = '<div style="font-weight:700;color:#b00020;font-size:15px;margin-bottom:8px;">⛔ Access denied</div>' +
-      '<div>This account (<b>' + em + '</b>) is not allowed to use this app.</div>' +
+      (reason === "viewerApp"
+        ? '<div>This team account (<b>' + em + '</b>) can open reports only in the <b>SMS Viewer</b> app on Android.</div>'
+        : '<div>This account (<b>' + em + '</b>) is not allowed to use this app.</div>') +
       '<button id="deniedSignOutBtn" type="button" style="margin-top:12px;">Sign out / use another account</button>';
     document.getElementById("deniedSignOutBtn").addEventListener("click", () => {
       msalInstance.logoutRedirect({ account: acc }).catch(() => location.reload());
@@ -6528,8 +6554,14 @@ document.getElementById("signInBtn").addEventListener("click", async () => {
   }
 });
 
+function inViewerApp() {
+  try { return !!(window.SMSViewer && window.SMSViewer.isViewerApp && window.SMSViewer.isViewerApp()); } catch (e) { return false; }
+}
 function showSignedIn() {
   if (!isAllowedAccount(account)) { blockAccount(); return; }
+  // Team (view-only) accounts may open reports only inside the "SMS Viewer" Android app,
+  // where screenshots and screen recording are blocked by Android.
+  if (isViewer() && !inViewerApp()) { blockAccount("viewerApp"); return; }
   applyViewerMode(isViewer());
   setTimeout(() => loadSignature(), 0);
   setTimeout(() => waCloudPull(), 0);   // WhatsApp Inbox status from OneDrive (same on every device)
