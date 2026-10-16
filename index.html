@@ -4503,9 +4503,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.16.21";
+const APP_VERSION = "2026.10.16.22";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📂 Home screen no longer keeps the month's Excel file open (production meter / off-spec check read it without an Excel session; meter re-reads at most every 2 hours)",
   "🌅 Real sun & moon (sunrise/sunset + moon phase), production meter around the date, molten SMS Reports title and smoother page opening",
   "🌤️ Weather now shows inside the day box",
   "✨ Live home: festival themes, weather effects, furnace sparks (Theme Colour) and Edit home - move & resize tiles (Icon Style)",
@@ -4751,6 +4752,16 @@ async function loadHomeMonthProd() {
   try { wantProd = sb && (sb.dataset.ico === "cards" || !!sb.querySelector(":scope > .navItem.tileWide") ||
     parseFloat(localStorage.getItem("monthProdTarget") || "0") > 0); } catch (e) {}
   if (!sb || !wantProd || !signedIn || _homeProdLoading || typeof (window._homeLive || {}).monthProd === "number") return;
+  // the home screen re-reads the Excel file at most every 2 hours (saved figure in between)
+  const ymKey = (() => { const d = new Date(); return d.getFullYear() + "-" + d.getMonth(); })();
+  try {
+    const c = JSON.parse(localStorage.getItem("homeMonthProdCache") || "null");
+    if (c && c.ym === ymKey && typeof c.v === "number" && Date.now() - c.t < 2 * 3600000) {
+      window._homeLive = Object.assign(window._homeLive || {}, { monthProd: c.v }); updateNavSubs();
+      try { window.dispatchEvent(new Event("homeLive")); } catch (e) {}
+      return;
+    }
+  } catch (e) {}
   _homeProdLoading = true;
   try {
     const token = await getToken(); if (!token) return;
@@ -4758,8 +4769,8 @@ async function loadHomeMonthProd() {
     const path = await detectFilePathForMonth(token, now.getFullYear(), now.getMonth());
     if (!path) return;
     const wb = await resolveWorkbook(token, path);
-    const prod = await getMonthProductionFromProdSheet(wb, token);
-    if (typeof prod === "number" && prod > 0) { window._homeLive = Object.assign(window._homeLive || {}, { monthProd: prod }); updateNavSubs(); try { window.dispatchEvent(new Event("homeLive")); } catch (e) {} }
+    const prod = await getMonthProductionFromProdSheet(wb, token, true);
+    if (typeof prod === "number" && prod > 0) { try { localStorage.setItem("homeMonthProdCache", JSON.stringify({ ym: ymKey, v: prod, t: Date.now() })); } catch (e) {} window._homeLive = Object.assign(window._homeLive || {}, { monthProd: prod }); updateNavSubs(); try { window.dispatchEvent(new Event("homeLive")); } catch (e) {} }
   } catch (e) { /* the card keeps its short description */ }
   finally { _homeProdLoading = false; }
 }
@@ -7108,9 +7119,9 @@ function showSignedIn() {
 // entries - more reliable than FC Report's summary figure, which is a
 // separate cell that doesn't always recalculate immediately after a new
 // day's entry is made.
-async function getMonthProductionFromProdSheet(wb, token) {
+async function getMonthProductionFromProdSheet(wb, token, noSession) {
   try {
-    const data = await graphFetch(`${wb}/worksheets('Prod.')/range(address='A1:AB2000')?$select=values`, token);
+    const data = await graphFetch(`${wb}/worksheets('Prod.')/range(address='A1:AB2000')?$select=values`, token, noSession ? { noSession: true } : {});
     let total = 0;
     data.values.forEach(row => {
       if (row[1] && typeof row[27] === "number") total += row[27]; // AB = Total Prod, per heat row
@@ -7178,7 +7189,7 @@ async function checkTodayOutOfSpec() {
   try {
     const token = await getToken();
     const today = todayISO();
-    const { flaggedHeats } = await scanOutOfSpecHeats("Prod.", today, today, null, token);
+    const { flaggedHeats } = await scanOutOfSpecHeats("Prod.", today, today, null, token, { noSession: true });
     document.getElementById("outOfSpecDot").classList.toggle("hidden", flaggedHeats.length === 0);
     window._homeLive = Object.assign(window._homeLive || {}, { offSpec: flaggedHeats.length });
     updateNavSubs();
@@ -9096,7 +9107,8 @@ async function graphFetchRaw(url, token, options = {}) {
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     let res;
-    const sessHdr = wbSessionHeader(url, token);
+    // noSession: quick read-only look (home screen) - no Excel session is opened, so the file is not held open
+    const sessHdr = options.noSession ? {} : wbSessionHeader(url, token);
     try {
       res = await fetch(url, {
         ...options,
@@ -13068,7 +13080,7 @@ renderSopList();
 (() => { const d = new Date(); d.setMonth(d.getMonth() - 1);
   document.getElementById("misMonth").value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; })();
 
-async function scanOutOfSpecHeats(sheetName, fromDate, toDate, statusEl, token) {
+async function scanOutOfSpecHeats(sheetName, fromDate, toDate, statusEl, token, readOpts) {
   const { results: wbList, missing } = await getWorkbooksForRange(token, fromDate, toDate);
 
   if (wbList.length === 0) {
@@ -13086,7 +13098,7 @@ async function scanOutOfSpecHeats(sheetName, fromDate, toDate, statusEl, token) 
     // for tonnage) - much faster than one small call per date.
     const data = await graphFetch(
       `${sub.wb}/worksheets('${encodeURIComponent(sheetName)}')/range(address='A1:AB2000')?$select=values`,
-      token
+      token, readOpts || {}
     );
     const values = data.values;
     const blocks = [];
