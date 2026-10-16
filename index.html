@@ -4373,9 +4373,11 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.16.6";
+const APP_VERSION = "2026.10.16.8";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "⚡ App opens instantly again - a new version shows an Update button instead of slowing the start",
+  "🧪 Strip Mill next-day block now carries the Analysis formulas (C:G, I:L) to the new day",
   "🖥️ PC home page - banners now stretch edge to edge over a neat 8-column tile grid",
   "📱 Team accounts can open reports only in the SMS Viewer app (screenshots blocked there)",
   "✨ What's New now shows just the latest change - short popup, OK button always in view",
@@ -5764,6 +5766,19 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./service-worker.js").catch(() => {
       // Non-fatal - the app still works fully without offline caching.
     });
+  });
+  // The page opens instantly from the saved copy; when a newer version has been
+  // downloaded in the background, offer a one-tap update.
+  navigator.serviceWorker.addEventListener("message", (e) => {
+    if (!e.data || e.data.type !== "sms-new-version" || document.getElementById("swUpdateBar")) return;
+    const bar = document.createElement("button");
+    bar.id = "swUpdateBar"; bar.type = "button";
+    bar.textContent = "🔄 New version available - tap to update";
+    bar.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:2147483002;" +
+      "background:var(--gold,#c9a227);color:#0b2545;border:none;border-radius:999px;padding:10px 18px;" +
+      "font-weight:700;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.3);cursor:pointer;";
+    bar.addEventListener("click", () => location.reload());
+    document.body.appendChild(bar);
   });
 }
 
@@ -14492,15 +14507,37 @@ async function createNextDayStripMillFromSheet(wb, token) {
   const nextISO = excelSerialToISODate(nextSerial);
   const [ny, nm, nd] = nextISO.split("-").map(x => parseInt(x));
 
+  // Analysis (C:G) and 130x130 (I:L) cells of the 12 heat rows: a FORMULA is carried on to the
+  // new block (rows shifted); a typed number is left blank for the new day. If the last block
+  // has no formula in a cell (e.g. it was made before this fix), the 3 blocks before it are
+  // checked and the formula found there is used.
+  const tops = [0, 1, 2, 3].map(k => lastTitleRow - k * PERIOD).filter(t => t >= 1);
+  const older = await Promise.all(tops.map(t =>
+    graphFetch(`${wb}/worksheets('${encodeURIComponent(sheetName)}')/range(address='C${t}:L${t + PERIOD - 1}')?$select=formulas`, token)
+      .then(x => x.formulas).catch(() => null)));
+  const formulaFor = (ro, c) => {
+    for (let k = 0; k < tops.length; k++) {
+      const f = older[k] && older[k][ro] ? older[k][ro][c - 2] : "";
+      if (typeof f === "string" && f.startsWith("=")) return shiftFormulaRows(f, newTitleRow - tops[k]);
+    }
+    return null;
+  };
+
   const r = await cloneNextDayBlock({
     wb, sheetName, token, label: "Strip Mill",
     srcTop: lastTitleRow, destTop: newTitleRow, nRows: PERIOD, lastColIdx: 20, // A:U
     override: (ro, c) => {
+      if (ro >= 15 && ro <= 17 && c >= 2 && c <= 6) {      // RHF rows: analysis formulas too
+        const f = formulaFor(ro, c);
+        return f ? { value: f } : undefined;
+      }
       if (ro < 3 || ro > 14) return undefined;
       if (c === 0) return ro === 3 ? { value: nextSerial } : { blank: true };
       if (c === 1) return { value: `${nd}.${nm}.${ro - 2}` };
-      if (c >= 2 && c <= 6) return { blank: true };   // C:G analysis
-      if (c >= 8 && c <= 11) return { blank: true };  // I:L
+      if ((c >= 2 && c <= 6) || (c >= 8 && c <= 11)) {   // C:G analysis, I:L
+        const f = formulaFor(ro, c);
+        return f ? { value: f } : { blank: true };
+      }
       return undefined;
     }
   });

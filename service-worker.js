@@ -1,12 +1,12 @@
 // SMS Reports service worker.
-// Page (index.html) and manifest: NETWORK FIRST - with internet the newest
-// uploaded version always opens straight away; the saved copy is used only
-// when there is no internet (or the network is very slow).
-// Icons and other same-site files: saved copy first, refreshed in the background.
+// Page (index.html) and manifest: the saved copy opens INSTANTLY; at the same
+// time the newest version is downloaded in the background. If it is different
+// from the saved one, it is saved and the open page is told, which shows a
+// small "New version - Update" button (one tap = reload, again instant).
+// No internet: the saved copy keeps working.
 // Live data (Excel / Graph API, Microsoft sign-in, CDN scripts) is never touched.
-const CACHE_NAME = "sms-reports-v2";
+const CACHE_NAME = "sms-reports-v3";
 const PRECACHE_URLS = ["./", "./index.html", "./manifest.json"];
-const NETWORK_TIMEOUT_MS = 8000;   // after this, fall back to the saved copy
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -32,31 +32,27 @@ function isPageRequest(req, url) {
     url.pathname.endsWith("manifest.json");
 }
 
-async function networkFirst(req) {
-  const cache = await caches.open(CACHE_NAME);
-  try {
-    const res = await Promise.race([
-      fetch(req, { cache: "no-store" }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), NETWORK_TIMEOUT_MS))
-    ]);
-    if (res && res.status === 200) cache.put(req, res.clone());
-    return res;
-  } catch (e) {
-    const saved = await cache.match(req, { ignoreSearch: true }) ||
-                  await cache.match("./index.html");
-    if (saved) return saved;
-    throw e;
-  }
+// "Same file?" - GitHub Pages sends ETag / Last-Modified / Content-Length.
+function sameVersion(a, b) {
+  if (!a || !b) return false;
+  const h = (r, k) => r.headers.get(k) || "";
+  if (h(a, "etag") && h(b, "etag")) return h(a, "etag") === h(b, "etag");
+  return h(a, "last-modified") === h(b, "last-modified") && h(a, "content-length") === h(b, "content-length");
 }
 
-async function cacheFirst(req) {
-  const cache = await caches.open(CACHE_NAME);
-  const saved = await cache.match(req);
-  const fresh = fetch(req).then((res) => {
-    if (res && res.status === 200) cache.put(req, res.clone());
-    return res;
-  }).catch(() => saved);
-  return saved || fresh;
+async function refreshInBackground(req, cachedRes, isNavigate) {
+  try {
+    const fresh = await fetch(req, { cache: "no-store" });
+    if (!fresh || fresh.status !== 200) return;
+    const cache = await caches.open(CACHE_NAME);
+    if (sameVersion(cachedRes, fresh)) return;
+    await cache.put(req, fresh.clone());
+    if (isNavigate) await cache.put("./index.html", fresh.clone());
+    if (cachedRes && isNavigate) {
+      const all = await self.clients.matchAll({ type: "window" });
+      all.forEach((c) => c.postMessage({ type: "sms-new-version" }));
+    }
+  } catch (e) { /* offline - keep the saved copy */ }
 }
 
 self.addEventListener("fetch", (event) => {
@@ -64,5 +60,17 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;   // Graph, sign-in, CDN: straight to the network
-  event.respondWith(isPageRequest(req, url) ? networkFirst(req) : cacheFirst(req));
+
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const page = isPageRequest(req, url);
+    const cached = await cache.match(req, { ignoreSearch: page }) ||
+                   (req.mode === "navigate" ? await cache.match("./index.html") : null);
+    const update = refreshInBackground(req, cached, req.mode === "navigate");
+    event.waitUntil(update);
+    if (cached) return cached;                   // instant
+    const net = await fetch(req).catch(() => null);
+    if (net) return net;
+    return new Response("Offline", { status: 503 });
+  })());
 });
