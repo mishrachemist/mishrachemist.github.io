@@ -4381,9 +4381,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.16.12";
+const APP_VERSION = "2026.10.16.13";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "👥 Team Setup shares with each person separately and shows who got access",
   "🩺 Team sign-in problems now show Microsoft's exact reason on screen",
   "👥 Team Setup (File Location page) - team accounts now read your reports view-only",
   "👥 Team view-only accounts added (rajalok100@gmail.com, smsproduction@marutisteel.in)",
@@ -6098,15 +6099,33 @@ function teamCandidatePaths() {
   }
   return [...paths];
 }
-async function teamInvite(token, itemId) {
-  return graphFetch(`${TEAM_GRAPH}/me/drive/items/${itemId}/invite`, token, { method: "POST", body: JSON.stringify({
-    recipients: VIEWER_EMAILS.map(email => ({ email })),
-    roles: ["read"], requireSignIn: true, sendInvitation: true,
-    message: "SMS Reports - view-only access (please open this once)." }) });
+// One person at a time (one refusal can't block the others); if Microsoft refuses
+// the version with an e-mail, it is tried once more without the e-mail.
+async function teamInviteOne(token, itemId, email) {
+  const body = (send) => JSON.stringify({ recipients: [{ email }], roles: ["read"], requireSignIn: true, sendInvitation: send,
+    ...(send ? { message: "SMS Reports - view-only access" } : {}) });
+  try { await graphFetch(`${TEAM_GRAPH}/me/drive/items/${itemId}/invite`, token, { method: "POST", body: body(true) }); return { ok: true }; }
+  catch (e1) {
+    try { await graphFetch(`${TEAM_GRAPH}/me/drive/items/${itemId}/invite`, token, { method: "POST", body: body(false) }); return { ok: true, noMail: true }; }
+    catch (e2) { return { ok: false, err: String(e2.message || e2).replace(/^Graph API error \((\d+)\):\s*/, "$1 ").slice(0, 110).replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]) }; }
+  }
 }
+async function teamInvite(token, itemId) {
+  const res = {};
+  for (const em of VIEWER_EMAILS) res[em] = await teamInviteOne(token, itemId, em);
+  if (!Object.values(res).some(r => r.ok)) throw new Error(Object.entries(res).map(([k, r]) => `${k}: ${r.err}`).join(" | "));
+  return res;
+}
+// The file list lives inside the shared MIPPL folder when there is one, so it is
+// shared together with the reports (no separate sharing needed).
 async function teamWriteMap(token, map) {
-  return graphFetch(`${TEAM_GRAPH}/me/drive/special/approot:/${TEAM_MAP_PATH}:/content`, token,
-    { method: "PUT", body: JSON.stringify(map, null, 1) });
+  const folder = (map.items || []).find(it => it.folder && it.path.toLowerCase() === "desktop/mippl");
+  const url = folder
+    ? `${TEAM_GRAPH}/me/drive/items/${folder.id}:/${TEAM_MAP_PATH}:/content`
+    : `${TEAM_GRAPH}/me/drive/special/approot:/${TEAM_MAP_PATH}:/content`;
+  const item = await graphFetch(url, token, { method: "PUT", body: JSON.stringify(map, null, 1) });
+  item._inShared = !!folder;
+  return item;
 }
 function teamSaveLocal(map) { try { localStorage.setItem("teamMapCache", JSON.stringify(map)); } catch (e) {} }
 async function runTeamSetup() {
@@ -6124,22 +6143,29 @@ async function runTeamSetup() {
     got.forEach(x => { if (x && !found.some(f => f.id === x.id)) found.push(x); });
     if (!found.length) throw new Error("No report files found.");
     const lines = [];
+    const perEmail = {}; VIEWER_EMAILS.forEach(em => perEmail[em] = { ok: 0, bad: 0, err: "" });
     for (let i = 0; i < found.length; i++) {
       say(`⏳ Sharing view-only (${i + 1}/${found.length}): ${found[i].path}`);
-      try { await teamInvite(token, found[i].id); lines.push(`✅ ${found[i].path}${found[i].folder ? " (folder)" : ""}`); }
-      catch (e) { lines.push(`❌ ${found[i].path}: ${String(e.message || e).slice(0, 140)}`); }
+      const parts = [];
+      for (const em of VIEWER_EMAILS) {
+        const r = await teamInviteOne(token, found[i].id, em);
+        if (r.ok) { perEmail[em].ok++; parts.push(`✅ ${em.split("@")[0]}${r.noMail ? " (no e-mail)" : ""}`); }
+        else { perEmail[em].bad++; perEmail[em].err = r.err; parts.push(`❌ ${em.split("@")[0]}`); }
+      }
+      lines.push(`<b>${found[i].path}${found[i].folder ? " (folder)" : ""}</b> - ${parts.join(" · ")}`);
     }
+    VIEWER_EMAILS.forEach(em => { if (perEmail[em].bad) lines.push(`❌ <b>${em}</b>: ${perEmail[em].err}`); });
     const tid = (account && (account.tenantId || (account.idTokenClaims || {}).tid)) || "";
     const map = { v: 1, owner: accountEmail(account), driveId: drive.id, tid, viewers: VIEWER_EMAILS, updated: new Date().toISOString(), items: found };
     say("⏳ Saving the file list...");
     const mapItem = await teamWriteMap(token, map);
-    try { await teamInvite(token, mapItem.id); } catch (e) { lines.push(`❌ file list: ${String(e.message || e).slice(0, 140)}`); }
+    if (!mapItem._inShared) { try { await teamInvite(token, mapItem.id); } catch (e) { lines.push(`❌ file list: ${String(e.message || e).slice(0, 140)}`); } }
     teamSaveLocal(map);
     const teamJson = { v: 1, owner: map.owner, tid, driveId: drive.id, mapId: mapItem.id };
     const blob = new Blob([JSON.stringify(teamJson, null, 1)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     say(`<div style="margin-bottom:6px;"><b>Shared view-only with:</b> ${VIEWER_EMAILS.join(", ")}</div>` +
-      `<div style="max-height:180px;overflow:auto;font-size:12px;line-height:1.5;">${lines.map(l => l.replace(/</g, "&lt;")).join("<br>")}</div>` +
+      `<div style="max-height:220px;overflow:auto;font-size:12px;line-height:1.55;">${lines.join("<br>")}</div>` +
       `<div style="margin-top:10px;"><b>Last step (only once):</b> download <b>team.json</b> and upload it to the website repo (next to index.html).</div>` +
       `<a class="primary" href="${url}" download="team.json" style="display:inline-block;margin-top:8px;padding:9px 14px;border-radius:8px;background:var(--gold);color:#0b2545;font-weight:700;text-decoration:none;">⬇️ Download team.json</a>`);
   } catch (e) {
