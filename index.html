@@ -2468,6 +2468,19 @@
     background:rgba(0,0,0,.35); color:#fff; border:1px solid rgba(255,255,255,.25); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
   .fxChip.fest{ background:linear-gradient(90deg, rgba(201,162,39,.95), rgba(232,120,30,.95)); color:#2a1600; border-color:rgba(255,255,255,.5); }
   body.theme-light .fxChip:not(.fest){ background:rgba(255,255,255,.85); color:#16233d; border-color:#e1e7f0; }
+  #dayStickerWrap{ position:relative; }
+  .dayWx{ position:absolute; z-index:3; left:50%; bottom:8px; transform:translateX(-50%); white-space:nowrap;
+    padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:700; color:#fff;
+    background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.3); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); pointer-events:none; }
+  /* date-card styles: top right corner, like the icon on the greeting card */
+  .sidebar[data-ico="flat"] .dayWx, .sidebar[data-ico="group"] .dayWx, .sidebar[data-ico="ring"] .dayWx,
+  .sidebar[data-ico="cards"] .dayWx, .sidebar[data-ico="sections"] .dayWx{
+    left:auto; right:8px; top:8px; bottom:auto; transform:none; background:rgba(var(--navy-text-rgb),.12); color:var(--navy-text); border-color:rgba(var(--navy-text-rgb),.25); }
+  body.theme-light .sidebar[data-ico="flat"] .dayWx, body.theme-light .sidebar[data-ico="cards"] .dayWx, body.theme-light .sidebar[data-ico="sections"] .dayWx,
+  body.theme-light .sidebar[data-ico="ring"] .dayWx{ background:#eef2f8; color:#16233d; border-color:#e1e7f0; }
+  .sidebar[data-ico="group"] .dayWx{ background:rgba(4,44,83,.12); color:#042C53; border-color:rgba(4,44,83,.25); }
+  @media (min-width:821px){ .dayWx{ font-size:13px; padding:4px 12px; } }
+  #mainSidebar .homeHeroRow > #dayStickerWrap > .dayWx{ width:auto !important; height:auto !important; min-height:0 !important; box-sizing:border-box; }
   .fxSettings{ border-top:1px solid rgba(128,128,128,.25); padding-top:10px; margin:0 0 14px; text-align:left; }
   .fxHead{ font-weight:800; font-size:13px; margin-bottom:6px; }
   .fxRow{ display:flex !important; align-items:center; gap:8px; font-size:12.5px; margin:6px 0 !important; cursor:pointer; }
@@ -4430,9 +4443,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.16.18";
+const APP_VERSION = "2026.10.16.19";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🌤️ Weather now shows inside the day box",
   "✨ Live home: festival themes, weather effects, furnace sparks (Theme Colour) and Edit home - move & resize tiles (Icon Style)",
   "🔢 SOP / WI numbers now run in sequence: WI/01 to WI/53 (Chromium = WI/08, FES dust lab method = WI/38)",
   "🧪 New DM/QA/WI/08 - Chromium in Steel (IS 228 Part 6 : 2024, persulphate method), English + Hindi",
@@ -19398,7 +19412,17 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
     const parts = [];
     const f = on("fxFestival") ? festToday() : null;
     if (f) parts.push(`<span class="fxChip fest">${hi ? f.hi : f.en}</span>`);
-    if (wx && on("fxWeather")) { const L = WX_LABEL[wx.kind] || WX_LABEL.cloudy; parts.push(`<span class="fxChip">${wx.isDay ? L[0] : L[1]} ${wx.temp}°C · ${hi ? L[3] : L[2]}</span>`); }
+    // weather sits inside the day box (top right on date cards, at the bottom on the sticker picture)
+    const day = document.getElementById("dayStickerWrap");
+    let dw = document.getElementById("dayWx");
+    if (wx && on("fxWeather")) {
+      const L = WX_LABEL[wx.kind] || WX_LABEL.cloudy, txt = `${wx.isDay ? L[0] : L[1]} ${wx.temp}°C · ${hi ? L[3] : L[2]}`;
+      if (day) {
+        if (!dw) { dw = document.createElement("span"); dw.id = "dayWx"; dw.className = "dayWx"; }
+        if (dw.parentNode !== day) day.appendChild(dw);
+        dw.textContent = txt;
+      } else parts.push(`<span class="fxChip">${txt}</span>`);
+    } else if (dw) dw.remove();
     box.innerHTML = parts.join("");
   }
 
