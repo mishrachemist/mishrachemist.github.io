@@ -4373,9 +4373,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.16.8";
+const APP_VERSION = "2026.10.16.9";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🍎 Team accounts can view reports in Safari on iPhone / iPad (view-only, with watermark)",
   "⚡ App opens instantly again - a new version shows an Update button instead of slowing the start",
   "🧪 Strip Mill next-day block now carries the Analysis formulas (C:G, I:L) to the new day",
   "🖥️ PC home page - banners now stretch edge to edge over a neat 8-column tile grid",
@@ -6008,7 +6009,7 @@ function blockAccount(reason) {
     msg.classList.remove("hidden");
     msg.innerHTML = '<div style="font-weight:700;color:#b00020;font-size:15px;margin-bottom:8px;">⛔ Access denied</div>' +
       (reason === "viewerApp"
-        ? '<div>This team account (<b>' + em + '</b>) can open reports only in the <b>SMS Viewer</b> app on Android.</div>'
+        ? '<div>This team account (<b>' + em + '</b>) can open reports only in the <b>SMS Viewer</b> app on Android (or Safari on iPhone / iPad).</div>'
         : '<div>This account (<b>' + em + '</b>) is not allowed to use this app.</div>') +
       '<button id="deniedSignOutBtn" type="button" style="margin-top:12px;">Sign out / use another account</button>';
     document.getElementById("deniedSignOutBtn").addEventListener("click", () => {
@@ -6572,11 +6573,17 @@ document.getElementById("signInBtn").addEventListener("click", async () => {
 function inViewerApp() {
   try { return !!(window.SMSViewer && window.SMSViewer.isViewerApp && window.SMSViewer.isViewerApp()); } catch (e) { return false; }
 }
+// iPhone / iPad: there is no Viewer app (iOS can't block screenshots anyway), so team
+// accounts may use Safari there - still view-only, with the name watermark.
+function isAppleMobile() {
+  const ua = navigator.userAgent || "";
+  return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && (navigator.maxTouchPoints || 0) > 1);
+}
 function showSignedIn() {
   if (!isAllowedAccount(account)) { blockAccount(); return; }
   // Team (view-only) accounts may open reports only inside the "SMS Viewer" Android app,
   // where screenshots and screen recording are blocked by Android.
-  if (isViewer() && !inViewerApp()) { blockAccount("viewerApp"); return; }
+  if (isViewer() && !inViewerApp() && !isAppleMobile()) { blockAccount("viewerApp"); return; }
   applyViewerMode(isViewer());
   setTimeout(() => loadSignature(), 0);
   setTimeout(() => waCloudPull(), 0);   // WhatsApp Inbox status from OneDrive (same on every device)
