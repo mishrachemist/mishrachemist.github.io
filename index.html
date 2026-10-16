@@ -4373,9 +4373,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.16.9";
+const APP_VERSION = "2026.10.16.10";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "👥 Team view-only accounts added (rajalok100@gmail.com, smsproduction@marutisteel.in)",
   "🍎 Team accounts can view reports in Safari on iPhone / iPad (view-only, with watermark)",
   "⚡ App opens instantly again - a new version shows an Update button instead of slowing the start",
   "🧪 Strip Mill next-day block now carries the Analysis formulas (C:G, I:L) to the new day",
@@ -5874,7 +5875,10 @@ function accountEmail(acc) {
 }
 // Team members who may only LOOK at reports (no download, share, print, copy or Excel changes).
 // Filled in when the team login is set up.
-const VIEWER_EMAILS = [];
+const VIEWER_EMAILS = [
+  "rajalok100@gmail.com",           // iPhone - Safari
+  "smsproduction@marutisteel.in"    // Android - SMS Viewer app
+];
 function accountRole(acc) {
   const e = accountEmail(acc);
   if (!e) return "";
