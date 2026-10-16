@@ -2656,6 +2656,21 @@
     .sectionPanel:not(.hidden), .sub-sectionPanel:not(.hidden), .sidebar.subNav:not(.hidden), #mainSidebar:not(.hidden),
     #mainSidebar:not(.hidden) > .navItem, .sidebar.subNav:not(.hidden) > .navItem, .tapRipple{ animation:none !important; }
   }
+
+  /* ===== ISO pack questions ===== */
+  #isoAskOverlay{ z-index:2147483300; padding:12px; }
+  .isoAskCard{ width:100%; max-width:460px; max-height:calc(100dvh - 32px); overflow:auto; margin:0 !important; box-sizing:border-box; }
+  .isoAskCard h3{ margin:2px 0 8px; color:var(--navy); }
+  .isoAskStep{ font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--gold); }
+  .isoAskIntro{ font-size:13px; line-height:1.45; margin-bottom:8px; }
+  .isoAskHint{ font-size:11.5px; opacity:.75; }
+  .isoAskCard textarea{ min-height:56px; }
+  .isoAskCard.card{ padding:16px 16px 0; }
+  .isoAskBtns{ flex-wrap:wrap; position:sticky; bottom:0; margin:12px -16px 0; padding:10px 16px 14px; background:inherit; border-top:1px solid rgba(128,128,128,.25); }
+  .isoVenTable td, .isoVenTable th{ font-size:12px; padding:6px; text-align:left; }
+  .isoVenTable select{ min-width:56px; padding:4px; }
+  .isoCalTable input{ min-width:118px; padding:5px 6px !important; font-size:13px !important; margin:0; }
+  body.themed .isoAskCard h3, body.dark-mode .isoAskCard h3{ color:var(--gold-soft, #e8c766); }
 </style>
 </head>
 <body><script>
@@ -3892,6 +3907,7 @@
             <button class="navItem" data-subiso="vendor"><span class="navIcon">🤝</span> Vendor Rating</button>
             <button class="navItem" data-subiso="traceability"><span class="navIcon">🔗</span> Traceability</button>
             <button class="navItem" data-subiso="objectives"><span class="navIcon">🎯</span> Quality Objectives</button>
+            <button class="navItem" data-subiso="pack"><span class="navIcon">📦</span> Monthly ISO Pack</button>
           </div>
 
           <div class="contentArea hidden" id="iso9001SubContent">
@@ -3941,6 +3957,12 @@
             <input type="text" id="calEquipName" placeholder="e.g. Spectrometer">
             <label for="calEquipId">Equipment ID / Serial No.</label>
             <input type="text" id="calEquipId">
+            <label for="calMake">Make</label>
+            <input type="text" id="calMake">
+            <label for="calModel">Model</label>
+            <input type="text" id="calModel">
+            <label for="calRange">Range / Accuracy</label>
+            <input type="text" id="calRange">
             <label for="calLastDate">Last Calibration Date</label>
             <input type="date" id="calLastDate">
             <label for="calDueDate">Next Due Date</label>
@@ -3951,12 +3973,13 @@
             <input type="text" id="calCertNo">
             <div class="btnRow">
               <button class="primary" id="calAddBtn">Add Equipment</button>
+              <button class="secondary hidden" id="calCancelEditBtn">Cancel Edit</button>
               <button class="secondary" id="calPdfBtn">Download PDF</button>
             </div>
             <div id="calListWrap" style="margin-top:20px;">
               <div class="tableScroll">
                 <table class="matrixTable stockTable" id="calTable">
-                  <tr><th>Equipment</th><th>ID</th><th>Last Cal.</th><th>Due Date</th><th>Agency</th><th>Cert No.</th><th>Status</th><th></th></tr>
+                  <tr><th>Sl.</th><th>Equipment</th><th>ID</th><th>Make</th><th>Model</th><th>Range / Accuracy</th><th>Last Cal.</th><th>Due Date</th><th>Agency</th><th>Cert No.</th><th>Status</th><th></th></tr>
                 </table>
               </div>
             </div>
@@ -4010,6 +4033,26 @@
               <button class="primary" id="traceSearchBtn">Search</button>
             </div>
             <div id="traceResultWrap" class="hidden" style="margin-top:20px;"></div>
+          </div>
+          </div>
+
+          <div class="sub-sectionPanel hidden" id="subiso-pack">
+          <div class="card">
+            <h2>Monthly ISO 9001 Pack</h2>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 14px;">
+              All 5 records (NCR &amp; CAPA, Calibration, Vendor Rating, Traceability, Quality Objectives) in one PDF.
+              The app reads the production file, the edge crack file and the Inward Raw Material data itself and asks you
+              only for what the data cannot give. After every month ends it offers to make that month's pack.
+            </p>
+            <label for="isoPackMonth">Month</label>
+            <input type="month" id="isoPackMonth">
+            <div class="btnRow">
+              <button class="primary" id="isoPackGenBtn">Prepare ISO Pack</button>
+              <button class="secondary" id="isoPackDocNosBtn">Doc numbers</button>
+            </div>
+            <div id="isoPackStatus" style="font-size:12.5px;color:var(--muted);margin-top:10px;white-space:pre-line;"></div>
+            <h3 style="color:var(--navy);margin:18px 0 6px;font-size:14px;">Packs made</h3>
+            <ul id="isoPackHistory" style="margin:0;padding-left:18px;font-size:13px;"></ul>
           </div>
           </div>
 
@@ -4339,7 +4382,7 @@ function uiHiDict() {
     "Strip Mill": "स्ट्रिप मिल", "Stock Difference (Manual vs ERP)": "स्टॉक अंतर (मैनुअल बनाम ERP)",
     "BIS Doc": "BIS दस्तावेज़", "Test Certificate": "टेस्ट सर्टिफिकेट", "RM / Scrap Report": "आर.एम / स्क्रैप रिपोर्ट",
     "Slag Crusher Report": "स्लैग क्रशर रिपोर्ट", "Monthly MIS": "मासिक MIS", "NCR / CAPA Log": "NCR / CAPA लॉग",
-    "Calibration Log": "कैलिब्रेशन लॉग", "Vendor Rating": "वेंडर रेटिंग", "Traceability": "ट्रेसबिलिटी",
+    "Calibration Log": "कैलिब्रेशन लॉग", "Monthly ISO Pack": "मासिक ISO पैक", "Prepare ISO Pack": "ISO पैक बनाइए", "Vendor Rating": "वेंडर रेटिंग", "Traceability": "ट्रेसबिलिटी",
     "Quality Objectives": "गुणवत्ता उद्देश्य",
     "← Back to Menu": "← मेनू पर वापस", "← Back to Dashboard Menu": "← डैशबोर्ड मेनू पर वापस",
     "← Back to Trend Charts Menu": "← ट्रेंड चार्ट मेनू पर वापस", "← Back to Production Menu": "← प्रोडक्शन मेनू पर वापस",
@@ -4516,9 +4559,11 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.16.23";
+const APP_VERSION = "2026.10.16.25";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🛠️ Calibration Log: all 35 instruments from the calibration status record added (make, model, range); Edit button to enter the dates",
+  "📦 Monthly ISO 9001 pack: all 5 records made from your data in one PDF - the app asks only for what it cannot read (ISO 9001 → Monthly ISO Pack)",
   "📱 Phone status bar (top strip) now takes the theme colour",
   "📂 Home screen no longer keeps the month's Excel file open (production meter / off-spec check read it without an Excel session; meter re-reads at most every 2 hours)",
   "🌅 Real sun & moon (sunrise/sunset + moon phase), production meter around the date, molten SMS Reports title and smoother page opening",
@@ -4660,7 +4705,7 @@ const ICON_STYLES = [
 window._homeLive = window._homeLive || {};
 
 // Inner page icon grids (Dashboard, Trends, Production Update, Reports, ISO 9001)
-const SUB_SVG = {"daily": "<path d=\"M4 5m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z\"/> <path d=\"M16 3l0 4\"/> <path d=\"M8 3l0 4\"/> <path d=\"M4 11l16 0\"/> <path d=\"M8 15h2v2h-2z\"/>", "period": "<path d=\"M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M15 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M9 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M4 20h14\"/>", "mom": "<path d=\"M4 19l16 0\"/> <path d=\"M4 15l4 -6l4 2l4 -5l4 4\"/>", "calendar": "<path d=\"M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z\"/> <path d=\"M16 3v4\"/> <path d=\"M8 3v4\"/> <path d=\"M4 11h16\"/> <path d=\"M11 15h1\"/> <path d=\"M12 15v3\"/>", "linechart": "<path d=\"M4 19l16 0\"/> <path d=\"M4 15l4 -6l4 2l4 -5l4 4\"/>", "pie": "<path d=\"M10 3.2a9 9 0 1 0 10.8 10.8a1 1 0 0 0 -1 -1h-6.8a2 2 0 0 1 -2 -2v-7a.9 .9 0 0 0 -1 -.8\"/> <path d=\"M15 3.5a9 9 0 0 1 5.5 5.5h-4.5a1 1 0 0 1 -1 -1v-4.5\"/>", "sizewise": "<path d=\"M17 3l4 4l-14 14l-4 -4z\"/> <path d=\"M16 7l-1.5 -1.5\"/> <path d=\"M13 10l-1.5 -1.5\"/> <path d=\"M10 13l-1.5 -1.5\"/> <path d=\"M7 16l-1.5 -1.5\"/>", "chemical": "<path d=\"M6.1 15h11.8\"/> <path d=\"M14 3v7.342a6 6 0 0 1 1.318 10.658h-6.635a6 6 0 0 1 1.317 -10.66v-7.34h4z\"/> <path d=\"M9 3h6\"/>", "update": "<path d=\"M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2\"/> <path d=\"M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z\"/> <path d=\"M9 12l.01 0\"/> <path d=\"M13 12l2 0\"/> <path d=\"M9 16l.01 0\"/> <path d=\"M13 16l2 0\"/>", "hotout": "<path d=\"M12 12c2 -2.96 0 -7 -1 -8c0 3.038 -1.773 4.741 -3 6c-1.226 1.26 -2 3.24 -2 5a6 6 0 1 0 12 0c0 -1.532 -1.056 -3.94 -2 -5c-1.786 3 -2.791 3 -4 2z\"/>", "rhf": "<path d=\"M12 4l-8 4l8 4l8 -4l-8 -4\"/> <path d=\"M4 12l8 4l8 -4\"/> <path d=\"M4 16l8 4l8 -4\"/>", "rawmaterial": "<path d=\"M12 17l-2 2l2 2\"/> <path d=\"M10 19h9a2 2 0 0 0 1.75 -2.75l-.55 -1\"/> <path d=\"M8.536 11l-.732 -2.732l-2.732 .732\"/> <path d=\"M7.804 8.268l-4.5 7.794a2 2 0 0 0 1.506 2.89l1.141 .024\"/> <path d=\"M15.464 11l2.732 .732l.732 -2.732\"/> <path d=\"M18.196 11.732l-4.5 -7.794a2 2 0 0 0 -3.256 -.14l-.591 .976\"/>", "logsheet": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z\"/> <path d=\"M8 11h8v7h-8z\"/> <path d=\"M8 15h8\"/> <path d=\"M11 11v7\"/>", "billetstock": "<path d=\"M7 16.5l-5 -3l5 -3l5 3v5.5l-5 3z\"/> <path d=\"M2 13.5v5.5l5 3\"/> <path d=\"M7 16.545l5 -3.03\"/> <path d=\"M17 16.5l-5 -3l5 -3l5 3v5.5l-5 3z\"/> <path d=\"M12 19l5 3\"/> <path d=\"M17 16.5l5 -3\"/> <path d=\"M12 13.5v-5.5l-5 -3l5 -3l5 3v5.5\"/> <path d=\"M7 5.03v5.455\"/> <path d=\"M12 8l5 -3\"/>", "stripmill": "<path d=\"M4 21c1.147 -4.02 1.983 -8.027 2 -12h6c.017 3.973 .853 7.98 2 12\"/> <path d=\"M12.5 13h4.5c.025 2.612 .894 5.296 2 8\"/> <path d=\"M9 5a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1\"/> <path d=\"M3 21l19 0\"/>", "stockdiff": "<path d=\"M11 16h10\"/> <path d=\"M11 16l4 4\"/> <path d=\"M11 16l4 -4\"/> <path d=\"M13 8h-10\"/> <path d=\"M13 8l-4 4\"/> <path d=\"M13 8l-4 -4\"/>", "bisdoc": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M5 8v-3a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2h-5\"/> <path d=\"M6 14m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/> <path d=\"M4.5 17l-1.5 5l3 -1.5l3 1.5l-1.5 -5\"/>", "testcert": "<path d=\"M12 15m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/> <path d=\"M10 7h4\"/> <path d=\"M10 18v4l2 -1l2 1v-4\"/> <path d=\"M10 19h-2a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-2\"/>", "rmscrap": "<path d=\"M12 17l-2 2l2 2\"/> <path d=\"M10 19h9a2 2 0 0 0 1.75 -2.75l-.55 -1\"/> <path d=\"M8.536 11l-.732 -2.732l-2.732 .732\"/> <path d=\"M7.804 8.268l-4.5 7.794a2 2 0 0 0 1.506 2.89l1.141 .024\"/> <path d=\"M15.464 11l2.732 .732l.732 -2.732\"/> <path d=\"M18.196 11.732l-4.5 -7.794a2 2 0 0 0 -3.256 -.14l-.591 .976\"/>", "slagcrusher": "<path d=\"M19.875 6.27a2.225 2.225 0 0 1 1.125 1.948v7.284c0 .809 -.443 1.555 -1.158 1.948l-6.75 4.27a2.269 2.269 0 0 1 -2.184 0l-6.75 -4.27a2.225 2.225 0 0 1 -1.158 -1.948v-7.285c0 -.809 .443 -1.554 1.158 -1.947l6.75 -3.98a2.33 2.33 0 0 1 2.25 0l6.75 3.98h-.033z\"/> <path d=\"M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/>", "mis": "<path d=\"M8 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h5.697\"/> <path d=\"M18 14v4h4\"/> <path d=\"M18 11v-4a2 2 0 0 0 -2 -2h-2\"/> <path d=\"M8 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z\"/> <path d=\"M18 18m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0\"/> <path d=\"M8 11h4\"/> <path d=\"M8 15h3\"/>", "ncr": "<path d=\"M12.802 2.165l5.575 2.389c.48 .206 .863 .589 1.07 1.07l2.388 5.574c.22 .512 .22 1.092 0 1.604l-2.389 5.575c-.206 .48 -.589 .863 -1.07 1.07l-5.574 2.388c-.512 .22 -1.092 .22 -1.604 0l-5.575 -2.389a2.036 2.036 0 0 1 -1.07 -1.07l-2.388 -5.574a2.036 2.036 0 0 1 0 -1.604l2.389 -5.575c.206 -.48 .589 -.863 1.07 -1.07l5.574 -2.388a2.036 2.036 0 0 1 1.604 0z\"/> <path d=\"M12 8v4\"/> <path d=\"M12 16h.01\"/>", "calibration": "<path d=\"M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5\"/>", "vendor": "<path d=\"M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572\"/> <path d=\"M12 6l-3.293 3.293a1 1 0 0 0 0 1.414l.543 .543c.69 .69 1.81 .69 2.5 0l1 -1a3.182 3.182 0 0 1 4.5 0l2.25 2.25\"/> <path d=\"M12.5 15.5l2 2\"/> <path d=\"M15 13l2 2\"/>", "traceability": "<path d=\"M9 15l6 -6\"/> <path d=\"M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464\"/> <path d=\"M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463\"/>", "objectives": "<path d=\"M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0\"/> <path d=\"M12 7a5 5 0 1 0 5 5\"/> <path d=\"M13 3.055a9 9 0 1 0 7.941 7.945\"/> <path d=\"M15 6v3h3l3 -3h-3v-3z\"/> <path d=\"M15 9l-3 3\"/>"};
+const SUB_SVG = {"daily": "<path d=\"M4 5m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z\"/> <path d=\"M16 3l0 4\"/> <path d=\"M8 3l0 4\"/> <path d=\"M4 11l16 0\"/> <path d=\"M8 15h2v2h-2z\"/>", "period": "<path d=\"M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M15 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M9 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M4 20h14\"/>", "mom": "<path d=\"M4 19l16 0\"/> <path d=\"M4 15l4 -6l4 2l4 -5l4 4\"/>", "calendar": "<path d=\"M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z\"/> <path d=\"M16 3v4\"/> <path d=\"M8 3v4\"/> <path d=\"M4 11h16\"/> <path d=\"M11 15h1\"/> <path d=\"M12 15v3\"/>", "linechart": "<path d=\"M4 19l16 0\"/> <path d=\"M4 15l4 -6l4 2l4 -5l4 4\"/>", "pie": "<path d=\"M10 3.2a9 9 0 1 0 10.8 10.8a1 1 0 0 0 -1 -1h-6.8a2 2 0 0 1 -2 -2v-7a.9 .9 0 0 0 -1 -.8\"/> <path d=\"M15 3.5a9 9 0 0 1 5.5 5.5h-4.5a1 1 0 0 1 -1 -1v-4.5\"/>", "sizewise": "<path d=\"M17 3l4 4l-14 14l-4 -4z\"/> <path d=\"M16 7l-1.5 -1.5\"/> <path d=\"M13 10l-1.5 -1.5\"/> <path d=\"M10 13l-1.5 -1.5\"/> <path d=\"M7 16l-1.5 -1.5\"/>", "chemical": "<path d=\"M6.1 15h11.8\"/> <path d=\"M14 3v7.342a6 6 0 0 1 1.318 10.658h-6.635a6 6 0 0 1 1.317 -10.66v-7.34h4z\"/> <path d=\"M9 3h6\"/>", "update": "<path d=\"M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2\"/> <path d=\"M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z\"/> <path d=\"M9 12l.01 0\"/> <path d=\"M13 12l2 0\"/> <path d=\"M9 16l.01 0\"/> <path d=\"M13 16l2 0\"/>", "hotout": "<path d=\"M12 12c2 -2.96 0 -7 -1 -8c0 3.038 -1.773 4.741 -3 6c-1.226 1.26 -2 3.24 -2 5a6 6 0 1 0 12 0c0 -1.532 -1.056 -3.94 -2 -5c-1.786 3 -2.791 3 -4 2z\"/>", "rhf": "<path d=\"M12 4l-8 4l8 4l8 -4l-8 -4\"/> <path d=\"M4 12l8 4l8 -4\"/> <path d=\"M4 16l8 4l8 -4\"/>", "rawmaterial": "<path d=\"M12 17l-2 2l2 2\"/> <path d=\"M10 19h9a2 2 0 0 0 1.75 -2.75l-.55 -1\"/> <path d=\"M8.536 11l-.732 -2.732l-2.732 .732\"/> <path d=\"M7.804 8.268l-4.5 7.794a2 2 0 0 0 1.506 2.89l1.141 .024\"/> <path d=\"M15.464 11l2.732 .732l.732 -2.732\"/> <path d=\"M18.196 11.732l-4.5 -7.794a2 2 0 0 0 -3.256 -.14l-.591 .976\"/>", "logsheet": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z\"/> <path d=\"M8 11h8v7h-8z\"/> <path d=\"M8 15h8\"/> <path d=\"M11 11v7\"/>", "billetstock": "<path d=\"M7 16.5l-5 -3l5 -3l5 3v5.5l-5 3z\"/> <path d=\"M2 13.5v5.5l5 3\"/> <path d=\"M7 16.545l5 -3.03\"/> <path d=\"M17 16.5l-5 -3l5 -3l5 3v5.5l-5 3z\"/> <path d=\"M12 19l5 3\"/> <path d=\"M17 16.5l5 -3\"/> <path d=\"M12 13.5v-5.5l-5 -3l5 -3l5 3v5.5\"/> <path d=\"M7 5.03v5.455\"/> <path d=\"M12 8l5 -3\"/>", "stripmill": "<path d=\"M4 21c1.147 -4.02 1.983 -8.027 2 -12h6c.017 3.973 .853 7.98 2 12\"/> <path d=\"M12.5 13h4.5c.025 2.612 .894 5.296 2 8\"/> <path d=\"M9 5a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1\"/> <path d=\"M3 21l19 0\"/>", "stockdiff": "<path d=\"M11 16h10\"/> <path d=\"M11 16l4 4\"/> <path d=\"M11 16l4 -4\"/> <path d=\"M13 8h-10\"/> <path d=\"M13 8l-4 4\"/> <path d=\"M13 8l-4 -4\"/>", "bisdoc": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M5 8v-3a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2h-5\"/> <path d=\"M6 14m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/> <path d=\"M4.5 17l-1.5 5l3 -1.5l3 1.5l-1.5 -5\"/>", "testcert": "<path d=\"M12 15m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/> <path d=\"M10 7h4\"/> <path d=\"M10 18v4l2 -1l2 1v-4\"/> <path d=\"M10 19h-2a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-2\"/>", "rmscrap": "<path d=\"M12 17l-2 2l2 2\"/> <path d=\"M10 19h9a2 2 0 0 0 1.75 -2.75l-.55 -1\"/> <path d=\"M8.536 11l-.732 -2.732l-2.732 .732\"/> <path d=\"M7.804 8.268l-4.5 7.794a2 2 0 0 0 1.506 2.89l1.141 .024\"/> <path d=\"M15.464 11l2.732 .732l.732 -2.732\"/> <path d=\"M18.196 11.732l-4.5 -7.794a2 2 0 0 0 -3.256 -.14l-.591 .976\"/>", "slagcrusher": "<path d=\"M19.875 6.27a2.225 2.225 0 0 1 1.125 1.948v7.284c0 .809 -.443 1.555 -1.158 1.948l-6.75 4.27a2.269 2.269 0 0 1 -2.184 0l-6.75 -4.27a2.225 2.225 0 0 1 -1.158 -1.948v-7.285c0 -.809 .443 -1.554 1.158 -1.947l6.75 -3.98a2.33 2.33 0 0 1 2.25 0l6.75 3.98h-.033z\"/> <path d=\"M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/>", "mis": "<path d=\"M8 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h5.697\"/> <path d=\"M18 14v4h4\"/> <path d=\"M18 11v-4a2 2 0 0 0 -2 -2h-2\"/> <path d=\"M8 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z\"/> <path d=\"M18 18m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0\"/> <path d=\"M8 11h4\"/> <path d=\"M8 15h3\"/>", "ncr": "<path d=\"M12.802 2.165l5.575 2.389c.48 .206 .863 .589 1.07 1.07l2.388 5.574c.22 .512 .22 1.092 0 1.604l-2.389 5.575c-.206 .48 -.589 .863 -1.07 1.07l-5.574 2.388c-.512 .22 -1.092 .22 -1.604 0l-5.575 -2.389a2.036 2.036 0 0 1 -1.07 -1.07l-2.388 -5.574a2.036 2.036 0 0 1 0 -1.604l2.389 -5.575c.206 -.48 .589 -.863 1.07 -1.07l5.574 -2.388a2.036 2.036 0 0 1 1.604 0z\"/> <path d=\"M12 8v4\"/> <path d=\"M12 16h.01\"/>", "calibration": "<path d=\"M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5\"/>", "vendor": "<path d=\"M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572\"/> <path d=\"M12 6l-3.293 3.293a1 1 0 0 0 0 1.414l.543 .543c.69 .69 1.81 .69 2.5 0l1 -1a3.182 3.182 0 0 1 4.5 0l2.25 2.25\"/> <path d=\"M12.5 15.5l2 2\"/> <path d=\"M15 13l2 2\"/>", "traceability": "<path d=\"M9 15l6 -6\"/> <path d=\"M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464\"/> <path d=\"M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463\"/>", "objectives": "<path d=\"M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0\"/> <path d=\"M12 7a5 5 0 1 0 5 5\"/> <path d=\"M13 3.055a9 9 0 1 0 7.941 7.945\"/> <path d=\"M15 6v3h3l3 -3h-3v-3z\"/> <path d=\"M15 9l-3 3\"/>", "pack": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M5 8v-3a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2h-5\"/> <path d=\"M6 14m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/> <path d=\"M4.5 17l-1.5 5l3 -1.5l3 1.5l-1.5 -5\"/>"};
 const SUBNAV_GROUP = { dashboardSubNav: "prod", trendsSubNav: "prod", whatsappSubNav: "prod", reportsSubNav: "docs", iso9001SubNav: "qual" };
 function setupSubNavIcons() {
   document.querySelectorAll(".sidebar.subNav").forEach(sn => {
@@ -5170,43 +5215,80 @@ function getCalList() {
 }
 function saveCalList(list) { localStorage.setItem("iso9001_cal", JSON.stringify(list)); }
 function calStatusFor(dueDate) {
+  if (!dueDate) return { text: "⚪ Date not entered", cls: "" };
   const days = (new Date(dueDate) - new Date(todayISO())) / 86400000;
   if (days < 0) return { text: "🔴 Overdue", cls: "" };
   if (days <= 30) return { text: "🟠 Due Soon", cls: "" };
   return { text: "🟢 OK", cls: "" };
 }
+// Equipment list from MIPPL_SMS_QAD_CALIBRATION_STATUS_RECORD (Oct 2026). Calibration dates and
+// certificate numbers are left blank on purpose - they are entered by hand (Edit).
+// Merged once into the log on every device: an instrument already in the log (same ID) keeps its dates.
+const CAL_SEED_KEY = "calSeed_2026_10";
+const CAL_SEED = [{"sl": 1, "name": "Analog Vernier Caliper", "id": "MIPPL-VC/SMS/01", "make": "Mitutoyo", "model": "532-121", "range": "0 to 300 mm /.02mm", "agency": "TrueCal"}, {"sl": 2, "name": "Steel Scale", "id": "MIPPL-SS/SMS/01", "make": "Ajanta", "model": "", "range": "0 to 30 cm /0.1 cm", "agency": "TrueCal"}, {"sl": 3, "name": "Measuring Tape", "id": "MIPPL-MT/SMS/01", "make": "Freemans", "model": "IND/09/98/220", "range": "0 to 15 mtr / 1 mm", "agency": "TrueCal"}, {"sl": 4, "name": "Measuring Cylinder", "id": "MIPPL-MC1/SMS/01", "make": "", "model": "", "range": "100 to 1000 ml/10 ml", "agency": "TrueCal"}, {"sl": 5, "name": "Measuring Cylinder", "id": "MIPPL-MC2/SMS/01", "make": "", "model": "", "range": "10 to 100 ml/01 ml", "agency": "TrueCal"}, {"sl": 6, "name": "Measuring Cylinder", "id": "MIPPL-MC3/SMS/01", "make": "", "model": "", "range": "10 to 50 ml /01 ml", "agency": "TrueCal"}, {"sl": 7, "name": "Bulb Pipette", "id": "MIPPL-BP1/SMS/01", "make": "Borosil", "model": "", "range": "50 ml", "agency": "TrueCal"}, {"sl": 10, "name": "Volumetric Flask", "id": "MIPPL-VF1/SMS/01", "make": "Glassco", "model": "", "range": "500 ml", "agency": "TrueCal"}, {"sl": 11, "name": "Volumetric Flask", "id": "MIPPL-VF1/SMS/02", "make": "Glassco", "model": "", "range": "500 ml", "agency": "TrueCal"}, {"sl": 12, "name": "Volumetric Flask", "id": "MIPPL-VF1/SMS/03", "make": "Borosilicate", "model": "", "range": "500 ml", "agency": "TrueCal"}, {"sl": 13, "name": "Volumetric Flask", "id": "MIPPL-VF1/SMS/04", "make": "Glassco", "model": "", "range": "500 ml", "agency": "TrueCal"}, {"sl": 14, "name": "Volumetric Flask", "id": "MIPPL-VF1/SMS/05", "make": "Glassco", "model": "", "range": "500 ml", "agency": "TrueCal"}, {"sl": 15, "name": "Volumetric Flask", "id": "MIPPL-VF1/SMS/06", "make": "Borosilicate", "model": "", "range": "500 ml", "agency": "TrueCal"}, {"sl": 16, "name": "Volumetric Flask", "id": "MIPPL-VF1/SMS/07", "make": "Borosilicate", "model": "", "range": "500 ml", "agency": "TrueCal"}, {"sl": 17, "name": "Volumetric Flask", "id": "MIPPL-VF1/SMS/08", "make": "Glassco", "model": "", "range": "500 ml", "agency": "TrueCal"}, {"sl": 18, "name": "Volumetric Flask", "id": "MIPPL-VF2/SMS/01", "make": "Fisher brand", "model": "", "range": "1000 ml", "agency": "TrueCal"}, {"sl": 19, "name": "Volumetric Flask", "id": "MIPPL-VF2/SMS/02", "make": "Glassco", "model": "", "range": "1000 ml", "agency": "TrueCal"}, {"sl": 20, "name": "Volumetric Flask", "id": "MIPPL-VF2/SMS/03", "make": "Glassco", "model": "", "range": "1000 ml", "agency": "TrueCal"}, {"sl": 21, "name": "Volumetric Flask", "id": "MIPPL-VF2/SMS/04", "make": "Glassco", "model": "", "range": "1000 ml", "agency": "TrueCal"}, {"sl": 22, "name": "Volumetric Flask", "id": "MIPPL-VF2/SMS/05", "make": "Glassco", "model": "", "range": "1000 ml", "agency": "TrueCal"}, {"sl": 23, "name": "Volumetric Flask", "id": "MIPPL-VF2/SMS/06", "make": "Glassco", "model": "", "range": "1000 ml", "agency": "TrueCal"}, {"sl": 24, "name": "Burette", "id": "MIPPL-BU1/SMS/01", "make": "Omsons", "model": "", "range": "0 to 50 ml / 0.1 ml", "agency": "TrueCal"}, {"sl": 25, "name": "Burette", "id": "MIPPL-BU1/SMS/02", "make": "Omsons", "model": "", "range": "0 to 50 ml / 0.1 ml", "agency": "TrueCal"}, {"sl": 26, "name": "Burette", "id": "MIPPL-BU1/SMS/03", "make": "Borosil", "model": "", "range": "0 to 50 ml / 0.1 ml", "agency": "TrueCal"}, {"sl": 27, "name": "Burette", "id": "MIPPL-BU1/SMS/04", "make": "Borosil", "model": "", "range": "0 to 50 ml / 0.1 ml", "agency": "TrueCal"}, {"sl": 28, "name": "Burette", "id": "MIPPL-BU1/SMS/05", "make": "Borosil", "model": "", "range": "0 to 50 ml / 0.1 ml", "agency": "TrueCal"}, {"sl": 29, "name": "Burette", "id": "MIPPL-BU1/SMS/06", "make": "Borosil", "model": "", "range": "0 to 50 ml / 0.1 ml", "agency": "TrueCal"}, {"sl": 30, "name": "Glass Thermometer", "id": "MIPPL-TM/SMS/01", "make": "Borosil", "model": "", "range": "10 to 50 °C / 1 °C", "agency": "TrueCal"}, {"sl": 31, "name": "Digital Weighing Balance", "id": "MIPPL-WB/SMS/03", "make": "Prime", "model": "", "range": "0 to 30 kg / 0.002 kg", "agency": "TrueCal"}, {"sl": 32, "name": "Electronic Weighing Balance", "id": "MIPPL-WB/SMS/02", "make": "Saffron", "model": "SES.224", "range": "0 to 220 g / 0.0001 g", "agency": "TrueCal"}, {"sl": 33, "name": "Indicator of Hot Air Oven", "id": "MIPPL-HAO/SMS/01", "make": "D.K Scientific", "model": "", "range": "0 to 300 °C / 1 °C", "agency": "TrueCal"}, {"sl": 34, "name": "Hot Plate", "id": "MIPPL-HP/SMS/01", "make": "Kishore", "model": "", "range": "0 to 300 °C / 10 °C", "agency": "TrueCal"}, {"sl": 35, "name": "Indicator of Muffle Furnace", "id": "MIPPL-MF/SMS/01", "make": "Kishore", "model": "", "range": "0 to 1200 °C / 1 °C", "agency": "TrueCal"}, {"sl": 36, "name": "Temperature Indicator", "id": "MIPPL-TI/SMS/01", "make": "Thermotech", "model": "TIC-4000", "range": "As per Manufacturer Specifications", "agency": "TrueCal"}, {"sl": 37, "name": "Optical Emission Spectrometer", "id": "MIPPL-OES/SMS/01", "make": "Shimadzu", "model": "PDA-5000", "range": "", "agency": "Shimadzu"}];
+(function calSeed() {
+  try {
+    if (localStorage.getItem(CAL_SEED_KEY)) return;
+    const norm = t => String(t || "").replace(/\s+/g, "").toUpperCase();
+    const list = getCalList();
+    CAL_SEED.forEach(e => {
+      const cur = list.find(r => norm(r.id) === norm(e.id));
+      if (cur) Object.assign(cur, { sl: e.sl, name: e.name, id: e.id, make: e.make, model: e.model, range: e.range, agency: cur.agency || e.agency });
+      else list.push({ sl: e.sl, name: e.name, id: e.id, make: e.make, model: e.model, range: e.range, lastDate: "", dueDate: "", agency: e.agency, certNo: "" });
+    });
+    list.sort((a, b) => (a.sl || 9999) - (b.sl || 9999));
+    saveCalList(list);
+    localStorage.setItem(CAL_SEED_KEY, String(Date.now()));
+  } catch (e) {}
+})();
+let calEditIdx = -1;
+const CAL_FORM = { name: "calEquipName", id: "calEquipId", make: "calMake", model: "calModel", range: "calRange", lastDate: "calLastDate", dueDate: "calDueDate", agency: "calAgency", certNo: "calCertNo" };
 function renderCalTable() {
   const list = getCalList();
   const table = document.getElementById("calTable");
-  table.innerHTML = "<tr><th>Equipment</th><th>ID</th><th>Last Cal.</th><th>Due Date</th><th>Agency</th><th>Cert No.</th><th>Status</th><th></th></tr>";
-  list.forEach((r, idx) => {
-    const status = calStatusFor(r.dueDate);
-    table.innerHTML += `<tr>
-      <td>${r.name}</td><td>${r.id}</td><td>${r.lastDate}</td><td>${r.dueDate}</td>
-      <td>${r.agency}</td><td>${r.certNo}</td><td>${status.text}</td>
-      <td><button class="secondary" onclick="deleteCalEntry(${idx})" style="padding:4px 8px;font-size:11px;">Remove</button></td>
-    </tr>`;
-  });
+  const e = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => "&#" + c.charCodeAt(0) + ";");
+  const d = iso => iso ? iso.split("-").reverse().join("-") : "-";
+  table.innerHTML = "<tr><th>Sl.</th><th>Equipment</th><th>ID</th><th>Make</th><th>Model</th><th>Range / Accuracy</th><th>Last Cal.</th><th>Due Date</th><th>Agency</th><th>Cert No.</th><th>Status</th><th></th></tr>" +
+    list.map((r, idx) => `<tr${idx === calEditIdx ? ' style="outline:2px solid var(--gold);"' : ""}>
+      <td>${e(r.sl || "")}</td><td>${e(r.name)}</td><td style="white-space:nowrap;">${e(r.id)}</td><td>${e(r.make || "")}</td><td>${e(r.model || "")}</td><td>${e(r.range || "")}</td>
+      <td style="white-space:nowrap;">${d(r.lastDate)}</td><td style="white-space:nowrap;">${d(r.dueDate)}</td><td>${e(r.agency)}</td><td>${e(r.certNo)}</td><td style="white-space:nowrap;">${calStatusFor(r.dueDate).text}</td>
+      <td style="white-space:nowrap;"><button class="secondary" onclick="editCalEntry(${idx})" style="padding:4px 8px;font-size:11px;">Edit</button>
+        <button class="secondary" onclick="deleteCalEntry(${idx})" style="padding:4px 8px;font-size:11px;">Remove</button></td>
+    </tr>`).join("");
 }
 function deleteCalEntry(idx) {
   const list = getCalList();
+  if (!confirm(`Remove ${list[idx] ? list[idx].name + " (" + list[idx].id + ")" : "this entry"} from the Calibration Log?`)) return;
   list.splice(idx, 1);
   saveCalList(list);
+  if (calEditIdx === idx) calEndEdit(); else if (calEditIdx > idx) calEditIdx--;
   renderCalTable();
 }
+function calEndEdit() {
+  calEditIdx = -1;
+  Object.values(CAL_FORM).forEach(id => { document.getElementById(id).value = ""; });
+  document.getElementById("calAddBtn").textContent = "Add Equipment";
+  document.getElementById("calCancelEditBtn").classList.add("hidden");
+}
+function editCalEntry(idx) {
+  const r = getCalList()[idx]; if (!r) return;
+  calEditIdx = idx;
+  Object.entries(CAL_FORM).forEach(([k, id]) => { document.getElementById(id).value = r[k] || ""; });
+  document.getElementById("calAddBtn").textContent = "Save Changes";
+  document.getElementById("calCancelEditBtn").classList.remove("hidden");
+  renderCalTable();
+  document.getElementById("calEquipName").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+document.getElementById("calCancelEditBtn").addEventListener("click", () => { calEndEdit(); renderCalTable(); });
 document.getElementById("calAddBtn").addEventListener("click", () => {
-  const name = document.getElementById("calEquipName").value.trim();
-  const dueDate = document.getElementById("calDueDate").value;
-  if (!name || !dueDate) { alert("Please fill in at least Equipment Name and Due Date."); return; }
+  const v = {}; Object.entries(CAL_FORM).forEach(([k, id]) => { v[k] = document.getElementById(id).value.trim(); });
+  if (!v.name) { alert("Please fill in at least the Equipment Name."); return; }
+  if (v.lastDate && v.dueDate && v.dueDate < v.lastDate) { alert("Next Due Date is before the Last Calibration Date - please check."); return; }
   const list = getCalList();
-  list.push({
-    name, id: document.getElementById("calEquipId").value.trim(),
-    lastDate: document.getElementById("calLastDate").value, dueDate,
-    agency: document.getElementById("calAgency").value.trim(),
-    certNo: document.getElementById("calCertNo").value.trim()
-  });
+  if (calEditIdx >= 0 && list[calEditIdx]) Object.assign(list[calEditIdx], v);
+  else list.push(v);
   saveCalList(list);
-  ["calEquipName", "calEquipId", "calLastDate", "calDueDate", "calAgency", "calCertNo"].forEach(id => document.getElementById(id).value = "");
+  calEndEdit();
   renderCalTable();
   checkCalibrationReminders();
 });
@@ -5218,12 +5300,14 @@ document.getElementById("calPdfBtn").addEventListener("click", () => {
   addLogoHeader(doc);
   doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(31, 56, 100);
   doc.text("Equipment Calibration Log", doc.internal.pageSize.getWidth() / 2, 30, { align: "center" });
+  const d = iso => iso ? iso.split("-").reverse().join("-") : "";
   doc.autoTable({
     startY: 45,
-    head: [["Equipment", "ID", "Last Cal.", "Due Date", "Agency", "Cert No.", "Status"]],
-    body: list.map(r => [r.name, r.id, r.lastDate, r.dueDate, r.agency, r.certNo, calStatusFor(r.dueDate).text.replace(/[🔴🟠🟢]/g, "").trim()]),
-    styles: { fontSize: 9, cellPadding: 5 },
+    head: [["Sl.", "Equipment", "ID", "Make", "Model", "Range / Accuracy", "Last Cal.", "Due Date", "Agency", "Cert No.", "Status"]],
+    body: list.map(r => [r.sl || "", r.name, r.id, r.make || "", r.model || "", r.range || "", d(r.lastDate), d(r.dueDate), r.agency, r.certNo, calStatusFor(r.dueDate).text.replace(/[🔴🟠🟢⚪]/gu, "").trim()]),
+    styles: { fontSize: 8, cellPadding: 4 },
     headStyles: { fillColor: [31, 56, 100] },
+    margin: { left: 20, right: 20, bottom: 30 },
     theme: "grid"
   });
   stampLogoOnAllPages(doc);
@@ -5364,7 +5448,7 @@ document.getElementById("objLoadBtn").addEventListener("click", async () => {
     const daysInMonth = new Date(y, m, 0).getDate();
     const fromDate = `${y}-${String(m).padStart(2, "0")}-01`;
     const toDate = `${y}-${String(m).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
-    const { totalHeats, flaggedHeats } = await scanOutOfSpecHeats("Prod.", fromDate, toDate, null, token);
+    const { totalHeatsScanned: totalHeats, flaggedHeats } = await scanOutOfSpecHeats("Prod.", fromDate, toDate, null, token);
     const actualPct = totalHeats > 0 ? (flaggedHeats.length / totalHeats * 100) : 0;
     const targets = getObjTargets();
     const target = targets[monthVal];
@@ -7126,6 +7210,7 @@ function showSignedIn() {
   checkTodayOutOfSpec(); // background, non-blocking - lights up the red dot if needed
   loadHomeMonthProd();   // only when the "Cards" icon style is on
   setTimeout(maybeShowChangelog, 800); // slight delay so it doesn't collide with the sign-in transition
+  setTimeout(() => { if (window.isoPackAutoCheck) window.isoPackAutoCheck(); }, 6000);   // last month's ISO pack
 }
 
 /* ===================== QUICK INSIGHTS (home screen banner) ===================== */
@@ -19927,5 +20012,432 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
 })();
 </script>
 
+<script>
+/* ===================== ISO 9001 - MONTHLY PACK (all 5 records in one PDF) ===================== */
+// After a month ends the app offers to prepare that month's 5 ISO 9001 records
+// (NCR & CAPA, Calibration, Vendor Rating, Traceability, Quality Objectives) from
+// the data it can read itself, and asks only for what the data cannot give.
+(function isoPack() {
+  const $ = id => document.getElementById(id);
+  const LSget = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } };
+  const LSset = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => "&#" + c.charCodeAt(0) + ";");
+  const ymLabel = ym => { const [y, m] = ym.split("-").map(Number); return `${MONTH_ABBR[m - 1]} ${y}`; };
+  const prevYM = () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+  const monthEnd = ym => { const [y, m] = ym.split("-").map(Number); return `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`; };
+  const dmy = iso => iso ? String(iso).split("-").reverse().join("-") : "";
+  const num = v => typeof v === "number" ? v : (v === "" || v == null ? null : (isNaN(parseFloat(v)) ? null : parseFloat(v)));
+  const f3 = v => typeof v === "number" ? v.toFixed(3) : (v == null ? "" : String(v));
+  const f2 = v => typeof v === "number" ? v.toFixed(2) : "";
+
+  // ---------- question popup ----------
+  function ask({ step, title, intro, fields, html, buttons }) {
+    return new Promise(resolve => {
+      let ov = $("isoAskOverlay");
+      if (!ov) { ov = document.createElement("div"); ov.id = "isoAskOverlay"; ov.className = "pdfOverlay"; document.body.appendChild(ov); }
+      const f = (fields || []).map(x => {
+        const id = "isoF_" + x.key;
+        if (x.type === "textarea") return `<label for="${id}">${esc(x.label)}</label><textarea id="${id}" placeholder="${esc(x.ph || "")}">${esc(x.value || "")}</textarea>`;
+        if (x.type === "rating") return `<label for="${id}">${esc(x.label)}</label><select id="${id}">` +
+          ["", 1, 2, 3, 4, 5].map(v => `<option value="${v}" ${String(x.value) === String(v) && v !== "" ? "selected" : ""}>${v === "" ? "- choose -" : v}</option>`).join("") + `</select>`;
+        return `<label for="${id}">${esc(x.label)}</label><input type="${x.type || "text"}" id="${id}" value="${esc(x.value == null ? "" : x.value)}" placeholder="${esc(x.ph || "")}"${x.step ? ` step="${x.step}"` : ""}>`;
+      }).join("");
+      const btns = buttons || [["save", "Save & next", "primary"], ["skip", "Skip for now", "secondary"]];
+      ov.innerHTML = `<div class="card isoAskCard">${step ? `<div class="isoAskStep">${esc(step)}</div>` : ""}<h3>${esc(title)}</h3>` +
+        (intro ? `<div class="isoAskIntro">${intro}</div>` : "") + (html || "") + f +
+        `<div class="btnRow isoAskBtns">${btns.map(([k, l, c]) => `<button type="button" class="${c}" data-k="${k}">${esc(l)}</button>`).join("")}</div></div>`;
+      ov.classList.remove("hidden");
+      ov.querySelectorAll("button[data-k]").forEach(b => b.addEventListener("click", () => {
+        const v = {};
+        (fields || []).forEach(x => { const el = $("isoF_" + x.key); v[x.key] = el ? el.value.trim() : ""; });
+        ov.querySelectorAll("[data-iso]").forEach(el => { v[el.dataset.iso] = el.value.trim(); });
+        ov.classList.add("hidden"); ov.innerHTML = "";
+        resolve({ k: b.dataset.k, v });
+      }));
+    });
+  }
+  const say = (cls, txt) => { const st = $("status"); if (st) { st.className = cls; st.textContent = txt; } const p = $("isoPackStatus"); if (p) p.textContent = txt; };
+
+  // ---------- data the app reads itself ----------
+  async function loadHeats(token, ym) {
+    const [y, m] = ym.split("-").map(Number);
+    const path = await detectFilePathForMonth(token, y, m - 1);
+    if (!path) throw new Error(`${ymLabel(ym)} production file not found`);
+    const wb = await resolveWorkbook(token, path);
+    const data = await graphFetch(`${wb}/worksheets('Prod.')/range(address='A1:AB2000')?$select=values`, token);
+    const values = data.values || [], from = `${ym}-01`, to = monthEnd(ym), seen = new Set(), heats = [];
+    for (let i = 0; i < values.length; i++) {
+      if (typeof values[i][0] !== "number") continue;
+      const iso = excelSerialToISODate(values[i][0]);
+      if (!(iso >= from && iso <= to)) continue;
+      for (let j = i; j < Math.min(i + 12, values.length); j++) {
+        const row = values[j];
+        if (seen.has(j) || !row[1]) continue;
+        seen.add(j);
+        heats.push({ date: iso, heat: String(row[1]).trim(), c: row[2], mn: row[3], si: row[4], s: row[5], p: row[6], size: row[7],
+          t: typeof row[27] === "number" ? row[27] : null, issues: checkOutOfSpec(row) });
+      }
+    }
+    return { path, heats };
+  }
+  async function loadEdgeCrack(token, ym) {
+    const path = (($("ecFilePath") || {}).value || "Desktop/Strip_Coils_EDGE_CRACK_Data.xlsm").trim();
+    const sheet = (($("ecSheetName") || {}).value || "Sheet1").trim();
+    const wb = await resolveWorkbook(token, path);
+    const data = await graphFetch(`${wb}/worksheets('${encodeURIComponent(sheet)}')/range(address='A2:K500')?$select=values`, token);
+    return (data.values || []).filter(r => r[0] && (pipeMillDateToISO(r[0]) || "").slice(0, 7) === ym).map(r => ({
+      reason: String(r[1] || "").trim(), strip: Number(r[2]) || 0, buildup: Number(r[4]) || 0, tube: Number(r[6]) || 0,
+      total: Number(r[8]) || 0, totalStrip: Number(r[10]) || 0 }));
+  }
+  // Inward raw material lots of the month, grouped by supplier (Party Name) + material.
+  // A lot is "in spec" when every value that was tested meets the PO; untested values are not judged.
+  const VEN_RULES = {
+    "SILICO MANGANES": { label: "Silico Manganese", rules: r => [["Over size +150 mm %", r.plus150, "max", SILICO_PO.overSize], ["Under size -25 mm %", r.minus25, "max", SILICO_PO.underSize],
+      ["Mn %", r.mn, "min", r.minLimit != null ? r.minLimit : SILICO_PO.mn], ["Si %", r.si, "min", SILICO_PO.si], ["C %", r.c, "max", SILICO_PO.c], ["P %", r.p, "max", SILICO_PO.p], ["S %", r.s, "max", SILICO_PO.s]] },
+    "SPONGE IRON LUM": { label: "Sponge Iron Lumps", rules: r => [["Over size +20 mm %", r.plus20, "max", LUMPS_PO.overSize], ["Under size -4 mm %", r.minus4, "max", LUMPS_PO.underSize],
+      ["Fe(M) %", r.fem, "min", r.minLimit != null ? r.minLimit : LUMPS_PO.fem], ["P %", r.p, "max", LUMPS_PO.p], ["S %", r.s, "max", LUMPS_PO.s], ["N.Mag %", r.nmag, "max", LUMPS_PO.nmag]] },
+    "SPONGE IRON FIN": { label: "Sponge Iron Fines", rules: r => [["Under size -1 mm %", r.minus1, "max", FINES_PO.underSize],
+      ["Fe(M) %", r.fem, "min", r.minLimit], ["P %", r.p, "max", FINES_PO.p], ["S %", r.s, "max", FINES_PO.s], ["N.Mag %", r.nmag, "max", FINES_PO.nmag]] }
+  };
+  const qualityRating = pct => pct == null ? null : pct >= 95 ? 5 : pct >= 85 ? 4 : pct >= 70 ? 3 : pct >= 50 ? 2 : 1;
+  async function loadVendors(token, ym) {
+    const { data, col: col0, rowCol, isHeader } = await readInwardRmTable1(token);
+    const colErr = inwardRmMissingColsError(col0);
+    if (colErr) throw new Error(colErr);
+    const from = `${ym}-01`, to = monthEnd(ym), groups = {};
+    for (let i = 1; i < data.values.length; i++) {
+      if (isHeader(i)) continue;
+      const row = data.values[i], txt = data.text[i], col = rowCol[i];
+      const bucket = classifyInwardItem(row[col.itemName]);
+      if (!bucket) continue;
+      const iso = inwardRmDateToISO(row[col.grnDate], txt[col.grnDate]);
+      if (!iso || iso < from || iso > to) continue;
+      const party = String(row[col.partyName] || "").trim() || "(no party name)";
+      const k = party.toUpperCase() + "|" + bucket;
+      const g = groups[k] || (groups[k] = { key: k, party, bucket, material: VEN_RULES[bucket].label, lots: 0, tested: 0, ok: 0, fails: {} });
+      g.lots++;
+      const r = {}; ["plus150", "plus20", "minus1", "minus25", "minus4", "c", "fem", "mn", "nmag", "p", "s", "si", "minLimit"].forEach(f => { r[f] = num(row[col[f]]); });
+      const checks = VEN_RULES[bucket].rules(r).filter(([, v, , lim]) => v != null && lim != null);
+      if (!checks.length) continue;
+      g.tested++;
+      const bad = checks.filter(([, v, t, lim]) => { const x = Math.round(v * 1000) / 1000; return t === "max" ? x > lim : x < lim; });
+      if (!bad.length) g.ok++; else bad.forEach(([n]) => { g.fails[n] = (g.fails[n] || 0) + 1; });
+    }
+    return Object.values(groups).sort((a, b) => a.party.localeCompare(b.party) || a.material.localeCompare(b.material)).map(g => {
+      g.pct = g.tested ? g.ok / g.tested * 100 : null; g.q = qualityRating(g.pct); return g; });
+  }
+
+  // ---------- the wizard ----------
+  let running = false;
+  async function run(ym) {
+    if (running) return; running = true;
+    try {
+      const token = await getToken();
+      const label = ymLabel(ym), R = { ym, errors: {} };
+      // record numbers - asked once, may stay blank
+      if (!LSget("isoDocNosAsked", false)) {
+        const a = await ask({ step: "Setup (asked once)", title: "Document / format numbers",
+          intro: "If your ISO records have format numbers, type them here - they print on every page. Leave blank if not used. You can change them later (Monthly ISO Pack → Doc numbers).",
+          fields: [["ncr", "NCR & CAPA Log"], ["cal", "Calibration Log"], ["ven", "Vendor Rating"], ["trace", "Traceability Register"], ["obj", "Quality Objectives"]].map(([k, l]) => ({ key: k, label: l, value: (LSget("isoDocNos", {}))[k] || "" })),
+          buttons: [["save", "Save", "primary"], ["skip", "Not used", "secondary"]] });
+        if (a.k === "save") LSset("isoDocNos", a.v);
+        LSset("isoDocNosAsked", true);
+      }
+      say("wait", `ISO pack ${label}: reading the production file...`);
+      try { R.prod = await loadHeats(token, ym); } catch (e) { R.errors.prod = shortError(e.message || e); }
+      say("wait", `ISO pack ${label}: reading the edge crack file...`);
+      try { R.ec = await loadEdgeCrack(token, ym); } catch (e) { R.errors.ec = shortError(e.message || e); }
+      say("wait", `ISO pack ${label}: reading Inward Raw Material data...`);
+      try { R.ven = await loadVendors(token, ym); } catch (e) { R.errors.ven = shortError(e.message || e); }
+      say("wait", `ISO pack ${label}: a few questions for you...`);
+
+      // 1. NCR & CAPA - one per edge crack line of the month
+      const ncrs = getNcrList(), dismissed = LSget("isoNcrDismiss", {});
+      const ecRows = (R.ec || []).filter(r => r.total > 0);
+      const lastResp = (ncrs.slice().reverse().find(n => n.responsible) || {}).responsible || "";
+      let n = 0;
+      for (const r of ecRows) {
+        n++;
+        const key = `EC|${ym}|${r.reason}`;
+        if (dismissed[key] || ncrs.some(x => x.key === key && x.rootCause && x.action)) continue;
+        const pct = r.totalStrip > 0 ? (r.total / r.totalStrip * 100) : null;
+        const desc = `Edge crack rejection ${label}: Grand Total ${f2(r.total)}` + (pct != null ? ` (${pct.toFixed(3)}% of Total Strip ${f2(r.totalStrip)})` : "") +
+          ` - Strip Mill ${f2(r.strip)}, Buildup ${f2(r.buildup)}, Tube Mill ${f2(r.tube)}` + (r.reason ? ` - Reason in file: ${r.reason}` : "");
+        const old = ncrs.find(x => x.key === key) || {};
+        const a = await ask({ step: `1 of 4 · NCR & CAPA (${n}/${ecRows.length})`, title: "Edge crack NCR",
+          intro: `<b>${esc(desc)}</b><br><span class="isoAskHint">From ${esc(($("ecFilePath") || {}).value || "the edge crack file")}. Fill what the file cannot tell.</span>`,
+          fields: [{ key: "rootCause", label: "Root cause", type: "textarea", value: old.rootCause || r.reason },
+            { key: "action", label: "Corrective action", type: "textarea", value: old.action || "" },
+            { key: "responsible", label: "Responsible person", value: old.responsible || lastResp },
+            { key: "targetDate", label: "Target closure date", type: "date", value: old.targetDate || "" }],
+          buttons: [["save", "Save NCR", "primary"], ["skip", "Skip for now", "secondary"], ["none", "No NCR needed", "secondary"]] });
+        if (a.k === "none") { dismissed[key] = 1; LSset("isoNcrDismiss", dismissed); continue; }
+        if (a.k !== "save") continue;
+        const rec = { date: monthEnd(ym), description: desc, rootCause: a.v.rootCause, action: a.v.action, responsible: a.v.responsible,
+          targetDate: a.v.targetDate, status: old.status || "open", key, src: "Edge crack", ym };
+        const i = ncrs.findIndex(x => x.key === key);
+        if (i >= 0) ncrs[i] = Object.assign(ncrs[i], rec); else ncrs.push(rec);
+        saveNcrList(ncrs);
+      }
+      if (typeof renderNcrTable === "function") renderNcrTable();
+
+      // 2. Calibration - add equipment if none; update overdue / incomplete entries
+      let cal = getCalList();
+      if (!cal.length) {
+        for (;;) {
+          const a = await ask({ step: "2 of 4 · Calibration", title: "No equipment in the Calibration Log yet",
+            intro: "Add the instruments that need calibration (spectrometer, balance, furnace thermocouple...). Add one, then the next.",
+            fields: [{ key: "name", label: "Equipment name" }, { key: "id", label: "Equipment ID / Serial No." }, { key: "lastDate", label: "Last calibration date", type: "date" },
+              { key: "dueDate", label: "Next due date", type: "date" }, { key: "agency", label: "Calibrated by / Agency" }, { key: "certNo", label: "Certificate No." }],
+            buttons: [["more", "Add & next instrument", "primary"], ["done", "Add & finish", "primary"], ["skip", "Skip for now", "secondary"]] });
+          if (a.k === "skip") break;
+          if (a.v.name && a.v.dueDate) { cal.push({ name: a.v.name, id: a.v.id, lastDate: a.v.lastDate, dueDate: a.v.dueDate, agency: a.v.agency, certNo: a.v.certNo }); saveCalList(cal); }
+          else alert("Equipment name and Next due date are needed - this one was not added.");
+          if (a.k === "done") break;
+        }
+      } else {
+        const today = todayISO();
+        const need = cal.map((c, i) => ({ c, i })).filter(({ c }) => !c.dueDate || c.dueDate < today || !c.lastDate || !c.agency || !c.certNo);
+        if (need.length) {
+          const rows = need.map(({ c, i }) => `<tr><td><b>${esc(c.name)}</b><br><small>${esc(c.id || "")}${c.dueDate && c.dueDate < today ? ` · <span style="color:#e5533d;">due ${esc(dmy(c.dueDate))} passed</span>` : ""}</small></td>` +
+            `<td><input type="date" data-iso="l${i}" value="${esc(c.lastDate || "")}"></td><td><input type="date" data-iso="d${i}" value="${esc(c.dueDate || "")}"></td>` +
+            `<td><input type="text" data-iso="a${i}" value="${esc(c.agency || "")}" placeholder="Agency"></td><td><input type="text" data-iso="c${i}" value="${esc(c.certNo || "")}" placeholder="Cert No."></td></tr>`).join("");
+          const a = await ask({ step: "2 of 4 · Calibration", title: `${need.length} instrument(s) need details`,
+            intro: "Dates are missing, overdue, or the agency / certificate no. is blank. Fill what you have - anything left blank stays as it is and shows as 'Not provided' in the pack.",
+            html: `<div class="tableScroll"><table class="matrixTable isoVenTable isoCalTable"><tr><th>Equipment</th><th>Last calibration</th><th>Next due</th><th>Agency</th><th>Certificate No.</th></tr>${rows}</table></div>` });
+          if (a.k === "save") {
+            cal = getCalList();
+            need.forEach(({ i }) => { if (!cal[i]) return; [["l", "lastDate"], ["d", "dueDate"], ["a", "agency"], ["c", "certNo"]].forEach(([p, f]) => { const v = a.v[p + i]; if (v) cal[i][f] = v; }); });
+            saveCalList(cal);
+          }
+        }
+      }
+      if (typeof renderCalTable === "function") renderCalTable();
+      if (typeof checkCalibrationReminders === "function") checkCalibrationReminders();
+
+      // 3. Vendor rating - quality from the data, delivery & price from you
+      if (R.ven && R.ven.length) {
+        const prev = LSget("isoVenRatings", {});
+        const lastOf = key => { const ms = Object.keys(prev).filter(m => m < ym && prev[m][key]).sort(); return ms.length ? prev[ms[ms.length - 1]][key] : {}; };
+        const cur = prev[ym] || {};
+        const sel = (k, v) => `<select data-iso="${esc(k)}">${["", 1, 2, 3, 4, 5].map(x => `<option value="${x}" ${String(v) === String(x) && x !== "" ? "selected" : ""}>${x === "" ? "-" : x}</option>`).join("")}</select>`;
+        const rows = R.ven.map((g, i) => { const old = cur[g.key] || lastOf(g.key);
+          return `<tr><td><b>${esc(g.party)}</b><br><small>${esc(g.material)} · ${g.lots} lot(s)</small></td><td>${g.q == null ? "not tested" : `${g.q} <small>(${g.pct.toFixed(0)}% in spec)</small>`}</td>` +
+            `<td>${sel("d" + i, old.d)}</td><td>${sel("p" + i, old.p)}</td></tr>`; }).join("");
+        const a = await ask({ step: "3 of 4 · Vendor rating", title: `Suppliers in ${label}`,
+          intro: "Quality is worked out from the lab results (lots meeting the PO). Give <b>Delivery</b> and <b>Price</b> 1 to 5 (5 = best). Last month's marks are filled in where available.",
+          html: `<div class="tableScroll"><table class="matrixTable isoVenTable"><tr><th>Supplier</th><th>Quality</th><th>Delivery</th><th>Price</th></tr>${rows}</table></div>` });
+        if (a.k === "save") {
+          const out = {}; R.ven.forEach((g, i) => { out[g.key] = { d: a.v["d" + i] || "", p: a.v["p" + i] || "" }; });
+          prev[ym] = out; LSset("isoVenRatings", prev);
+          // also kept in the Vendor Rating page
+          let vl = getVenList().filter(x => x.isoYm !== ym);
+          R.ven.forEach(g => { const d = parseInt(out[g.key].d, 10), p = parseInt(out[g.key].p, 10);
+            if (g.q != null && d && p) vl.push({ vendor: `${g.party} (${g.material})`, date: monthEnd(ym), quality: g.q, delivery: d, price: p,
+              remarks: `Auto ${label}: ${g.ok}/${g.tested} tested lot(s) in spec`, isoYm: ym }); });
+          saveVenList(vl); if (typeof renderVenTable === "function") renderVenTable();
+        }
+      }
+
+      // 4. Quality objectives - targets
+      const objT = getObjTargets(), ext = LSget("isoObjExt", {});
+      const lastKey = (o, f) => { const ms = Object.keys(o).filter(m => m <= ym && (f ? o[m] && o[m][f] != null && o[m][f] !== "" : o[m] != null)).sort(); return ms.length ? ms[ms.length - 1] : null; };
+      const lk = lastKey(objT), le = lastKey(ext, "ec"), lp = lastKey(ext, "prod");
+      const a4 = await ask({ step: "4 of 4 · Quality objectives", title: `Targets for ${label}`,
+        intro: "Leave a box blank if that objective is not tracked. Previous targets are filled in.",
+        fields: [{ key: "oos", label: "Out-of-spec heats (%) should be under", type: "number", step: "0.1", value: objT[ym] != null ? objT[ym] : (lk ? objT[lk] : "") },
+          { key: "ec", label: "Edge crack rejection (%) should be under", type: "number", step: "0.01", value: ext[ym] && ext[ym].ec != null ? ext[ym].ec : (le ? ext[le].ec : "") },
+          { key: "prod", label: "Month production target (MT) - at least", type: "number", step: "100", value: ext[ym] && ext[ym].prod != null ? ext[ym].prod : (lp ? ext[lp].prod : (localStorage.getItem("monthProdTarget") || "")) }],
+        buttons: [["save", "Save & make the pack", "primary"], ["skip", "Make the pack without changes", "secondary"]] });
+      if (a4.k === "save") {
+        if (a4.v.oos !== "") objT[ym] = parseFloat(a4.v.oos); else delete objT[ym];
+        localStorage.setItem("iso9001_objectives", JSON.stringify(objT));
+        ext[ym] = { ec: a4.v.ec === "" ? null : parseFloat(a4.v.ec), prod: a4.v.prod === "" ? null : parseFloat(a4.v.prod) };
+        LSset("isoObjExt", ext);
+      }
+
+      say("wait", `ISO pack ${label}: making the PDF...`);
+      const doc = buildPdf(ym, R);
+      const done = LSget("isoPackDone", {}); done[ym] = Date.now(); LSset("isoPackDone", done);
+      renderPanel();
+      say("ok", `✅ ISO 9001 pack for ${label} is ready.` + (Object.keys(R.errors).length ? `\n⚠️ Not read: ${Object.entries(R.errors).map(([k, e]) => `${{ prod: "production file", ec: "edge crack file", ven: "Inward RM data" }[k]} (${e})`).join("; ")}` : ""));
+      showPdfPreview(doc, `ISO9001_Monthly_Pack_${MONTH_ABBR[Number(ym.slice(5)) - 1]}_${ym.slice(0, 4)}.pdf`, `ISO 9001 pack - ${label}`);
+    } catch (e) {
+      say("err", "ISO pack: " + (typeof shortError === "function" ? shortError(e.message || e) : e.message));
+    } finally { running = false; }
+  }
+
+  // ---------- the PDF ----------
+  function buildPdf(ym, R) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+    const NAVY = [31, 56, 100], GOLD = [201, 162, 39], label = ymLabel(ym), nos = LSget("isoDocNos", {});
+    const genDate = dmy(todayISO());
+    let first = true;
+    const page = (title, clause, noKey) => {
+      if (!first) doc.addPage(); first = false;
+      doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(...NAVY);
+      doc.text(title, W / 2, 30, { align: "center" });
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(120, 95, 15);
+      const bits = [`Month: ${label}`]; if (clause) bits.push(`ISO 9001:2015 Clause ${clause}`); if (noKey && nos[noKey]) bits.push(`Doc No: ${nos[noKey]}`);
+      doc.text(bits.join("     |     "), W / 2, 46, { align: "center" });
+      doc.setDrawColor(...GOLD); doc.setLineWidth(2); doc.line(20, 54, W - 20, 54);
+      return 66;
+    };
+    const table = (startY, head, body, opts) => {
+      doc.autoTable(Object.assign({ startY, head: [head], body, theme: "grid", styles: { fontSize: 8.5, cellPadding: 4, overflow: "linebreak", valign: "middle" },
+        headStyles: { fillColor: NAVY, textColor: 255 }, alternateRowStyles: { fillColor: [244, 248, 253] }, margin: { left: 24, right: 24, top: 44, bottom: 46 } }, opts || {}));
+      return doc.lastAutoTable.finalY + 14;
+    };
+    const note = (y, lines) => {
+      doc.setFont("helvetica", "italic"); doc.setFontSize(8.5); doc.setTextColor(80, 80, 80);
+      lines.forEach(l => { const parts = doc.splitTextToSize(l, W - 48); if (y + parts.length * 11 > H - 50) { doc.addPage(); y = 50; doc.setFont("helvetica", "italic"); doc.setFontSize(8.5); doc.setTextColor(80, 80, 80); } doc.text(parts, 24, y); y += parts.length * 11 + 3; });
+      return y;
+    };
+    const status = {};
+
+    // NCR
+    const ncrs = getNcrList().filter(n => n.ym === ym || (!n.ym && n.date && n.date.slice(0, 7) === ym));
+    const dismissed = LSget("isoNcrDismiss", {});
+    const pendingEc = (R.ec || []).filter(r => r.total > 0 && !dismissed[`EC|${ym}|${r.reason}`] && !ncrs.some(n => n.key === `EC|${ym}|${r.reason}`));
+    const ncrRows = ncrs.map((n, i) => [i + 1, dmy(n.date), n.src || "Manual", n.description, n.rootCause || "Not provided", n.action || "Not provided", n.responsible || "Not provided", dmy(n.targetDate) || "Not provided", n.status === "closed" ? "Closed" : "Open"]);
+    pendingEc.forEach(r => ncrRows.push([ncrRows.length + 1, dmy(monthEnd(ym)), "Edge crack", `Edge crack rejection: Grand Total ${f2(r.total)}${r.reason ? " - " + r.reason : ""}`, "Pending", "Pending", "Pending", "Pending", "Open"]));
+    const ncrMissing = ncrs.filter(n => !n.rootCause || !n.action || !n.responsible || !n.targetDate).length + pendingEc.length;
+    status.ncr = R.errors.ec ? `Edge crack file not read (${R.errors.ec})` : ncrMissing ? `${ncrMissing} NCR(s) with details pending` : "Complete";
+
+    // Calibration
+    const today = todayISO(), cal = getCalList();
+    const calMissing = cal.filter(c => !c.lastDate || !c.dueDate || !c.agency || !c.certNo).length, calOver = cal.filter(c => c.dueDate && c.dueDate < today).length;
+    status.cal = !cal.length ? "No equipment registered" : (calOver || calMissing) ? [calOver ? `${calOver} overdue` : "", calMissing ? `${calMissing} with details missing` : ""].filter(Boolean).join(", ") : "Complete";
+
+    // Vendor
+    const vr = (LSget("isoVenRatings", {}))[ym] || {};
+    const venRows = (R.ven || []).map(g => { const d = parseInt((vr[g.key] || {}).d, 10), p = parseInt((vr[g.key] || {}).p, 10);
+      const parts = [g.q, d || null, p || null]; const overall = parts.every(x => x) ? (parts.reduce((s, x) => s + x, 0) / 3).toFixed(1) : "Pending";
+      return [g.party, g.material, g.lots, g.tested, g.ok, g.pct == null ? "-" : g.pct.toFixed(1) + "%", g.q == null ? "-" : g.q, d || "Pending", p || "Pending", overall,
+        Object.entries(g.fails).map(([k, c]) => `${k} x${c}`).join(", ")]; });
+    const venPending = venRows.filter(r => r[9] === "Pending").length;
+    status.ven = R.errors.ven ? `Inward RM data not read (${R.errors.ven})` : !venRows.length ? "No lots received in the month" : venPending ? `${venPending} supplier(s) with delivery/price pending` : "Complete";
+
+    // Traceability
+    const heats = (R.prod && R.prod.heats) || [];
+    status.trace = R.errors.prod ? `Production file not read (${R.errors.prod})` : heats.length ? "Complete" : "No heats found for the month";
+
+    // Objectives
+    const objT = getObjTargets(), ext = (LSget("isoObjExt", {}))[ym] || {};
+    const oosN = heats.filter(h => h.issues.length).length, oosPct = heats.length ? oosN / heats.length * 100 : null;
+    const ecRows = R.ec || [], ecTot = ecRows.reduce((s, r) => s + r.total, 0), ecStrip = ecRows.reduce((m, r) => Math.max(m, r.totalStrip), 0);
+    const ecPct = ecStrip > 0 ? ecTot / ecStrip * 100 : null;
+    const prodTot = heats.reduce((s, h) => s + (h.t || 0), 0);
+    const objRows = [];
+    const res = (act, tgt, kind) => act == null ? "No data" : tgt == null || isNaN(tgt) ? "Target not set" : (kind === "max" ? act <= tgt : act >= tgt) ? "Met" : "Not met";
+    objRows.push(["Out-of-spec heats (C, S, P) %", objT[ym] != null ? `under ${objT[ym]}%` : "Not set", oosPct == null ? "-" : `${oosPct.toFixed(2)}% (${oosN} of ${heats.length} heats)`, res(oosPct, objT[ym], "max")]);
+    if (ext.ec != null) objRows.push(["Edge crack rejection %", `under ${ext.ec}%`, ecPct == null ? "-" : `${ecPct.toFixed(3)}%`, res(ecPct, ext.ec, "max")]);
+    if (ext.prod != null) objRows.push(["Month production (MT)", `at least ${ext.prod}`, heats.length ? prodTot.toFixed(2) : "-", res(heats.length ? prodTot : null, ext.prod, "min")]);
+    status.obj = objT[ym] == null && ext.ec == null && ext.prod == null ? "No targets set" : objRows.some(r => r[3] === "No data") ? "Some actuals not available" : "Complete";
+
+    // ---- page 1: summary
+    let y = page(`ISO 9001 Monthly Records - ${label}`, "", "");
+    y = table(y, ["#", "Record", "ISO 9001:2015 clause", "Status"], [
+      [1, "Non-Conformance Report (NCR) & CAPA Log", "10.2", status.ncr], [2, "Equipment Calibration Log", "7.1.5", status.cal],
+      [3, "Vendor / Supplier Performance Evaluation", "8.4", status.ven], [4, "Product Traceability Register", "8.5.2", status.trace],
+      [5, "Quality Objectives", "6.2 / 9.1", status.obj]], { columnStyles: { 0: { cellWidth: 26 }, 3: { cellWidth: 300 } } });
+    note(y, [`Generated on ${genDate} by SMS Reports from: ${R.prod ? R.prod.path : "production file (not read)"}; ${($("ecFilePath") || {}).value || "edge crack file"}; ${INWARD_RM_FILE_PATH}; and the logs kept in the app on this device.`,
+      `"Pending" / "Not provided" means the detail was not entered when this pack was made.`]);
+
+    // ---- NCR
+    y = page("Non-Conformance Report (NCR) & CAPA Log", "10.2", "ncr");
+    if (R.errors.ec) y = note(y, [`Edge crack file could not be read: ${R.errors.ec}`]);
+    if (ncrRows.length) y = table(y, ["#", "Date", "Source", "Nonconformity", "Root cause", "Corrective action", "Responsible", "Target date", "Status"], ncrRows,
+      { styles: { fontSize: 8, cellPadding: 3.5, overflow: "linebreak" }, columnStyles: { 0: { cellWidth: 22 }, 3: { cellWidth: 190 } } });
+    else y = note(y, ["No nonconformity recorded for this month."]);
+
+    // ---- Calibration
+    y = page("Equipment Calibration Log", "7.1.5", "cal");
+    if (cal.length) y = table(y, ["Sl.", "Equipment", "ID", "Make", "Model", "Range / Accuracy", "Last calibration", "Next due", "Agency", "Certificate No.", `Status on ${genDate}`],
+      cal.map(c => [c.sl || "", c.name, c.id || "-", c.make || "", c.model || "", c.range || "", dmy(c.lastDate) || "Not provided", dmy(c.dueDate) || "Not provided", c.agency || "Not provided", c.certNo || "Not provided",
+        !c.dueDate ? "Date not entered" : c.dueDate < today ? "Overdue" : (new Date(c.dueDate) - new Date(today)) / 86400000 <= 30 ? "Due within 30 days" : "OK"]),
+      { styles: { fontSize: 7.5, cellPadding: 3 } });
+    else y = note(y, ["No equipment registered in the Calibration Log."]);
+
+    // ---- Vendor
+    y = page("Vendor / Supplier Performance Evaluation", "8.4", "ven");
+    if (R.errors.ven) y = note(y, [`Inward Raw Material data could not be read: ${R.errors.ven}`]);
+    if (venRows.length) y = table(y, ["Supplier (Party Name)", "Material", "Lots", "Tested", "In spec", "In spec %", "Quality (1-5)", "Delivery (1-5)", "Price (1-5)", "Overall", "Out of spec (lots)"], venRows,
+      { styles: { fontSize: 8, cellPadding: 3.5 }, columnStyles: { 0: { cellWidth: 150 }, 10: { cellWidth: 150 } } });
+    else if (!R.errors.ven) y = note(y, ["No Silico Manganese / Sponge Iron lots with a GRN date in this month."]);
+    note(y, ["Quality: a lot is 'in spec' when every tested value meets the PO; values not tested are not judged. Quality mark: 95% or more lots in spec = 5, 85-94.9% = 4, 70-84.9% = 3, 50-69.9% = 2, below 50% = 1.",
+      `PO limits used - Silico Manganese: +150 mm max ${SILICO_PO.overSize}%, -25 mm max ${SILICO_PO.underSize}%, Mn min = Min Limit in Excel (else ${SILICO_PO.mn}%), Si min ${SILICO_PO.si}%, C max ${SILICO_PO.c}%, P max ${SILICO_PO.p}%, S max ${SILICO_PO.s}%. ` +
+      `Lumps: +20 mm max ${LUMPS_PO.overSize}%, -4 mm max ${LUMPS_PO.underSize}%, Fe(M) min = Min Limit (else ${LUMPS_PO.fem}%), P max ${LUMPS_PO.p}%, S max ${LUMPS_PO.s}%, N.Mag max ${LUMPS_PO.nmag}%. ` +
+      `Fines: -1 mm max ${FINES_PO.underSize}%, Fe(M) min = Min Limit, P max ${FINES_PO.p}%, S max ${FINES_PO.s}%, N.Mag max ${FINES_PO.nmag}%.`,
+      "Delivery and Price marks are given by QAD-SMS. Overall = average of Quality, Delivery and Price."]);
+
+    // ---- Traceability
+    y = page("Product Traceability Register (heat-wise)", "8.5.2", "trace");
+    if (R.errors.prod) y = note(y, [`Production file could not be read: ${R.errors.prod}`]);
+    if (heats.length) y = table(y, ["Date", "Heat No.", "%C", "%Mn", "%Si", "%S", "%P", "Size", "Production (MT)", "Chemistry"],
+      heats.map(h => [dmy(h.date), h.heat, f3(h.c), f3(h.mn), f3(h.si), f3(h.s), f3(h.p), h.size == null ? "" : String(h.size), h.t == null ? "" : h.t.toFixed(2), h.issues.length ? "Out of spec: " + h.issues.join(", ") : "OK"]),
+      { styles: { fontSize: 7.5, cellPadding: 2.5, halign: "center" }, columnStyles: { 9: { halign: "left", cellWidth: 170 } },
+        didParseCell: d => { if (d.section === "body" && d.column.index === 9 && String(d.cell.raw).startsWith("Out")) d.cell.styles.textColor = [163, 39, 28]; } });
+    if (heats.length) note(y, [`${heats.length} heats, ${prodTot.toFixed(2)} MT. Source: ${R.prod.path}, Prod. sheet. Out of spec = ${CHEM_SPEC_LIMITS.map(s => `${s.label} ${s.type} ${s.value}`).join(", ")}.`]);
+
+    // ---- Objectives
+    y = page("Quality Objectives - Monitoring", "6.2 / 9.1", "obj");
+    y = table(y, ["Objective", "Target", "Actual", "Result"], objRows, { didParseCell: d => { if (d.section === "body" && d.column.index === 3) d.cell.styles.textColor = d.cell.raw === "Met" ? [30, 107, 60] : d.cell.raw === "Not met" ? [163, 39, 28] : [90, 90, 90]; } });
+    note(y, [`Out-of-spec heats from the Prod. sheet (${CHEM_SPEC_LIMITS.map(s => `${s.label} ${s.type} ${s.value}`).join(", ")}).` +
+      (ext.ec != null ? ` Edge crack % = Grand Total / Total Strip from the edge crack file.` : "") + (ext.prod != null ? " Production = sum of heat-wise Production (MT) above." : "")]);
+
+    // footer on every page
+    const pages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= pages; p++) {
+      doc.setPage(p);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(60, 60, 60);
+      doc.text("Prepared by: Durgesh Mishra, Manager, QAD-SMS", 24, H - 28);
+      doc.text("Approved by: ______________________", W / 2, H - 28, { align: "center" });
+      doc.text(`Page ${p} of ${pages}`, W - 24, H - 28, { align: "right" });
+    }
+    stampLogoOnAllPages(doc);
+    return doc;
+  }
+
+  // ---------- the "Monthly ISO Pack" page ----------
+  function renderPanel() {
+    const list = $("isoPackHistory"); if (!list) return;
+    const done = LSget("isoPackDone", {});
+    const ms = Object.keys(done).sort().reverse();
+    list.innerHTML = ms.length ? ms.map(m => `<li><b>${esc(ymLabel(m))}</b> - made on ${esc(new Date(done[m]).toLocaleDateString("en-GB"))}</li>`).join("") : "<li>No pack made yet.</li>";
+  }
+  function initPanel() {
+    const mi = $("isoPackMonth"); if (mi && !mi.value) mi.value = prevYM();
+    const gb = $("isoPackGenBtn"); if (gb) gb.addEventListener("click", () => { const v = (mi && mi.value) || prevYM(); run(v); });
+    const nb = $("isoPackDocNosBtn"); if (nb) nb.addEventListener("click", async () => {
+      const cur = LSget("isoDocNos", {});
+      const a = await ask({ title: "Document / format numbers", intro: "Printed on each record's page. Leave blank if not used.",
+        fields: [["ncr", "NCR & CAPA Log"], ["cal", "Calibration Log"], ["ven", "Vendor Rating"], ["trace", "Traceability Register"], ["obj", "Quality Objectives"]].map(([k, l]) => ({ key: k, label: l, value: cur[k] || "" })),
+        buttons: [["save", "Save", "primary"], ["skip", "Cancel", "secondary"]] });
+      if (a.k === "save") { LSset("isoDocNos", a.v); LSset("isoDocNosAsked", true); }
+    });
+    renderPanel();
+  }
+  initPanel();
+
+  // ---------- after a month ends: offer to make last month's pack ----------
+  window.isoPackAutoCheck = async function () {
+    try { if (typeof isViewer === "function" && isViewer()) return; } catch (e) {}
+    const ym = prevYM(), done = LSget("isoPackDone", {});
+    if (done[ym] || running) return;
+    const today = todayISO();
+    if (LSget("isoPackSnooze", "") === today) return;
+    const told = LSget("isoPackTold", "");
+    if (told !== ym) { try { addNotification(`ISO 9001 pack for ${ymLabel(ym)} is due - Menu: ISO 9001 → Monthly ISO Pack`, "📦"); } catch (e) {} LSset("isoPackTold", ym); }
+    const a = await ask({ title: `ISO 9001 pack - ${ymLabel(ym)}`,
+      intro: `${esc(ymLabel(ym))} is over. The app can prepare all 5 ISO 9001 records now from the production, edge crack and inward raw material data, and will ask you only for what the data cannot give (root cause, delivery / price marks, targets...).`,
+      buttons: [["go", "Prepare now", "primary"], ["later", "Remind me tomorrow", "secondary"]] });
+    if (a.k === "go") run(ym); else LSset("isoPackSnooze", today);
+  };
+  window.isoPackRun = run;
+})();
+</script>
 </body>
 </html>
