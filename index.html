@@ -2671,6 +2671,16 @@
   .isoVenTable select{ min-width:56px; padding:4px; }
   .isoCalTable input{ min-width:118px; padding:5px 6px !important; font-size:13px !important; margin:0; }
   body.themed .isoAskCard h3, body.dark-mode .isoAskCard h3{ color:var(--gold-soft, #e8c766); }
+
+  /* ===== Sponge iron sticky note ===== */
+  .snHead, .snRow{ display:grid; grid-template-columns:1.3fr .8fr 1.6fr 34px; gap:6px; align-items:center; }
+  .snHead{ font-size:11.5px; font-weight:700; opacity:.7; margin:12px 0 2px; letter-spacing:.02em; }
+  .snRow{ margin-bottom:6px; }
+  .snRow input{ margin:0 !important; min-width:0; width:100%; box-sizing:border-box; }
+  .snDel{ width:34px; height:34px; border-radius:8px; border:1px solid rgba(128,128,128,.4); background:transparent; color:inherit; cursor:pointer; padding:0; }
+  .snSignRow{ display:flex !important; align-items:center; gap:8px; margin-top:12px !important; font-size:13px; cursor:pointer; }
+  .snSignRow input{ width:18px; height:18px; margin:0; accent-color:var(--gold); }
+  .snPreview{ display:block; width:100%; max-width:420px; margin:14px auto 4px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,.25); }
 </style>
 </head>
 <body><script>
@@ -3431,12 +3441,40 @@
             <button class="navItem" data-subwhatsapp="hotout"><span class="navIcon">🔥</span> Hot Out Entry</button>
             <button class="navItem" data-subwhatsapp="rhf"><span class="navIcon">🧱</span> RHF Billets Entry</button>
             <button class="navItem" data-subwhatsapp="rawmaterial"><span class="navIcon">🧪</span> Raw Material / Scrap</button>
+            <button class="navItem" data-subwhatsapp="spongenote"><span class="navIcon">📝</span> Sponge Iron Note</button>
           </div>
 
           <div class="contentArea hidden" id="whatsappSubContent">
             <div class="backBar">
               <button class="backBtn" id="backToWhatsappMenuBtn">← Back to Production Menu</button>
             </div>
+
+          <div class="sub-sectionPanel hidden" id="subwhatsapp-spongenote">
+          <div class="card">
+            <h2>Sponge Iron Required - Sticky Note</h2>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 14px;">
+              Fill the lines, then share the picture straight to the WhatsApp group (or download the JPG).
+              Your last lines are remembered; the date is today's.
+            </p>
+            <label for="snTitle">Heading</label>
+            <input type="text" id="snTitle">
+            <label for="snDate">As on</label>
+            <input type="date" id="snDate">
+            <div class="snHead"><span>Material</span><span>FeM</span><span>Qty</span><span></span></div>
+            <div id="snRows"></div>
+            <div class="btnRow" style="margin-top:6px;">
+              <button class="secondary" id="snAddRow" type="button">+ Add line</button>
+              <button class="secondary" id="snReset" type="button">Reset to default</button>
+            </div>
+            <label class="snSignRow"><input type="checkbox" id="snSign"> Show "- QAD-SMS" on the note</label>
+            <p style="font-size:12px;color:var(--muted);margin:6px 0 0;">Tip: leave FeM blank (like Fines) and the Qty text uses both columns.</p>
+            <img id="snPreview" alt="Sticky note preview" class="snPreview">
+            <div class="btnRow">
+              <button class="primary" id="snShare" type="button">📤 Share on WhatsApp</button>
+              <button class="secondary" id="snDownload" type="button">⬇️ Download JPG</button>
+            </div>
+          </div>
+          </div>
 
           <div class="sub-sectionPanel hidden" id="subwhatsapp-update">
           <div class="card">
@@ -4382,7 +4420,7 @@ function uiHiDict() {
     "Strip Mill": "स्ट्रिप मिल", "Stock Difference (Manual vs ERP)": "स्टॉक अंतर (मैनुअल बनाम ERP)",
     "BIS Doc": "BIS दस्तावेज़", "Test Certificate": "टेस्ट सर्टिफिकेट", "RM / Scrap Report": "आर.एम / स्क्रैप रिपोर्ट",
     "Slag Crusher Report": "स्लैग क्रशर रिपोर्ट", "Monthly MIS": "मासिक MIS", "NCR / CAPA Log": "NCR / CAPA लॉग",
-    "Calibration Log": "कैलिब्रेशन लॉग", "Monthly ISO Pack": "मासिक ISO पैक", "Prepare ISO Pack": "ISO पैक बनाइए", "Vendor Rating": "वेंडर रेटिंग", "Traceability": "ट्रेसबिलिटी",
+    "Calibration Log": "कैलिब्रेशन लॉग", "Sponge Iron Note": "स्पंज आयरन नोट", "Monthly ISO Pack": "मासिक ISO पैक", "Prepare ISO Pack": "ISO पैक बनाइए", "Vendor Rating": "वेंडर रेटिंग", "Traceability": "ट्रेसबिलिटी",
     "Quality Objectives": "गुणवत्ता उद्देश्य",
     "← Back to Menu": "← मेनू पर वापस", "← Back to Dashboard Menu": "← डैशबोर्ड मेनू पर वापस",
     "← Back to Trend Charts Menu": "← ट्रेंड चार्ट मेनू पर वापस", "← Back to Production Menu": "← प्रोडक्शन मेनू पर वापस",
@@ -4559,9 +4597,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.16.25";
+const APP_VERSION = "2026.10.16.26";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📝 Sponge Iron Required sticky note: fill, then share the JPG to WhatsApp (Production → Sponge Iron Note)",
   "🛠️ Calibration Log: all 35 instruments from the calibration status record added (make, model, range); Edit button to enter the dates",
   "📦 Monthly ISO 9001 pack: all 5 records made from your data in one PDF - the app asks only for what it cannot read (ISO 9001 → Monthly ISO Pack)",
   "📱 Phone status bar (top strip) now takes the theme colour",
@@ -4705,7 +4744,7 @@ const ICON_STYLES = [
 window._homeLive = window._homeLive || {};
 
 // Inner page icon grids (Dashboard, Trends, Production Update, Reports, ISO 9001)
-const SUB_SVG = {"daily": "<path d=\"M4 5m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z\"/> <path d=\"M16 3l0 4\"/> <path d=\"M8 3l0 4\"/> <path d=\"M4 11l16 0\"/> <path d=\"M8 15h2v2h-2z\"/>", "period": "<path d=\"M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M15 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M9 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M4 20h14\"/>", "mom": "<path d=\"M4 19l16 0\"/> <path d=\"M4 15l4 -6l4 2l4 -5l4 4\"/>", "calendar": "<path d=\"M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z\"/> <path d=\"M16 3v4\"/> <path d=\"M8 3v4\"/> <path d=\"M4 11h16\"/> <path d=\"M11 15h1\"/> <path d=\"M12 15v3\"/>", "linechart": "<path d=\"M4 19l16 0\"/> <path d=\"M4 15l4 -6l4 2l4 -5l4 4\"/>", "pie": "<path d=\"M10 3.2a9 9 0 1 0 10.8 10.8a1 1 0 0 0 -1 -1h-6.8a2 2 0 0 1 -2 -2v-7a.9 .9 0 0 0 -1 -.8\"/> <path d=\"M15 3.5a9 9 0 0 1 5.5 5.5h-4.5a1 1 0 0 1 -1 -1v-4.5\"/>", "sizewise": "<path d=\"M17 3l4 4l-14 14l-4 -4z\"/> <path d=\"M16 7l-1.5 -1.5\"/> <path d=\"M13 10l-1.5 -1.5\"/> <path d=\"M10 13l-1.5 -1.5\"/> <path d=\"M7 16l-1.5 -1.5\"/>", "chemical": "<path d=\"M6.1 15h11.8\"/> <path d=\"M14 3v7.342a6 6 0 0 1 1.318 10.658h-6.635a6 6 0 0 1 1.317 -10.66v-7.34h4z\"/> <path d=\"M9 3h6\"/>", "update": "<path d=\"M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2\"/> <path d=\"M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z\"/> <path d=\"M9 12l.01 0\"/> <path d=\"M13 12l2 0\"/> <path d=\"M9 16l.01 0\"/> <path d=\"M13 16l2 0\"/>", "hotout": "<path d=\"M12 12c2 -2.96 0 -7 -1 -8c0 3.038 -1.773 4.741 -3 6c-1.226 1.26 -2 3.24 -2 5a6 6 0 1 0 12 0c0 -1.532 -1.056 -3.94 -2 -5c-1.786 3 -2.791 3 -4 2z\"/>", "rhf": "<path d=\"M12 4l-8 4l8 4l8 -4l-8 -4\"/> <path d=\"M4 12l8 4l8 -4\"/> <path d=\"M4 16l8 4l8 -4\"/>", "rawmaterial": "<path d=\"M12 17l-2 2l2 2\"/> <path d=\"M10 19h9a2 2 0 0 0 1.75 -2.75l-.55 -1\"/> <path d=\"M8.536 11l-.732 -2.732l-2.732 .732\"/> <path d=\"M7.804 8.268l-4.5 7.794a2 2 0 0 0 1.506 2.89l1.141 .024\"/> <path d=\"M15.464 11l2.732 .732l.732 -2.732\"/> <path d=\"M18.196 11.732l-4.5 -7.794a2 2 0 0 0 -3.256 -.14l-.591 .976\"/>", "logsheet": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z\"/> <path d=\"M8 11h8v7h-8z\"/> <path d=\"M8 15h8\"/> <path d=\"M11 11v7\"/>", "billetstock": "<path d=\"M7 16.5l-5 -3l5 -3l5 3v5.5l-5 3z\"/> <path d=\"M2 13.5v5.5l5 3\"/> <path d=\"M7 16.545l5 -3.03\"/> <path d=\"M17 16.5l-5 -3l5 -3l5 3v5.5l-5 3z\"/> <path d=\"M12 19l5 3\"/> <path d=\"M17 16.5l5 -3\"/> <path d=\"M12 13.5v-5.5l-5 -3l5 -3l5 3v5.5\"/> <path d=\"M7 5.03v5.455\"/> <path d=\"M12 8l5 -3\"/>", "stripmill": "<path d=\"M4 21c1.147 -4.02 1.983 -8.027 2 -12h6c.017 3.973 .853 7.98 2 12\"/> <path d=\"M12.5 13h4.5c.025 2.612 .894 5.296 2 8\"/> <path d=\"M9 5a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1\"/> <path d=\"M3 21l19 0\"/>", "stockdiff": "<path d=\"M11 16h10\"/> <path d=\"M11 16l4 4\"/> <path d=\"M11 16l4 -4\"/> <path d=\"M13 8h-10\"/> <path d=\"M13 8l-4 4\"/> <path d=\"M13 8l-4 -4\"/>", "bisdoc": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M5 8v-3a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2h-5\"/> <path d=\"M6 14m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/> <path d=\"M4.5 17l-1.5 5l3 -1.5l3 1.5l-1.5 -5\"/>", "testcert": "<path d=\"M12 15m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/> <path d=\"M10 7h4\"/> <path d=\"M10 18v4l2 -1l2 1v-4\"/> <path d=\"M10 19h-2a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-2\"/>", "rmscrap": "<path d=\"M12 17l-2 2l2 2\"/> <path d=\"M10 19h9a2 2 0 0 0 1.75 -2.75l-.55 -1\"/> <path d=\"M8.536 11l-.732 -2.732l-2.732 .732\"/> <path d=\"M7.804 8.268l-4.5 7.794a2 2 0 0 0 1.506 2.89l1.141 .024\"/> <path d=\"M15.464 11l2.732 .732l.732 -2.732\"/> <path d=\"M18.196 11.732l-4.5 -7.794a2 2 0 0 0 -3.256 -.14l-.591 .976\"/>", "slagcrusher": "<path d=\"M19.875 6.27a2.225 2.225 0 0 1 1.125 1.948v7.284c0 .809 -.443 1.555 -1.158 1.948l-6.75 4.27a2.269 2.269 0 0 1 -2.184 0l-6.75 -4.27a2.225 2.225 0 0 1 -1.158 -1.948v-7.285c0 -.809 .443 -1.554 1.158 -1.947l6.75 -3.98a2.33 2.33 0 0 1 2.25 0l6.75 3.98h-.033z\"/> <path d=\"M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/>", "mis": "<path d=\"M8 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h5.697\"/> <path d=\"M18 14v4h4\"/> <path d=\"M18 11v-4a2 2 0 0 0 -2 -2h-2\"/> <path d=\"M8 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z\"/> <path d=\"M18 18m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0\"/> <path d=\"M8 11h4\"/> <path d=\"M8 15h3\"/>", "ncr": "<path d=\"M12.802 2.165l5.575 2.389c.48 .206 .863 .589 1.07 1.07l2.388 5.574c.22 .512 .22 1.092 0 1.604l-2.389 5.575c-.206 .48 -.589 .863 -1.07 1.07l-5.574 2.388c-.512 .22 -1.092 .22 -1.604 0l-5.575 -2.389a2.036 2.036 0 0 1 -1.07 -1.07l-2.388 -5.574a2.036 2.036 0 0 1 0 -1.604l2.389 -5.575c.206 -.48 .589 -.863 1.07 -1.07l5.574 -2.388a2.036 2.036 0 0 1 1.604 0z\"/> <path d=\"M12 8v4\"/> <path d=\"M12 16h.01\"/>", "calibration": "<path d=\"M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5\"/>", "vendor": "<path d=\"M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572\"/> <path d=\"M12 6l-3.293 3.293a1 1 0 0 0 0 1.414l.543 .543c.69 .69 1.81 .69 2.5 0l1 -1a3.182 3.182 0 0 1 4.5 0l2.25 2.25\"/> <path d=\"M12.5 15.5l2 2\"/> <path d=\"M15 13l2 2\"/>", "traceability": "<path d=\"M9 15l6 -6\"/> <path d=\"M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464\"/> <path d=\"M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463\"/>", "objectives": "<path d=\"M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0\"/> <path d=\"M12 7a5 5 0 1 0 5 5\"/> <path d=\"M13 3.055a9 9 0 1 0 7.941 7.945\"/> <path d=\"M15 6v3h3l3 -3h-3v-3z\"/> <path d=\"M15 9l-3 3\"/>", "pack": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M5 8v-3a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2h-5\"/> <path d=\"M6 14m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/> <path d=\"M4.5 17l-1.5 5l3 -1.5l3 1.5l-1.5 -5\"/>"};
+const SUB_SVG = {"daily": "<path d=\"M4 5m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z\"/> <path d=\"M16 3l0 4\"/> <path d=\"M8 3l0 4\"/> <path d=\"M4 11l16 0\"/> <path d=\"M8 15h2v2h-2z\"/>", "period": "<path d=\"M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M15 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M9 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M4 20h14\"/>", "mom": "<path d=\"M4 19l16 0\"/> <path d=\"M4 15l4 -6l4 2l4 -5l4 4\"/>", "calendar": "<path d=\"M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z\"/> <path d=\"M16 3v4\"/> <path d=\"M8 3v4\"/> <path d=\"M4 11h16\"/> <path d=\"M11 15h1\"/> <path d=\"M12 15v3\"/>", "linechart": "<path d=\"M4 19l16 0\"/> <path d=\"M4 15l4 -6l4 2l4 -5l4 4\"/>", "pie": "<path d=\"M10 3.2a9 9 0 1 0 10.8 10.8a1 1 0 0 0 -1 -1h-6.8a2 2 0 0 1 -2 -2v-7a.9 .9 0 0 0 -1 -.8\"/> <path d=\"M15 3.5a9 9 0 0 1 5.5 5.5h-4.5a1 1 0 0 1 -1 -1v-4.5\"/>", "sizewise": "<path d=\"M17 3l4 4l-14 14l-4 -4z\"/> <path d=\"M16 7l-1.5 -1.5\"/> <path d=\"M13 10l-1.5 -1.5\"/> <path d=\"M10 13l-1.5 -1.5\"/> <path d=\"M7 16l-1.5 -1.5\"/>", "chemical": "<path d=\"M6.1 15h11.8\"/> <path d=\"M14 3v7.342a6 6 0 0 1 1.318 10.658h-6.635a6 6 0 0 1 1.317 -10.66v-7.34h4z\"/> <path d=\"M9 3h6\"/>", "update": "<path d=\"M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2\"/> <path d=\"M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z\"/> <path d=\"M9 12l.01 0\"/> <path d=\"M13 12l2 0\"/> <path d=\"M9 16l.01 0\"/> <path d=\"M13 16l2 0\"/>", "hotout": "<path d=\"M12 12c2 -2.96 0 -7 -1 -8c0 3.038 -1.773 4.741 -3 6c-1.226 1.26 -2 3.24 -2 5a6 6 0 1 0 12 0c0 -1.532 -1.056 -3.94 -2 -5c-1.786 3 -2.791 3 -4 2z\"/>", "rhf": "<path d=\"M12 4l-8 4l8 4l8 -4l-8 -4\"/> <path d=\"M4 12l8 4l8 -4\"/> <path d=\"M4 16l8 4l8 -4\"/>", "rawmaterial": "<path d=\"M12 17l-2 2l2 2\"/> <path d=\"M10 19h9a2 2 0 0 0 1.75 -2.75l-.55 -1\"/> <path d=\"M8.536 11l-.732 -2.732l-2.732 .732\"/> <path d=\"M7.804 8.268l-4.5 7.794a2 2 0 0 0 1.506 2.89l1.141 .024\"/> <path d=\"M15.464 11l2.732 .732l.732 -2.732\"/> <path d=\"M18.196 11.732l-4.5 -7.794a2 2 0 0 0 -3.256 -.14l-.591 .976\"/>", "logsheet": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z\"/> <path d=\"M8 11h8v7h-8z\"/> <path d=\"M8 15h8\"/> <path d=\"M11 11v7\"/>", "billetstock": "<path d=\"M7 16.5l-5 -3l5 -3l5 3v5.5l-5 3z\"/> <path d=\"M2 13.5v5.5l5 3\"/> <path d=\"M7 16.545l5 -3.03\"/> <path d=\"M17 16.5l-5 -3l5 -3l5 3v5.5l-5 3z\"/> <path d=\"M12 19l5 3\"/> <path d=\"M17 16.5l5 -3\"/> <path d=\"M12 13.5v-5.5l-5 -3l5 -3l5 3v5.5\"/> <path d=\"M7 5.03v5.455\"/> <path d=\"M12 8l5 -3\"/>", "stripmill": "<path d=\"M4 21c1.147 -4.02 1.983 -8.027 2 -12h6c.017 3.973 .853 7.98 2 12\"/> <path d=\"M12.5 13h4.5c.025 2.612 .894 5.296 2 8\"/> <path d=\"M9 5a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1\"/> <path d=\"M3 21l19 0\"/>", "stockdiff": "<path d=\"M11 16h10\"/> <path d=\"M11 16l4 4\"/> <path d=\"M11 16l4 -4\"/> <path d=\"M13 8h-10\"/> <path d=\"M13 8l-4 4\"/> <path d=\"M13 8l-4 -4\"/>", "bisdoc": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M5 8v-3a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2h-5\"/> <path d=\"M6 14m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/> <path d=\"M4.5 17l-1.5 5l3 -1.5l3 1.5l-1.5 -5\"/>", "testcert": "<path d=\"M12 15m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/> <path d=\"M10 7h4\"/> <path d=\"M10 18v4l2 -1l2 1v-4\"/> <path d=\"M10 19h-2a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-2\"/>", "rmscrap": "<path d=\"M12 17l-2 2l2 2\"/> <path d=\"M10 19h9a2 2 0 0 0 1.75 -2.75l-.55 -1\"/> <path d=\"M8.536 11l-.732 -2.732l-2.732 .732\"/> <path d=\"M7.804 8.268l-4.5 7.794a2 2 0 0 0 1.506 2.89l1.141 .024\"/> <path d=\"M15.464 11l2.732 .732l.732 -2.732\"/> <path d=\"M18.196 11.732l-4.5 -7.794a2 2 0 0 0 -3.256 -.14l-.591 .976\"/>", "slagcrusher": "<path d=\"M19.875 6.27a2.225 2.225 0 0 1 1.125 1.948v7.284c0 .809 -.443 1.555 -1.158 1.948l-6.75 4.27a2.269 2.269 0 0 1 -2.184 0l-6.75 -4.27a2.225 2.225 0 0 1 -1.158 -1.948v-7.285c0 -.809 .443 -1.554 1.158 -1.947l6.75 -3.98a2.33 2.33 0 0 1 2.25 0l6.75 3.98h-.033z\"/> <path d=\"M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/>", "mis": "<path d=\"M8 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h5.697\"/> <path d=\"M18 14v4h4\"/> <path d=\"M18 11v-4a2 2 0 0 0 -2 -2h-2\"/> <path d=\"M8 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z\"/> <path d=\"M18 18m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0\"/> <path d=\"M8 11h4\"/> <path d=\"M8 15h3\"/>", "ncr": "<path d=\"M12.802 2.165l5.575 2.389c.48 .206 .863 .589 1.07 1.07l2.388 5.574c.22 .512 .22 1.092 0 1.604l-2.389 5.575c-.206 .48 -.589 .863 -1.07 1.07l-5.574 2.388c-.512 .22 -1.092 .22 -1.604 0l-5.575 -2.389a2.036 2.036 0 0 1 -1.07 -1.07l-2.388 -5.574a2.036 2.036 0 0 1 0 -1.604l2.389 -5.575c.206 -.48 .589 -.863 1.07 -1.07l5.574 -2.388a2.036 2.036 0 0 1 1.604 0z\"/> <path d=\"M12 8v4\"/> <path d=\"M12 16h.01\"/>", "calibration": "<path d=\"M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5\"/>", "vendor": "<path d=\"M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572\"/> <path d=\"M12 6l-3.293 3.293a1 1 0 0 0 0 1.414l.543 .543c.69 .69 1.81 .69 2.5 0l1 -1a3.182 3.182 0 0 1 4.5 0l2.25 2.25\"/> <path d=\"M12.5 15.5l2 2\"/> <path d=\"M15 13l2 2\"/>", "traceability": "<path d=\"M9 15l6 -6\"/> <path d=\"M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464\"/> <path d=\"M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463\"/>", "objectives": "<path d=\"M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0\"/> <path d=\"M12 7a5 5 0 1 0 5 5\"/> <path d=\"M13 3.055a9 9 0 1 0 7.941 7.945\"/> <path d=\"M15 6v3h3l3 -3h-3v-3z\"/> <path d=\"M15 9l-3 3\"/>", "pack": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M5 8v-3a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2h-5\"/> <path d=\"M6 14m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/> <path d=\"M4.5 17l-1.5 5l3 -1.5l3 1.5l-1.5 -5\"/>", "spongenote": "<path d=\"M13 20l7 -7\"/> <path d=\"M13 20v-6a1 1 0 0 1 1 -1h6v-7a2 2 0 0 0 -2 -2h-12a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7\"/>"};
 const SUBNAV_GROUP = { dashboardSubNav: "prod", trendsSubNav: "prod", whatsappSubNav: "prod", reportsSubNav: "docs", iso9001SubNav: "qual" };
 function setupSubNavIcons() {
   document.querySelectorAll(".sidebar.subNav").forEach(sn => {
@@ -20437,6 +20476,136 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
     if (a.k === "go") run(ym); else LSset("isoPackSnooze", today);
   };
   window.isoPackRun = run;
+})();
+</script>
+<script>
+/* ===================== STICKY NOTE: Sponge Iron Required (JPG for the WhatsApp group) ===================== */
+(function spongeNote() {
+  const $ = id => document.getElementById(id);
+  const box = $("snRows"); if (!box) return;
+  const DEF = { title: "SPONGE IRON REQUIRED", rows: [{ n: "PELLETS-", f: "79+", q: "100 MT" }, { n: "FINES-", f: "", q: "AS PER AVAILABILITY" }], sign: true };
+  let st;
+  try { st = JSON.parse(localStorage.getItem("spongeNote") || "null") || DEF; } catch (e) { st = DEF; }
+  if (!Array.isArray(st.rows) || !st.rows.length) st.rows = DEF.rows.slice();
+  const save = () => { try { localStorage.setItem("spongeNote", JSON.stringify(st)); } catch (e) {} };
+  const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => "&#" + c.charCodeAt(0) + ";");
+  const todayVal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+
+  $("snTitle").value = st.title || DEF.title;
+  $("snDate").value = todayVal();               // always today's date when the page opens
+  $("snSign").checked = st.sign !== false;
+
+  function drawRows() {
+    box.innerHTML = st.rows.map((r, i) => `<div class="snRow" data-i="${i}">
+      <input type="text" data-k="n" value="${esc(r.n)}" placeholder="Material" aria-label="Material">
+      <input type="text" data-k="f" value="${esc(r.f)}" placeholder="FeM" aria-label="FeM">
+      <input type="text" data-k="q" value="${esc(r.q)}" placeholder="Qty" aria-label="Qty">
+      <button type="button" class="snDel" title="Remove this line" aria-label="Remove">✕</button></div>`).join("");
+  }
+  drawRows();
+  box.addEventListener("input", e => {
+    const row = e.target.closest(".snRow"); if (!row || !e.target.dataset.k) return;
+    st.rows[+row.dataset.i][e.target.dataset.k] = e.target.value; save(); later();
+  });
+  box.addEventListener("click", e => {
+    if (!e.target.classList.contains("snDel")) return;
+    const i = +e.target.closest(".snRow").dataset.i;
+    if (st.rows.length <= 1) return;
+    st.rows.splice(i, 1); save(); drawRows(); render();
+  });
+  $("snAddRow").addEventListener("click", () => { st.rows.push({ n: "", f: "", q: "" }); save(); drawRows(); render(); });
+  $("snTitle").addEventListener("input", () => { st.title = $("snTitle").value; save(); later(); });
+  $("snDate").addEventListener("input", later);
+  $("snSign").addEventListener("change", () => { st.sign = $("snSign").checked; save(); render(); });
+  $("snReset").addEventListener("click", () => { st = JSON.parse(JSON.stringify(DEF)); save(); $("snTitle").value = st.title; $("snSign").checked = true; drawRows(); render(); });
+
+  let tmr = 0;
+  function later() { clearTimeout(tmr); tmr = setTimeout(render, 250); }
+  const dmy = v => v ? v.split("-").reverse().join("-") : "";
+
+  // ---- the picture ----
+  const cv = document.createElement("canvas");
+  async function draw() {
+    try { await Promise.all(['800 60px "Baloo 2"', '700 40px "Baloo 2"', '700 40px "Poppins"', '600 40px "Poppins"'].map(f => document.fonts.load(f))); } catch (e) {}
+    const rows = st.rows.filter(r => (r.n || r.f || r.q).trim());
+    const W = 1080, H = Math.max(1080, 700 + rows.length * 118);
+    cv.width = W; cv.height = H;
+    const g = cv.getContext("2d");
+    // table top background
+    const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#e8edf3"); bg.addColorStop(1, "#d5dde7");
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    // the note, a little tilted
+    const nx = 95, ny = 120, nw = W - 190, nh = H - 230, fold = 78;
+    g.save();
+    g.translate(W / 2, H / 2); g.rotate(-1.3 * Math.PI / 180); g.translate(-W / 2, -H / 2);
+    const notePath = () => { g.beginPath(); g.moveTo(nx, ny); g.lineTo(nx + nw, ny); g.lineTo(nx + nw, ny + nh - fold); g.lineTo(nx + nw - fold, ny + nh); g.lineTo(nx, ny + nh); g.closePath(); };
+    g.save(); g.shadowColor = "rgba(30,40,60,.32)"; g.shadowBlur = 46; g.shadowOffsetY = 22;
+    notePath(); const ng = g.createLinearGradient(0, ny, 0, ny + nh); ng.addColorStop(0, "#fff480"); ng.addColorStop(1, "#ffdc4e"); g.fillStyle = ng; g.fill(); g.restore();
+    // folded corner
+    g.beginPath(); g.moveTo(nx + nw, ny + nh - fold); g.lineTo(nx + nw - fold, ny + nh - fold + 6); g.lineTo(nx + nw - fold, ny + nh); g.closePath();
+    g.fillStyle = "#e2bb32"; g.fill();
+    // faint ruled lines
+    g.strokeStyle = "rgba(60,100,170,.16)"; g.lineWidth = 2;
+    for (let y = ny + 360; y < ny + nh - 40; y += 118) { g.beginPath(); g.moveTo(nx + 40, y); g.lineTo(nx + nw - 40, y); g.stroke(); }
+    // tape on top
+    g.save(); g.translate(W / 2, ny + 4); g.rotate(2 * Math.PI / 180);
+    g.fillStyle = "rgba(255,255,255,.55)"; g.fillRect(-120, -30, 240, 60);
+    g.strokeStyle = "rgba(255,255,255,.8)"; g.lineWidth = 2; g.strokeRect(-120, -30, 240, 60); g.restore();
+
+    const fit = (txt, w, fam, size, maxW) => { let s = size; do { g.font = `${w} ${s}px "${fam}"`; if (g.measureText(txt).width <= maxW) break; s -= 2; } while (s > 18); return s; };
+    const ink = "#1c2742";
+    // title + date
+    g.textAlign = "center"; g.textBaseline = "alphabetic"; g.fillStyle = ink;
+    const title = (st.title || "").trim() || DEF.title;
+    fit(title, 800, "Baloo 2", 78, nw - 110); g.fillText(title, W / 2, ny + 140);
+    const d = $("snDate").value;
+    if (d) { g.fillStyle = "#b3261e"; fit(`AS ON ${dmy(d)}`, 700, "Baloo 2", 54, nw - 110); g.fillText(`AS ON ${dmy(d)}`, W / 2, ny + 212); }
+    g.strokeStyle = "rgba(28,39,66,.55)"; g.lineWidth = 3; g.beginPath(); g.moveTo(nx + 60, ny + 250); g.lineTo(nx + nw - 60, ny + 250); g.stroke();
+    // table
+    const c1 = nx + 60, c2 = nx + nw * 0.43, c3 = nx + nw * 0.64, right = nx + nw - 50;
+    g.textAlign = "left"; g.fillStyle = ink; g.font = '700 44px "Poppins"';
+    g.fillText("SPONGE", c1, ny + 320); g.fillText("FeM", c2, ny + 320); g.fillText("QTY", c3, ny + 320);
+    let y = ny + 438;
+    rows.forEach(r => {
+      g.fillStyle = ink;
+      fit(r.n || "", 700, "Poppins", 46, c2 - c1 - 20); g.fillText(r.n || "", c1, y);
+      g.fillStyle = "#0b2545";
+      if ((r.f || "").trim()) {
+        fit(r.f, 600, "Poppins", 46, c3 - c2 - 20); g.fillText(r.f, c2, y);
+        fit(r.q || "", 600, "Poppins", 46, right - c3); g.fillText(r.q || "", c3, y);
+      } else {   // no FeM: quantity / remark uses both columns, like the Excel sheet
+        fit(r.q || "", 600, "Poppins", 46, right - c2); g.fillText(r.q || "", c2, y);
+      }
+      y += 118;
+    });
+    if (st.sign) { g.textAlign = "right"; g.fillStyle = "rgba(28,39,66,.55)"; g.font = '600 30px "Baloo 2"'; g.fillText("- QAD-SMS", nx + nw - fold - 24, ny + nh - 34); }
+    g.restore();
+    return cv;
+  }
+  async function render() {
+    await draw();
+    const img = $("snPreview"); if (img) img.src = cv.toDataURL("image/jpeg", 0.92);
+  }
+  const fileName = () => `Sponge_Iron_Required_${dmy($("snDate").value) || "note"}.jpg`;
+  const blob = async () => { await draw(); return new Promise(res => cv.toBlob(res, "image/jpeg", 0.92)); };
+  $("snShare").addEventListener("click", async () => {
+    try {
+      const b = await blob(); const f = new File([b], fileName(), { type: "image/jpeg" });
+      if (navigator.canShare && navigator.canShare({ files: [f] })) await navigator.share({ files: [f], title: fileName() });
+      else { alert("Direct sharing isn't supported here - the picture will be downloaded; send it from the gallery / Downloads."); dl(b); }
+    } catch (e) { if (e.name !== "AbortError") alert("Share failed: " + e.message); }
+  });
+  function dl(b) {
+    const u = URL.createObjectURL(b), a = document.createElement("a");
+    a.href = u; a.download = fileName(); document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 4000);
+  }
+  $("snDownload").addEventListener("click", async () => dl(await blob()));
+  // draw whenever the page is opened (date refreshed to today)
+  const tile = document.querySelector('#whatsappSubNav .navItem[data-subwhatsapp="spongenote"]');
+  if (tile) tile.addEventListener("click", () => { $("snDate").value = todayVal(); render(); });
+  render();
+  window.spongeNoteRender = render;
 })();
 </script>
 </body>
