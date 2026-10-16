@@ -1752,6 +1752,7 @@
   }
   .hidden{display:none !important;}
   /* ===== View-only (team) accounts ===== */
+  body.viewerMode .ownerOnly,
   body.viewerMode .vmBlocked,
   body.viewerMode #mainSidebar > .navItem[data-section="whatsapp"],
   body.viewerMode #mainSidebar > .navItem[data-section="nextday"],
@@ -2768,6 +2769,13 @@
               <button class="secondary" id="navDrawerSignature" type="button">✍️ Upload signature</button>
             </div>
             <input type="file" id="signatureFileInput" accept="image/*" class="hidden">
+
+            <div id="teamSetupBox" class="ownerOnly" style="margin-top:18px;">
+              <label>👥 Team (view-only) access</label>
+              <div style="font-size:12.5px;color:var(--muted);">Gives these accounts view-only access to the report files: <b id="teamEmailsList"></b></div>
+              <div class="btnRow"><button class="secondary" id="teamSetupBtn" type="button">👥 Team Setup</button></div>
+              <div id="teamSetupResult" style="font-size:12.5px;margin-top:8px;"></div>
+            </div>
           </div>
         </div>
 
@@ -4373,9 +4381,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.16.10";
+const APP_VERSION = "2026.10.16.11";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "👥 Team Setup (File Location page) - team accounts now read your reports view-only",
   "👥 Team view-only accounts added (rajalok100@gmail.com, smsproduction@marutisteel.in)",
   "🍎 Team accounts can view reports in Safari on iPhone / iPad (view-only, with watermark)",
   "⚡ App opens instantly again - a new version shows an Update button instead of slowing the start",
@@ -5980,6 +5989,10 @@ function applyViewerMode(on) {
   const f = window.fetch;
   window.fetch = function (input, init) {
     try {
+      if (isViewer() && typeof input === "string" && /^https:\/\/graph\.microsoft\.com\//i.test(input) && _teamMap) {
+        input = teamRewriteUrl(input);                      // team: read the owner's shared files
+        if (init && typeof init.body === "string" && /\/\$batch$/.test(input.split("?")[0])) init = { ...init, body: teamRewriteBatchBody(init.body) };
+      }
       if (isViewer()) {
         const url = String(typeof input === "string" ? input : (input && input.url) || "");
         const method = String((init && init.method) || (input && input.method) || "GET").toUpperCase();
@@ -5992,13 +6005,165 @@ function applyViewerMode(on) {
         }
       }
     } catch (x) {}
-    return f.apply(this, arguments);
+    return f.call(this, input, init);
   };
   // buttons that appear later (reports, popups) are hidden too
   const start = () => new MutationObserver(() => { if (on()) { clearTimeout(start._t); start._t = setTimeout(vmMarkButtons, 80); } })
     .observe(document.body, { childList: true, subtree: true });
   if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
 })();
+
+/* ===================== TEAM ACCESS (owner shares, team reads) ===================== */
+// Owner: "Team Setup" (File Location page) shares the report files VIEW-ONLY with
+// VIEWER_EMAILS and writes a small map (which file is where) to the owner's OneDrive.
+// The map's address goes into team.json, uploaded once to the website repo.
+// Team account: reads team.json + the map, then every "/me/drive/..." request of
+// the app is pointed at the owner's shared file instead of the team member's own drive.
+const TEAM_GRAPH = "https://graph.microsoft.com/v1.0";
+const TEAM_MAP_PATH = "SMS_Team_Map.json";            // in the owner's app folder
+const VIEWER_SCOPES = ["Files.Read.All", "User.Read"]; // read files shared with them
+let _team = null, _teamLoad = null, _teamMap = null, _teamMapLoad = null;
+
+function teamLoad() {
+  if (!_teamLoad) _teamLoad = fetch("./team.json?t=" + Date.now(), { cache: "no-store" })
+    .then(r => r.ok ? r.json() : null).then(j => { _team = j; return j; }).catch(() => null);
+  return _teamLoad;
+}
+function teamAuthority() {
+  return _team && _team.tid ? "https://login.microsoftonline.com/" + _team.tid : undefined;
+}
+async function teamMapLoad(token) {
+  if (_teamMap) return _teamMap;
+  if (!_teamMapLoad) _teamMapLoad = (async () => {
+    await teamLoad();
+    if (!_team || !_team.driveId || !_team.mapId) throw new Error("Team access is not set up yet (team.json missing) - ask Durgesh to run Team Setup.");
+    const r = await fetch(`${TEAM_GRAPH}/drives/${_team.driveId}/items/${_team.mapId}/content`, { headers: { Authorization: "Bearer " + token } });
+    if (!r.ok) throw new Error(`Can't open the shared report list (${r.status}) - open the OneDrive invitation e-mail once, then try again.`);
+    _teamMap = await r.json();
+    return _teamMap;
+  })().catch(e => { _teamMapLoad = null; throw e; });
+  return _teamMapLoad;
+}
+function teamFind(path) {
+  const items = (_teamMap && _teamMap.items) || [];
+  const p = path.toLowerCase();
+  let best = null;
+  for (const it of items) {
+    const ip = it.path.toLowerCase();
+    if (p === ip) return { it, rest: "" };
+    if (it.folder && p.startsWith(ip + "/") && (!best || ip.length > best.it.path.length)) best = { it, rest: path.slice(it.path.length + 1) };
+  }
+  return best;
+}
+// "/me/drive/root:/Desktop/x.xlsx:/workbook/..." -> the owner's shared item
+function teamRewriteUrl(url) {
+  if (!_teamMap || !_teamMap.driveId) return url;
+  const d = _teamMap.driveId;
+  const m = /^((?:https:\/\/graph\.microsoft\.com\/v1\.0)?)\/me\/drive\/root:\/([^:?]*)(.*)$/.exec(url);
+  if (m) {
+    let path;
+    try { path = m[2].split("/").map(decodeURIComponent).join("/"); } catch (e) { return url; }
+    const hit = teamFind(path);
+    if (!hit) return url;
+    const tail = m[3] || "";
+    if (!hit.rest) return `${m[1]}/drives/${d}/items/${hit.it.id}${tail.startsWith(":") ? tail.slice(1) : tail}`;
+    const enc = hit.rest.split("/").map(encodeURIComponent).join("/");
+    return `${m[1]}/drives/${d}/items/${hit.it.id}:/${enc}${tail}`;
+  }
+  return url.replace(/^((?:https:\/\/graph\.microsoft\.com\/v1\.0)?)\/me\/drive\/items\//, `$1/drives/${d}/items/`);
+}
+function teamRewriteBatchBody(body) {
+  try {
+    const j = JSON.parse(body);
+    (j.requests || []).forEach(r => { if (r && r.url) r.url = teamRewriteUrl(r.url); });
+    return JSON.stringify(j);
+  } catch (e) { return body; }
+}
+
+// ---- owner side ----
+function teamCandidatePaths() {
+  const paths = new Set(["Desktop/MIPPL"]);
+  try { paths.add(INWARD_RM_FILE_PATH); } catch (e) {}
+  try { paths.add(DEBIT_NOTE_FILE_PATH); } catch (e) {}
+  const v = id => { const el = document.getElementById(id); return el && el.value ? el.value.trim() : ""; };
+  [v("ecFilePath"), v("filePath"), localStorage.getItem("fixedFilePath") || ""].forEach(x => { if (x) paths.add(x); });
+  ["Party_Wise_Test_Reports.xlsx", "Desktop/Party_Wise_Test_Reports.xlsx"].forEach(x => paths.add(x));
+  const now = new Date();
+  for (let k = -1; k <= 13; k++) {                       // monthly report files lying on the Desktop
+    const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
+    const mn = ["January","February","March","April","May","June","July","August","September","October","November","December"][d.getMonth()];
+    const yy = String(d.getFullYear()).slice(2);
+    [`${mn}'${yy}_Reports.xlsx`, `${mn}'${yy}_Report.xlsx`].forEach(n => paths.add(`Desktop/${n}`));
+  }
+  return [...paths];
+}
+async function teamInvite(token, itemId) {
+  return graphFetch(`${TEAM_GRAPH}/me/drive/items/${itemId}/invite`, token, { method: "POST", body: JSON.stringify({
+    recipients: VIEWER_EMAILS.map(email => ({ email })),
+    roles: ["read"], requireSignIn: true, sendInvitation: true,
+    message: "SMS Reports - view-only access (please open this once)." }) });
+}
+async function teamWriteMap(token, map) {
+  return graphFetch(`${TEAM_GRAPH}/me/drive/special/approot:/${TEAM_MAP_PATH}:/content`, token,
+    { method: "PUT", body: JSON.stringify(map, null, 1) });
+}
+function teamSaveLocal(map) { try { localStorage.setItem("teamMapCache", JSON.stringify(map)); } catch (e) {} }
+async function runTeamSetup() {
+  const out = document.getElementById("teamSetupResult");
+  const say = (h) => { if (out) out.innerHTML = h; };
+  if (isViewer()) return;
+  if (!VIEWER_EMAILS.length) { say("No team e-mails in the list yet."); return; }
+  try {
+    const token = await getToken(); if (!token) return;
+    say("⏳ Finding the report files...");
+    const drive = await graphFetch(`${TEAM_GRAPH}/me/drive?$select=id`, token);
+    const found = [];
+    const paths = teamCandidatePaths();
+    const got = await Promise.all(paths.map(pth => tryGetItem(token, pth).then(it => it ? { path: pth, id: it.id, folder: !!it.folder } : null)));
+    got.forEach(x => { if (x && !found.some(f => f.id === x.id)) found.push(x); });
+    if (!found.length) throw new Error("No report files found.");
+    const lines = [];
+    for (let i = 0; i < found.length; i++) {
+      say(`⏳ Sharing view-only (${i + 1}/${found.length}): ${found[i].path}`);
+      try { await teamInvite(token, found[i].id); lines.push(`✅ ${found[i].path}${found[i].folder ? " (folder)" : ""}`); }
+      catch (e) { lines.push(`❌ ${found[i].path}: ${String(e.message || e).slice(0, 140)}`); }
+    }
+    const tid = (account && (account.tenantId || (account.idTokenClaims || {}).tid)) || "";
+    const map = { v: 1, owner: accountEmail(account), driveId: drive.id, tid, viewers: VIEWER_EMAILS, updated: new Date().toISOString(), items: found };
+    say("⏳ Saving the file list...");
+    const mapItem = await teamWriteMap(token, map);
+    try { await teamInvite(token, mapItem.id); } catch (e) { lines.push(`❌ file list: ${String(e.message || e).slice(0, 140)}`); }
+    teamSaveLocal(map);
+    const teamJson = { v: 1, owner: map.owner, tid, driveId: drive.id, mapId: mapItem.id };
+    const blob = new Blob([JSON.stringify(teamJson, null, 1)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    say(`<div style="margin-bottom:6px;"><b>Shared view-only with:</b> ${VIEWER_EMAILS.join(", ")}</div>` +
+      `<div style="max-height:180px;overflow:auto;font-size:12px;line-height:1.5;">${lines.map(l => l.replace(/</g, "&lt;")).join("<br>")}</div>` +
+      `<div style="margin-top:10px;"><b>Last step (only once):</b> download <b>team.json</b> and upload it to the website repo (next to index.html).</div>` +
+      `<a class="primary" href="${url}" download="team.json" style="display:inline-block;margin-top:8px;padding:9px 14px;border-radius:8px;background:var(--gold);color:#0b2545;font-weight:700;text-decoration:none;">⬇️ Download team.json</a>`);
+  } catch (e) {
+    say(`❌ ${String(e.message || e).replace(/</g, "&lt;")}`);
+  }
+}
+(function teamSetupUi() {
+  const b = document.getElementById("teamSetupBtn"), l = document.getElementById("teamEmailsList");
+  if (l) l.textContent = VIEWER_EMAILS.join(", ") || "(none)";
+  if (b) b.addEventListener("click", () => { if (confirm("Share the report files VIEW-ONLY with:\n" + VIEWER_EMAILS.join("\n") + "\n\nThey will get an e-mail from OneDrive.")) runTeamSetup(); });
+})();
+// A new month file made by "Create Next Month File" is shared with the team automatically.
+async function teamAfterNewFile(path, id, token) {
+  let map = null;
+  try { map = JSON.parse(localStorage.getItem("teamMapCache") || "null"); } catch (e) {}
+  if (!map || !map.items || !VIEWER_EMAILS.length) return;
+  const inFolder = map.items.some(it => it.folder && path.toLowerCase().startsWith(it.path.toLowerCase() + "/"));
+  if (!inFolder) {
+    await teamInvite(token, id);
+    map.items.push({ path, id, folder: false });
+  }
+  map.updated = new Date().toISOString();
+  await teamWriteMap(token, map);
+  teamSaveLocal(map);
+}
 function blockAccount(reason) {
   const acc = account;
   try { logLoginEvent("Blocked"); } catch (e) {}
@@ -6589,7 +6754,8 @@ function showSignedIn() {
   // where screenshots and screen recording are blocked by Android.
   if (isViewer() && !inViewerApp() && !isAppleMobile()) { blockAccount("viewerApp"); return; }
   applyViewerMode(isViewer());
-  setTimeout(() => loadSignature(), 0);
+  if (isViewer()) { teamLoad(); getToken().catch(e => { const st = document.getElementById("status"); if (st) { st.className = "err"; st.textContent = e.message; } }); }
+  else setTimeout(() => loadSignature(), 0);
   setTimeout(() => waCloudPull(), 0);   // WhatsApp Inbox status from OneDrive (same on every device)
   document.getElementById("signedOutMsg").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
@@ -6606,6 +6772,10 @@ function showSignedIn() {
   const banner = document.getElementById("quickInsightsBanner");
   const savedPhoto = localStorage.getItem("customProfilePhoto");
   const headerImgSrc = savedPhoto || (document.getElementById("headerLogoImg") || {}).src || "";
+  const escH = t => String(t).replace(/[&<>"']/g, ch => "&#" + ch.charCodeAt(0) + ";");
+  const gName = isViewer() ? escH(String(account.name || accountEmail(account).split("@")[0]).toUpperCase()) : "DURGESH MISHRA";
+  const gRole = isViewer() ? "👁️ Team · View only" : "Manager, QAD-SMS";
+  if (isViewer()) { const dn = document.getElementById("navDrawerName"); if (dn) dn.textContent = String(account.name || accountEmail(account)).toUpperCase(); }
   banner.innerHTML =
     '<div class="greetingCardInner">' +
       '<div class="greetingSkyBg">' + getGreetingIconSVG("") + '</div>' +
@@ -6614,8 +6784,8 @@ function showSignedIn() {
       '<input type="file" id="greetingAvatarInput" accept="image/*" class="hidden">' +
       '<div class="greetingTextWrap">' +
         '<div class="greetingHello">' + getGreeting() + '</div>' +
-        '<div class="greetingName">DURGESH MISHRA</div>' +
-        '<div class="greetingRole">Manager, QAD-SMS</div>' +
+        '<div class="greetingName">' + gName + '</div>' +
+        '<div class="greetingRole">' + gRole + '</div>' +
       '</div>' +
       greetingLineSVG() +
     '</div>';
@@ -8210,9 +8380,36 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
   }
 });
 
+// Team accounts get a read-only token for the owner's organisation (files shared with them).
+async function viewerGetToken(force) {
+  await teamLoad();
+  const authority = teamAuthority();
+  if (!force && cachedAccessToken && Date.now() < cachedTokenExpiry - 60000 && sessionStorage.getItem("viewerTokOk") === "1") {
+    await teamMapLoad(cachedAccessToken);
+    return cachedAccessToken;
+  }
+  try {
+    const res = await msalInstance.acquireTokenSilent({ scopes: VIEWER_SCOPES, account, authority, forceRefresh: !!force });
+    cachedAccessToken = res.accessToken;
+    cachedTokenExpiry = res.expiresOn ? res.expiresOn.getTime() : Date.now() + 3300000;
+    sessionStorage.setItem("viewerTokOk", "1");
+    await teamMapLoad(cachedAccessToken);
+    return cachedAccessToken;
+  } catch (e) {
+    if (/team access|shared report list/i.test(e.message || "")) throw e;
+    // one sign-in round per 3 minutes at most (no endless redirect loop)
+    const last = parseInt(sessionStorage.getItem("viewerAuthTry") || "0", 10);
+    if (Date.now() - last < 180000) throw new Error("Couldn't get read access to the shared reports. Open the OneDrive invitation e-mail once, then sign in again.");
+    sessionStorage.setItem("viewerAuthTry", String(Date.now()));
+    sessionStorage.setItem("viewerTokOk", "1");
+    await msalInstance.acquireTokenRedirect({ scopes: VIEWER_SCOPES, authority, loginHint: accountEmail(account) });
+    return null;
+  }
+}
 async function getToken() {
   await msalReady;
   if (account && !isAllowedAccount(account)) { blockAccount(); throw new Error("Access denied for this account"); }
+  if (isViewer()) return viewerGetToken(false);
   if (cachedAccessToken && Date.now() < cachedTokenExpiry - 60000) {
     return cachedAccessToken;
   }
@@ -8232,6 +8429,7 @@ async function getToken() {
 // least minMs, renewed silently in the background if needed (no page reload).
 async function getTokenFresh(minMs) {
   await msalReady;
+  if (isViewer()) return viewerGetToken(false);
   if (cachedAccessToken && Date.now() < cachedTokenExpiry - (minMs || 600000)) return cachedAccessToken;
   try {
     const res = await msalInstance.acquireTokenSilent({ scopes: graphScopes, account, forceRefresh: true });
@@ -8242,6 +8440,7 @@ async function getTokenFresh(minMs) {
 }
 // Called by graphFetch on a 401: renew silently and retry the same request.
 async function refreshAccessToken(oldToken) {
+  if (isViewer()) { try { return await viewerGetToken(true); } catch (e) { return null; } }
   if (cachedAccessToken && cachedAccessToken !== oldToken && Date.now() < cachedTokenExpiry - 60000) return cachedAccessToken;
   try {
     const res = await msalInstance.acquireTokenSilent({ scopes: graphScopes, account, forceRefresh: true });
@@ -14964,6 +15163,7 @@ async function createNextMonthFile() {
       }
     }
     _filePathCache.delete(`${ty}-${tm0}`);
+    teamAfterNewFile(`${folderPath}/${newName}`, newId, token).catch(() => {});   // team sees the new month too
 
     // 6. Daily Stock opening = previous month's LAST Daily Stock report:
     //    MANUAL STOCK pcs (col N, whole numbers) and ERP STOCK weight
