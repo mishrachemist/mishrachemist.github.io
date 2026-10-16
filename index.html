@@ -4381,9 +4381,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.16.11";
+const APP_VERSION = "2026.10.16.12";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🩺 Team sign-in problems now show Microsoft's exact reason on screen",
   "👥 Team Setup (File Location page) - team accounts now read your reports view-only",
   "👥 Team view-only accounts added (rajalok100@gmail.com, smsproduction@marutisteel.in)",
   "🍎 Team accounts can view reports in Safari on iPhone / iPad (view-only, with watermark)",
@@ -6629,7 +6630,12 @@ async function init() {
     return;
   }
   await msalReady;
-  const resp = await msalInstance.handleRedirectPromise().catch(e => { console.error(e); return null; });
+  const resp = await msalInstance.handleRedirectPromise().catch(e => {
+    console.error(e);
+    // keep Microsoft's own reason (e.g. AADSTS50020) so a team-account problem can be shown on screen
+    try { sessionStorage.setItem("msalLastError", ((e && e.errorCode) ? e.errorCode + ": " : "") + String((e && (e.errorMessage || e.message)) || e).slice(0, 300)); } catch (x) {}
+    return null;
+  });
   if (resp && resp.account) {
     account = resp.account;
     if (!isAllowedAccount(account)) { blockAccount(); return; }
@@ -8397,9 +8403,14 @@ async function viewerGetToken(force) {
     return cachedAccessToken;
   } catch (e) {
     if (/team access|shared report list/i.test(e.message || "")) throw e;
+    const why = ((e && e.errorCode) ? e.errorCode + ": " : "") + String((e && (e.errorMessage || e.message)) || e).slice(0, 220);
     // one sign-in round per 3 minutes at most (no endless redirect loop)
     const last = parseInt(sessionStorage.getItem("viewerAuthTry") || "0", 10);
-    if (Date.now() - last < 180000) throw new Error("Couldn't get read access to the shared reports. Open the OneDrive invitation e-mail once, then sign in again.");
+    if (Date.now() - last < 180000) {
+      const ms = sessionStorage.getItem("msalLastError") || "";
+      throw new Error("Couldn't get read access to the shared reports. Open the OneDrive invitation e-mail once, then sign in again." +
+        `\n[Details for Durgesh: tenant ${(_team && _team.tid) ? String(_team.tid).slice(0, 8) + "…" : "missing"} · ${ms || why}]`);
+    }
     sessionStorage.setItem("viewerAuthTry", String(Date.now()));
     sessionStorage.setItem("viewerTokOk", "1");
     await msalInstance.acquireTokenRedirect({ scopes: VIEWER_SCOPES, authority, loginHint: accountEmail(account) });
