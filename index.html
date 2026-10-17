@@ -3008,7 +3008,7 @@
                   <li><b>Google Sheet:</b> open the <a href="https://docs.google.com/spreadsheets/d/1O9dVxkZ7eSAHNCkeJ_i-0hRqvjBq4ue9yP5XFQnlIUw/copy" target="_blank" rel="noopener" style="color:var(--gold);font-weight:700;">📄 WA Inbox template</a> while signed in to your own Gmail and tap <b>Make a copy</b> (the script comes with the copy).</li>
                   <li><b>Fill the script:</b> in the copy open <b>Extensions → Apps Script</b> and change the top lines: <b>TOKEN</b> = a secret word / number of your own (not CHANGE-ME), <b>GROUPS</b> = the exact names of your WhatsApp groups (one per line, in quotes), <b>OWNER_EMAIL</b> = your e-mail. Save.</li>
                   <li><b>Deploy:</b> Deploy → New deployment → type <b>Web app</b> → Execute as: <b>Me</b> → Who has access: <b>Anyone</b> → Deploy → allow access → copy the <b>Web app URL</b> (it ends with <b>/exec</b>).</li>
-                  <li><b>MacroDroid</b> (Play Store) on the Android phone that is in the WhatsApp groups: import the macro file you get from Durgesh Mishra, put <b>your</b> Web app URL and TOKEN in it, choose <b>your</b> group names, and allow MacroDroid to read notifications.</li>
+                  <li><b>MacroDroid</b> (Play Store) on the Android phone that is in the WhatsApp groups: download the <a href="./formats/WA_Inbox_MacroDroid.macro" download style="color:var(--gold);font-weight:700;">📥 MacroDroid macro</a> and import it in MacroDroid. Then open the macro and change 3 things: <b>Trigger</b> (Notification received - WhatsApp) → title = your group names, separated by <b>|</b> (e.g. <i>Group A|Group B</i>); <b>HTTP Request</b> → URL = your Web app URL; parameter <b>token</b> = your TOKEN. Allow MacroDroid to read notifications.</li>
                   <li><b>WhatsApp:</b> keep notifications of those groups ON (not muted) and keep the phone on / connected.</li>
                   <li><b>This app:</b> tap the button below and enter the same Web app URL and TOKEN (last row: 0). Then Production → <b>📥 Fetch WhatsApp</b>.</li>
                 </ol>
@@ -4832,7 +4832,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.17.14";
+const APP_VERSION = "2026.10.17.15";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
   "🚀 \"File Location\" is now \"Get Started\": Excel formats, signature, WhatsApp auto-fetch setup steps and app access in one place",
