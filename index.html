@@ -2965,6 +2965,7 @@
         <div class="sectionPanel hidden" id="section-filelocation">
           <div class="card">
             <h2>File Location</h2>
+            <div class="hidden" aria-hidden="true"><!-- not needed any more: the month file is found by itself; kept (hidden) as the fallback the code still reads -->
             <label for="filePath">OneDrive file path (from root, e.g.: <code>Desktop/August'26_Reports.xlsx</code>)</label>
             <input type="text" id="filePath" value="Desktop/August'26_Reports.xlsx">
             <label for="sheetName">Prod. sheet name</label>
@@ -2981,8 +2982,9 @@
               <button class="secondary" id="autoDetectBtn">Find File for this Month</button>
             </div>
             <div id="autoDetectResult" style="font-size:13px;color:var(--muted);margin-top:8px;"></div>
+            </div>
 
-            <label style="margin-top:16px;">Signature for TC / BIS PDFs and SOP prints</label>
+            <label>Signature for TC / BIS PDFs and SOP prints</label>
             <div class="btnRow">
               <button class="secondary" id="navDrawerSignature" type="button">✍️ Upload signature</button>
             </div>
@@ -3018,7 +3020,7 @@
               <div id="accessStatus" style="font-size:12.5px;margin-top:6px;white-space:pre-line;"></div>
             </div>
 
-            <div id="teamSetupBox" class="ownerOnly" style="margin-top:18px;">
+            <div id="teamSetupBox" class="ownerOnly hidden" style="margin-top:18px;">
               <label>👥 Team (view-only) access</label>
               <div style="font-size:12.5px;color:var(--muted);">Team access is OFF. This takes back the OneDrive access given earlier to: <b id="teamEmailsList"></b></div>
               <div class="btnRow"><button class="secondary" id="teamRevokeBtn" type="button">🚫 Remove team access</button></div>
@@ -4808,7 +4810,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.17.09";
+const APP_VERSION = "2026.10.17.10";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
   "🔑 File Location: give / remove app access for other e-mails (they use their own OneDrive, no Kashvi) + 📦 put all Excel formats on a new OneDrive's Desktop in one tap",
