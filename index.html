@@ -3005,8 +3005,8 @@
               <div style="font-size:12.5px;color:var(--muted);">Messages of your WhatsApp groups go into your own Google Sheet, and <b>📥 Fetch WhatsApp</b> writes them into your Excel. Android phone only. Needs about 15 minutes once.</div>
               <details style="margin-top:8px;"><summary style="cursor:pointer;font-size:13px;font-weight:600;">Show the steps</summary>
                 <ol style="font-size:13px;line-height:1.55;padding-left:20px;margin:8px 0;">
-                  <li><b>Google Sheet:</b> ask Durgesh Mishra for the <b>WA Inbox template</b> link, open it on your Gmail and tap <b>Make a copy</b> (the script comes with the copy).</li>
-                  <li><b>Your own TOKEN:</b> in the copy open <b>Extensions → Apps Script</b> and change the secret TOKEN written in the code to a new word / number of your own. Save.</li>
+                  <li><b>Google Sheet:</b> open the <a href="https://docs.google.com/spreadsheets/d/1O9dVxkZ7eSAHNCkeJ_i-0hRqvjBq4ue9yP5XFQnlIUw/copy" target="_blank" rel="noopener" style="color:var(--gold);font-weight:700;">📄 WA Inbox template</a> while signed in to your own Gmail and tap <b>Make a copy</b> (the script comes with the copy).</li>
+                  <li><b>Fill the script:</b> in the copy open <b>Extensions → Apps Script</b> and change the top lines: <b>TOKEN</b> = a secret word / number of your own (not CHANGE-ME), <b>GROUPS</b> = the exact names of your WhatsApp groups (one per line, in quotes), <b>OWNER_EMAIL</b> = your e-mail. Save.</li>
                   <li><b>Deploy:</b> Deploy → New deployment → type <b>Web app</b> → Execute as: <b>Me</b> → Who has access: <b>Anyone</b> → Deploy → allow access → copy the <b>Web app URL</b> (it ends with <b>/exec</b>).</li>
                   <li><b>MacroDroid</b> (Play Store) on the Android phone that is in the WhatsApp groups: import the macro file you get from Durgesh Mishra, put <b>your</b> Web app URL and TOKEN in it, choose <b>your</b> group names, and allow MacroDroid to read notifications.</li>
                   <li><b>WhatsApp:</b> keep notifications of those groups ON (not muted) and keep the phone on / connected.</li>
@@ -3014,7 +3014,10 @@
                 </ol>
                 <div style="font-size:12px;color:var(--muted);">The app reads messages written in this plant's format (heat no. like 01.1001, chemistry lines, billets, "Consumption"). Messages written another way may not be read - then paste them by hand in Production Update, or ask for the reading to be changed.</div>
               </details>
-              <div class="btnRow"><button class="secondary" id="waGuideSettingsBtn" type="button">⚙️ Enter my Inbox URL / TOKEN</button></div>
+              <div class="btnRow">
+                <a class="secondary" href="https://docs.google.com/spreadsheets/d/1O9dVxkZ7eSAHNCkeJ_i-0hRqvjBq4ue9yP5XFQnlIUw/copy" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;padding:10px 14px;border-radius:10px;border:1px solid var(--gold);color:var(--gold);font-weight:700;">📄 Get WA Inbox template</a>
+                <button class="secondary" id="waGuideSettingsBtn" type="button">⚙️ Enter my Inbox URL / TOKEN</button>
+              </div>
               <div id="waGuideInfo" style="font-size:12.5px;margin-top:6px;"></div>
             </div>
 
@@ -4829,7 +4832,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.17.12";
+const APP_VERSION = "2026.10.17.14";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
   "🚀 \"File Location\" is now \"Get Started\": Excel formats, signature, WhatsApp auto-fetch setup steps and app access in one place",
