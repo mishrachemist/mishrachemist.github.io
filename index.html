@@ -3000,12 +3000,16 @@
             <div id="accessBox" class="ownerOnly" style="margin-top:18px;">
               <label>🔑 App access (other e-mails)</label>
               <div style="font-size:12.5px;color:var(--muted);">Anyone you add here can sign in and use the app with <b>their own OneDrive</b> (they do not see your reports; Kashvi is not shown to them). Remove them any time.</div>
+              <details id="accessSetupWrap" style="margin-top:8px;"><summary style="cursor:pointer;font-size:12.5px;opacity:.85;">⚙️ Script setup / key</summary>
               <div id="accessSetup" style="margin-top:8px;">
                 <div style="font-size:12.5px;">One-time setup: <b>1)</b> copy the script code, <b>2)</b> script.google.com → New project → paste → Deploy → New deployment → Web app (Execute as: Me, Who has access: Anyone) → Deploy, <b>3)</b> paste the Web app URL below.</div>
                 <div class="btnRow"><button class="secondary" id="accessCopyCode" type="button">📋 Copy script code</button></div>
                 <input type="text" id="accessUrlInput" placeholder="https://script.google.com/macros/s/…/exec">
                 <div class="btnRow"><button class="secondary" id="accessSaveUrl" type="button">💾 Save URL</button></div>
-              </div>
+                <div style="font-size:12.5px;margin-top:8px;">Key of this phone (it is inside the script code). On another phone / PC, paste the same key here:</div>
+                <input type="text" id="accessKeyInput" autocomplete="off" spellcheck="false">
+                <div class="btnRow"><button class="secondary" id="accessSaveKey" type="button">💾 Save key</button></div>
+              </div></details>
               <div style="display:flex;gap:6px;margin-top:8px;">
                 <input type="text" inputmode="email" autocomplete="off" id="accessEmail" placeholder="name@company.com" style="flex:1;margin:0;">
                 <button class="primary" id="accessAddBtn" type="button" style="width:auto;margin:0;">Give access</button>
@@ -4804,7 +4808,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.17.08";
+const APP_VERSION = "2026.10.17.09";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
   "🔑 File Location: give / remove app access for other e-mails (they use their own OneDrive, no Kashvi) + 📦 put all Excel formats on a new OneDrive's Desktop in one tap",
@@ -6481,7 +6485,7 @@ function accountRole(acc) {
 /* ---- App access list: e-mails the owner has given access to (kept in the owner's
    "SMS Access" Apps Script, so it works on every phone / PC). They use the app with
    their OWN OneDrive; Kashvi and the owner tools are not shown to them. ---- */
-const ACCESS_URL = "";   // the SMS Access Apps Script web-app URL (…/exec)
+const ACCESS_URL = "https://script.google.com/macros/s/AKfycbwme6XZoDPZAMSd3cg44CI6AnPDTx3hes0EPL3rcyHIaZPtUlpl6TSPb0LCkGjunW94/exec";   // the SMS Access Apps Script web-app URL (…/exec)
 function accessUrl() { try { return ACCESS_URL || localStorage.getItem("accessUrl") || ""; } catch (e) { return ACCESS_URL; } }
 function accessCachedOk(e) { try { return !!e && !!localStorage.getItem("accessOk:" + e); } catch (x) { return false; } }
 function isUserMode() { try { return !!account && accountRole(account) === "user"; } catch (e) { return false; } }
@@ -22937,14 +22941,17 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
     if (!k) { const a = new Uint8Array(18); crypto.getRandomValues(a); k = Array.from(a, b => b.toString(16).padStart(2, "0")).join(""); try { localStorage.setItem("accessKey", k); } catch (e) {} }
     return k;
   };
-  const showSetup = () => { $("accessSetup").style.display = ACCESS_URL ? "none" : ""; $("accessUrlInput").value = accessUrl(); };
+  const showSetup = () => {
+    $("accessUrlInput").value = accessUrl(); $("accessKeyInput").value = getKey();
+    $("accessSetupWrap").open = !accessUrl();
+  };
   showSetup();
   async function call(action, email) {
     const url = accessUrl();
     if (!url) throw new Error("First do the one-time setup above (script URL).");
     const r = await fetch(`${url}?action=${action}&key=${encodeURIComponent(getKey())}${email ? "&email=" + encodeURIComponent(email) : ""}&t=${Date.now()}`, { cache: "no-store" });
     const j = await r.json();
-    if (!j.ok) throw new Error(j.error === "wrong key" ? "The key on this phone does not match the script (set up on another device?) - copy the script code again from here and redeploy." : j.error);
+    if (!j.ok) throw new Error(j.error === "wrong key" ? "The key on this phone does not match the script. Open ⚙️ Script setup / key and paste the key from the phone where you copied the script code (it is in the script after ADMIN_KEY =)." : j.error);
     return j.list || [];
   }
   function draw(L) {
@@ -22967,6 +22974,12 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
     if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(u)) { st.textContent = "⚠️ Paste the Web app URL - it ends with /exec"; return; }
     try { localStorage.setItem("accessUrl", u); } catch (e) {}
     st.textContent = "Checking..."; await refresh(); if (!/⚠️/.test(st.textContent)) st.textContent = "✅ Connected.";
+  });
+  $("accessSaveKey").addEventListener("click", async () => {
+    const k = $("accessKeyInput").value.trim();
+    if (!/^[0-9a-f]{20,}$/i.test(k)) { st.textContent = "⚠️ The key is the long code after ADMIN_KEY = in the script."; return; }
+    try { localStorage.setItem("accessKey", k); } catch (e) {}
+    st.textContent = "Checking..."; await refresh(); if (!/⚠️/.test(st.textContent)) st.textContent = "✅ Key saved.";
   });
   $("accessAddBtn").addEventListener("click", async () => {
     const em = $("accessEmail").value.trim().toLowerCase();
