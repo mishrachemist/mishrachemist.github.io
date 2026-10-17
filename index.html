@@ -1752,6 +1752,7 @@
   }
   .hidden{display:none !important;}
   /* ===== View-only (team) accounts ===== */
+  body.userMode .ownerOnly, body.userMode #askFab, body.userMode #askFabBubble, body.userMode #kashviPanel{ display:none !important; }
   body.viewerMode .ownerOnly,
   body.viewerMode .vmBlocked,
   body.viewerMode #mainSidebar > .navItem[data-section="whatsapp"],
@@ -2986,6 +2987,32 @@
               <button class="secondary" id="navDrawerSignature" type="button">✍️ Upload signature</button>
             </div>
             <input type="file" id="signatureFileInput" accept="image/*" class="hidden">
+
+            <div id="fmtBox" style="margin-top:18px;">
+              <label>📦 Excel formats on this OneDrive's Desktop</label>
+              <div style="font-size:12.5px;color:var(--muted);">Puts the blank formats the app works with on the <b>Desktop</b> of the OneDrive you are signed in with
+                (Template, Inward Raw Material Data, Debit Note Data 26-27, Strip_Coils_EDGE_CRACK_Data, Party_Wise_Test_Reports) and makes this month's
+                Reports file from the Template. A file already there is never replaced.</div>
+              <div class="btnRow"><button class="secondary" id="fmtPushBtn" type="button">📦 Put formats on the Desktop</button></div>
+              <div id="fmtStatus" style="font-size:12.5px;margin-top:8px;white-space:pre-line;"></div>
+            </div>
+
+            <div id="accessBox" class="ownerOnly" style="margin-top:18px;">
+              <label>🔑 App access (other e-mails)</label>
+              <div style="font-size:12.5px;color:var(--muted);">Anyone you add here can sign in and use the app with <b>their own OneDrive</b> (they do not see your reports; Kashvi is not shown to them). Remove them any time.</div>
+              <div id="accessSetup" style="margin-top:8px;">
+                <div style="font-size:12.5px;">One-time setup: <b>1)</b> copy the script code, <b>2)</b> script.google.com → New project → paste → Deploy → New deployment → Web app (Execute as: Me, Who has access: Anyone) → Deploy, <b>3)</b> paste the Web app URL below.</div>
+                <div class="btnRow"><button class="secondary" id="accessCopyCode" type="button">📋 Copy script code</button></div>
+                <input type="text" id="accessUrlInput" placeholder="https://script.google.com/macros/s/…/exec">
+                <div class="btnRow"><button class="secondary" id="accessSaveUrl" type="button">💾 Save URL</button></div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:8px;">
+                <input type="text" inputmode="email" autocomplete="off" id="accessEmail" placeholder="name@company.com" style="flex:1;margin:0;">
+                <button class="primary" id="accessAddBtn" type="button" style="width:auto;margin:0;">Give access</button>
+              </div>
+              <div id="accessList" style="margin-top:8px;"></div>
+              <div id="accessStatus" style="font-size:12.5px;margin-top:6px;white-space:pre-line;"></div>
+            </div>
 
             <div id="teamSetupBox" class="ownerOnly" style="margin-top:18px;">
               <label>👥 Team (view-only) access</label>
@@ -4777,9 +4804,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.17.07";
+const APP_VERSION = "2026.10.17.08";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🔑 File Location: give / remove app access for other e-mails (they use their own OneDrive, no Kashvi) + 📦 put all Excel formats on a new OneDrive's Desktop in one tap",
   "🌈 Sponge Iron sticky note: new multi-colour design + choose the paper colour, heading / date / table colours and a colour for each line",
   "📐 SOP tables (Carbon correction factor table): \"Table (landscape)\" now gives an upright landscape A4 PDF - no more sideways page",
   "📑 Element → SDS: Safety Data Sheets for 16 lab chemicals (acids, bases, titration reagents, argon) - full 16 sections, English + Hindi, PDF download",
@@ -6447,7 +6475,38 @@ function accountRole(acc) {
   if (!e) return "";
   if (ALLOWED_EMAILS.includes(e)) return "owner";
   if (VIEWER_EMAILS.map(x => x.toLowerCase()).includes(e)) return "viewer";
+  if (accessCachedOk(e)) return "user";          // given access by the owner (App access list)
   return "";
+}
+/* ---- App access list: e-mails the owner has given access to (kept in the owner's
+   "SMS Access" Apps Script, so it works on every phone / PC). They use the app with
+   their OWN OneDrive; Kashvi and the owner tools are not shown to them. ---- */
+const ACCESS_URL = "";   // the SMS Access Apps Script web-app URL (…/exec)
+function accessUrl() { try { return ACCESS_URL || localStorage.getItem("accessUrl") || ""; } catch (e) { return ACCESS_URL; } }
+function accessCachedOk(e) { try { return !!e && !!localStorage.getItem("accessOk:" + e); } catch (x) { return false; } }
+function isUserMode() { try { return !!account && accountRole(account) === "user"; } catch (e) { return false; } }
+async function accessCheck(email) {   // true / false; throws when the list can't be reached
+  const url = accessUrl();
+  if (!url) throw new Error("access list not set up");
+  const r = await fetch(`${url}?action=check&email=${encodeURIComponent(email)}&t=${Date.now()}`, { cache: "no-store" });
+  const j = await r.json();
+  if (!j || !j.ok) throw new Error((j && j.error) || "access list error");
+  return !!j.allowed;
+}
+const _accessAsked = new Set();
+function accessAsk(acc) {
+  const email = accountEmail(acc);
+  _accessAsked.add(email);
+  const msg = document.getElementById("signedOutMsg");
+  if (msg) { msg.classList.remove("hidden"); msg.textContent = "Checking access for " + email + " ..."; }
+  ["app", "signInBtn"].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add("hidden"); });
+  accessCheck(email).then(ok => {
+    if (!ok) { account = acc; blockAccount("denied"); return; }
+    try { localStorage.setItem("accessOk:" + email, String(Date.now())); } catch (e) {}
+    account = acc;
+    showSignedIn();
+    logLoginEvent("Sign-in");
+  }).catch(() => { account = acc; blockAccount("nocheck"); });
 }
 function isAllowedAccount(acc) { return accountRole(acc) !== ""; }
 function isViewer() { try { return !!account && accountRole(account) === "viewer"; } catch (e) { return false; } }
@@ -6783,6 +6842,8 @@ async function teamAfterNewFile(path, id, token) {
 }
 function blockAccount(reason) {
   const acc = account;
+  if (!reason && acc && accountRole(acc) === "" && accessUrl() && !_accessAsked.has(accountEmail(acc))) { accessAsk(acc); return; }
+  if (reason === "revoked") { try { localStorage.removeItem("accessOk:" + accountEmail(acc)); } catch (e) {} }
   try { logLoginEvent("Blocked"); } catch (e) {}
   account = null; cachedAccessToken = null; cachedTokenExpiry = 0; SIGNATURE_IMG = "";
   try { localStorage.removeItem("lastSignedInAccountId"); sessionStorage.removeItem("pendingResume"); } catch (e) {}
@@ -6796,7 +6857,9 @@ function blockAccount(reason) {
     msg.innerHTML = '<div style="font-weight:700;color:#b00020;font-size:15px;margin-bottom:8px;">⛔ Access denied</div>' +
       (reason === "viewerApp"
         ? '<div>This team account (<b>' + em + '</b>) can open reports only in the <b>SMS Viewer</b> app on Android (or Safari on iPhone / iPad).</div>'
-        : '<div>This account (<b>' + em + '</b>) is not allowed to use this app.</div>') +
+        : reason === "nocheck" ? '<div>Could not check access for <b>' + em + '</b> (no internet?). Please try again.</div>'
+        : reason === "revoked" ? '<div>Access for <b>' + em + '</b> has been removed by the owner.</div>'
+        : '<div>This account (<b>' + em + '</b>) is not allowed to use this app. Ask Durgesh Mishra for access.</div>') +
       '<button id="deniedSignOutBtn" type="button" style="margin-top:12px;">Sign out / use another account</button>';
     document.getElementById("deniedSignOutBtn").addEventListener("click", () => {
       msalInstance.logoutRedirect({ account: acc }).catch(() => location.reload());
@@ -7400,6 +7463,13 @@ function showSignedIn() {
   // where screenshots and screen recording are blocked by Android.
   if (isViewer() && !inViewerApp() && !isAppleMobile()) { blockAccount("viewerApp"); return; }
   applyViewerMode(isViewer());
+  document.body.classList.toggle("userMode", isUserMode());
+  if (isUserMode()) {
+    if (typeof closeKashvi === "function") closeKashvi();
+    const em = accountEmail(account);
+    accessCheck(em).then(ok => { if (!ok && account && accountEmail(account) === em) blockAccount("revoked"); }).catch(() => {});   // taken back?
+    setTimeout(() => { if (typeof fmtFirstRunOffer === "function") fmtFirstRunOffer(); }, 4000);
+  }
   if (isViewer()) { teamLoad(); getToken().catch(e => { const st = document.getElementById("status"); if (st) { st.className = "err"; st.textContent = e.message; } }); }
   else setTimeout(() => loadSignature(), 0);
   setTimeout(() => waCloudPull(), 0);   // WhatsApp Inbox status from OneDrive (same on every device)
@@ -7419,9 +7489,9 @@ function showSignedIn() {
   const savedPhoto = localStorage.getItem("customProfilePhoto");
   const headerImgSrc = savedPhoto || (document.getElementById("headerLogoImg") || {}).src || "";
   const escH = t => String(t).replace(/[&<>"']/g, ch => "&#" + ch.charCodeAt(0) + ";");
-  const gName = isViewer() ? escH(String(account.name || accountEmail(account).split("@")[0]).toUpperCase()) : "DURGESH MISHRA";
-  const gRole = isViewer() ? "👁️ Team · View only" : "Manager, QAD-SMS";
-  if (isViewer()) { const dn = document.getElementById("navDrawerName"); if (dn) dn.textContent = String(account.name || accountEmail(account)).toUpperCase(); }
+  const gName = (isViewer() || isUserMode()) ? escH(String(account.name || accountEmail(account).split("@")[0]).toUpperCase()) : "DURGESH MISHRA";
+  const gRole = isViewer() ? "👁️ Team · View only" : isUserMode() ? escH(accountEmail(account)) : "Manager, QAD-SMS";
+  if (isViewer() || isUserMode()) { const dn = document.getElementById("navDrawerName"); if (dn) dn.textContent = String(account.name || accountEmail(account)).toUpperCase(); }
   banner.innerHTML =
     '<div class="greetingCardInner">' +
       '<div class="greetingSkyBg">' + getGreetingIconSVG("") + '</div>' +
@@ -12599,6 +12669,7 @@ async function answerExcelQuery(question) {
 
 // Kashvi: chat box opened from the floating sticker
 function openKashvi() {
+  if (document.body.classList.contains("userMode")) return;   // Kashvi only for the owner's accounts
   const p = document.getElementById("kashviPanel");
   p.classList.remove("hidden");
   document.body.classList.add("kashviOpen");
@@ -22745,6 +22816,175 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
   em.addEventListener("change", () => { try { localStorage.setItem("sdsEmergency", em.value.trim()); } catch (e) {} pagesCache = {}; if (cur >= 0) open(cur); });
   let started = false;
   window.sdsStart = async () => { if (started) return; started = true; await fonts(); list(); };
+})();
+</script>
+<script>
+/* ===================== FORMATS ON A NEW ONEDRIVE + APP ACCESS LIST ===================== */
+(function fmtAndAccess() {
+  const $ = id => document.getElementById(id);
+  const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => "&#" + c.charCodeAt(0) + ";");
+  const G = "https://graph.microsoft.com/v1.0/me/drive";
+  const encPath = p => p.split("/").map(encodeURIComponent).join("/");
+  // blank formats kept on the website (folder "formats" next to index.html)
+  const FORMAT_FILES = ["Template.xlsx", "Inward Raw Material Data.xlsx", "Debit Note Data 26-27.xlsm", "Strip_Coils_EDGE_CRACK_Data.xlsm", "Party_Wise_Test_Reports.xlsx"];
+
+  async function pushFormats(out) {
+    const lines = [];
+    const say = t => { lines.push(t); out.textContent = lines.join("\n"); };
+    const token = await getToken();
+    if (!(await tryGetItem(token, "Desktop"))) {
+      await graphFetch(`${G}/root/children`, token, { method: "POST", body: JSON.stringify({ name: "Desktop", folder: {}, "@microsoft.graph.conflictBehavior": "fail" }) });
+      say("📁 Desktop folder made");
+    }
+    let made = 0;
+    for (const name of FORMAT_FILES) {
+      if (await tryGetItem(token, `Desktop/${name}`)) { say(`⏭️ ${name} - already on the Desktop (not changed)`); continue; }
+      say(`⏳ ${name} ...`);
+      const r = await fetch(`./formats/${encodeURIComponent(name)}`, { cache: "no-store" });
+      if (!r.ok) { lines.pop(); say(`⚠️ ${name} - format not found on the website (${r.status})`); continue; }
+      const buf = await r.arrayBuffer();
+      const up = await fetch(`${G}/root:/${encPath("Desktop/" + name)}:/content?@microsoft.graph.conflictBehavior=fail`,
+        { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/octet-stream" }, body: buf });
+      lines.pop();
+      if (up.ok) { say(`✅ ${name}`); made++; }
+      else say(`❌ ${name} - ${up.status} ${typeof shortError === "function" ? shortError(await up.text()) : ""}`);
+    }
+    // this month's Reports file, made from the Template (same as "Create Next Month File")
+    const now = new Date(), y = now.getFullYear(), m0 = now.getMonth();
+    const mName = `${MONTH_ABBR[m0]}'${String(y).slice(2)}_Reports.xlsx`;
+    _filePathCache.delete(`${y}-${m0}`);
+    const existing = await detectFilePathForMonth(token, y, m0);
+    if (existing) say(`⏭️ ${existing} - already there (not changed)`);
+    else {
+      say(`⏳ ${mName} from the Template ...`);
+      const tplIn = $("nmTemplatePath"), monIn = $("nmTargetMonth"), keepTpl = tplIn.value;
+      let tpl = tplIn.value.trim();
+      if (!tpl || !(await tryGetItem(token, tpl))) tpl = "Desktop/Template.xlsx";
+      tplIn.value = tpl; monIn.value = `${y}-${String(m0 + 1).padStart(2, "0")}`;
+      await createNextMonthFile();
+      const st = $("status");
+      lines.pop();
+      if (st && st.className === "ok") { say(`✅ ${mName} (made from ${tpl})`); made++; }
+      else { say(`❌ ${mName} - ${st ? st.textContent.replace(/^Error:\s*/, "") : "not made"}`); tplIn.value = keepTpl; }
+    }
+    say(made ? `\nDone - ${made} file(s) put on the Desktop. The app now reads them from there.` : "\nNothing new was needed.");
+    return made;
+  }
+  if ($("fmtPushBtn")) $("fmtPushBtn").addEventListener("click", async () => {
+    const b = $("fmtPushBtn"), out = $("fmtStatus");
+    const who = account ? accountEmail(account) : "";
+    if (!confirm(`Put the blank Excel formats on the Desktop of this OneDrive?\n\n${who}\n\nFiles already there are not touched.`)) return;
+    b.disabled = true; out.textContent = "Starting...";
+    try { await pushFormats(out); } catch (e) { out.textContent += "\n❌ " + e.message; } finally { b.disabled = false; }
+  });
+  // a new (non-owner) account without the formats: offer them once
+  window.fmtFirstRunOffer = async () => {
+    try {
+      if (!account) return;
+      const k = "fmtOffered:" + accountEmail(account);
+      if (localStorage.getItem(k)) return;
+      const token = await getToken();
+      if (await tryGetItem(token, "Desktop/Template.xlsx")) { localStorage.setItem(k, "1"); return; }
+      localStorage.setItem(k, "1");
+      if (!confirm("Welcome to SMS Reports!\n\nYour OneDrive does not have the Excel formats yet. Put them on your OneDrive Desktop now?\n(You can also do it later: Menu → File Location → Put formats on the Desktop)")) return;
+      const sec = document.getElementById("fileLocationMenuBtn"); if (sec) sec.click();
+      const out = $("fmtStatus"); out.textContent = "Starting...";
+      await pushFormats(out);
+    } catch (e) { console.warn("formats offer", e); }
+  };
+
+  /* ---- App access list (owner) ---- */
+  const SCRIPT_CODE = (key) => `// SMS Reports - App access list (e-mails that may use the app besides the owner).
+// Deploy: Deploy > New deployment > type "Web app" > Execute as: Me > Who has access: Anyone > Deploy.
+const ADMIN_KEY = "${key}";   // the app keeps the same key - do not share it
+
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+  const action = String(p.action || "");
+  const email = String(p.email || "").trim().toLowerCase();
+  let out;
+  try {
+    if (action === "check") {
+      out = { ok: true, allowed: list_().some(x => x.email === email) };
+    } else if (p.key !== ADMIN_KEY) {
+      out = { ok: false, error: "wrong key" };
+    } else {
+      const lock = LockService.getScriptLock();
+      lock.waitLock(20000);
+      try {
+        let L = list_();
+        if (action === "add") {
+          if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) throw new Error("not a valid e-mail: " + email);
+          if (!L.some(x => x.email === email)) L.push({ email: email, added: new Date().toISOString() });
+          save_(L);
+        } else if (action === "remove") {
+          L = L.filter(x => x.email !== email);
+          save_(L);
+        }
+        out = { ok: true, list: L };
+      } finally { lock.releaseLock(); }
+    }
+  } catch (err) { out = { ok: false, error: String((err && err.message) || err) }; }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+function list_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty("access") || "[]"); } catch (e) { return []; } }
+function save_(L) { PropertiesService.getScriptProperties().setProperty("access", JSON.stringify(L)); }
+`;
+  const box = $("accessBox"); if (!box) return;
+  const st = $("accessStatus"), listEl = $("accessList");
+  const getKey = () => {
+    let k = ""; try { k = localStorage.getItem("accessKey") || ""; } catch (e) {}
+    if (!k) { const a = new Uint8Array(18); crypto.getRandomValues(a); k = Array.from(a, b => b.toString(16).padStart(2, "0")).join(""); try { localStorage.setItem("accessKey", k); } catch (e) {} }
+    return k;
+  };
+  const showSetup = () => { $("accessSetup").style.display = ACCESS_URL ? "none" : ""; $("accessUrlInput").value = accessUrl(); };
+  showSetup();
+  async function call(action, email) {
+    const url = accessUrl();
+    if (!url) throw new Error("First do the one-time setup above (script URL).");
+    const r = await fetch(`${url}?action=${action}&key=${encodeURIComponent(getKey())}${email ? "&email=" + encodeURIComponent(email) : ""}&t=${Date.now()}`, { cache: "no-store" });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error === "wrong key" ? "The key on this phone does not match the script (set up on another device?) - copy the script code again from here and redeploy." : j.error);
+    return j.list || [];
+  }
+  function draw(L) {
+    listEl.innerHTML = L.length ? L.map(x => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(128,128,128,.25);">
+      <span style="flex:1;font-size:13.5px;word-break:break-all;">✅ ${esc(x.email)}<br><small style="opacity:.6;">since ${esc(String(x.added || "").slice(0, 10).split("-").reverse().join("-"))}</small></span>
+      <button class="secondary accessRevoke" data-e="${esc(x.email)}" type="button" style="width:auto;margin:0;padding:6px 10px;font-size:12.5px;">🚫 Remove</button></div>`).join("")
+      : '<div style="font-size:12.5px;opacity:.7;">No one else has access.</div>';
+  }
+  async function refresh() { if (!accessUrl()) { listEl.innerHTML = ""; return; } try { draw(await call("list")); st.textContent = ""; } catch (e) { st.textContent = "⚠️ " + e.message; } }
+  $("accessCopyCode").addEventListener("click", async () => {
+    const code = SCRIPT_CODE(getKey());
+    try { await navigator.clipboard.writeText(code); st.textContent = "✅ Script code copied - paste it in a new Apps Script project."; }
+    catch (e) {
+      const ta = document.createElement("textarea"); ta.value = code; ta.style.cssText = "width:100%;height:160px;font-size:11px;";
+      st.textContent = "Copy this code:"; st.after(ta); ta.select();
+    }
+  });
+  $("accessSaveUrl").addEventListener("click", async () => {
+    const u = $("accessUrlInput").value.trim();
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(u)) { st.textContent = "⚠️ Paste the Web app URL - it ends with /exec"; return; }
+    try { localStorage.setItem("accessUrl", u); } catch (e) {}
+    st.textContent = "Checking..."; await refresh(); if (!/⚠️/.test(st.textContent)) st.textContent = "✅ Connected.";
+  });
+  $("accessAddBtn").addEventListener("click", async () => {
+    const em = $("accessEmail").value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { st.textContent = "⚠️ Type a full e-mail address."; return; }
+    if (ALLOWED_EMAILS.includes(em)) { st.textContent = "That is one of your own accounts - it always has access."; return; }
+    const b = $("accessAddBtn"); b.disabled = true; st.textContent = "Giving access...";
+    try { draw(await call("add", em)); $("accessEmail").value = ""; st.textContent = `✅ ${em} can now sign in.`; }
+    catch (e) { st.textContent = "⚠️ " + e.message; } finally { b.disabled = false; }
+  });
+  listEl.addEventListener("click", async e => {
+    const b = e.target.closest(".accessRevoke"); if (!b) return;
+    const em = b.dataset.e;
+    if (!confirm(`Remove access for ${em}?\nThey are signed out the next time the app opens or checks.`)) return;
+    b.disabled = true; st.textContent = "Removing...";
+    try { draw(await call("remove", em)); st.textContent = `🚫 ${em} removed.`; } catch (x) { st.textContent = "⚠️ " + x.message; b.disabled = false; }
+  });
+  const flBtn = $("fileLocationMenuBtn");
+  if (flBtn) flBtn.addEventListener("click", () => { if (account && accountRole(account) === "owner") { showSetup(); refresh(); } });
 })();
 </script>
 </body>
