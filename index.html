@@ -4746,9 +4746,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.17.05";
+const APP_VERSION = "2026.10.17.06";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📐 SOP tables (Carbon correction factor table): \"Table (landscape)\" now gives an upright landscape A4 PDF - no more sideways page",
   "📑 Element → SDS: Safety Data Sheets for 16 lab chemicals (acids, bases, titration reagents, argon) - full 16 sections, English + Hindi, PDF download",
   "🎨 Safety posters now have a picture each (worker with PPE, ladle pour, acid to water, cylinders, fire P-A-S-S, eye-wash, 5S...) - or use your own photo",
   "🦺 Element → Safety Posters: 10 QAD safety posters in English + Hindi (print JPG, SVG, all-in-one A3 PDF)",
@@ -12829,6 +12830,88 @@ function sopPrintableHtml(x, lang, mode) {
   }
   return html;
 }
+// Landscape table as a real landscape A4 PDF page (upright, not turned sideways) - drawn on canvas so every phone gives the same result
+async function sopLandPdf(x, lang) {
+  const d = sopDocOf(x, lang), tables = (d.tables || []).filter(t => t.landscape);
+  if (!tables.length) return;
+  try { if (typeof account !== "undefined" && account) await loadSignature(); } catch (e) {}
+  let sig = null;
+  if (SIGNATURE_IMG) sig = await new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = SIGNATURE_IMG; });
+  const txt = v => { const el = document.createElement("div"); el.innerHTML = sopMk(v); return el.textContent.replace(/\s+/g, " ").trim(); };
+  const K = 10, W = 297 * K, H = 210 * K, ML = 12 * K, MT = 10 * K, CW = W - 2 * ML;   // 10 px per mm (254 dpi)
+  const SERIF = "'Times New Roman', Times, 'Liberation Serif', 'Noto Serif Devanagari', serif";
+  const SANS = "Arial, 'Liberation Sans', 'Noto Sans Devanagari', 'Nirmala UI', sans-serif";
+  const st = d.short_title || x.en.short_title || "";
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  tables.forEach((t, ti) => {
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, W, H); g.strokeStyle = "#000"; g.fillStyle = "#000"; g.textBaseline = "middle";
+    const box = (x0, y0, w, h, lw) => { g.lineWidth = lw || 2; g.strokeRect(x0, y0, w, h); };
+    const line = (x1, y1, x2, y2, lw) => { g.lineWidth = lw || 2; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
+    const fit = (s, font, size, maxW) => { let z = size; g.font = font.replace("{}", z + "px"); while (z > 8 && g.measureText(s).width > maxW) { z -= 1; g.font = font.replace("{}", z + "px"); } return z; };
+    // header (same boxes as the printed SOP)
+    const HH = 20 * K, c1 = CW * 0.34, c2 = CW * 0.30, c3 = CW - c1 - c2, y0 = MT;
+    box(ML, y0, CW, HH); line(ML + c1, y0, ML + c1, y0 + HH); line(ML + c1 + c2, y0, ML + c1 + c2, y0 + HH);
+    line(ML, y0 + 13 * K, ML + c1, y0 + 13 * K);
+    g.textAlign = "center"; fit("Durgesh Mishra", `bold {} ${SERIF}`, 58, c1 - 20); g.fillText("Durgesh Mishra", ML + c1 / 2, y0 + 6.5 * K);
+    g.textAlign = "left"; fit("Title : " + st, `{} ${SANS}`, 30, c1 - 20); g.fillText("Title : " + st, ML + 10, y0 + 16.5 * K);
+    g.textAlign = "center"; g.font = `46px ${SERIF}`; g.fillText("Department", ML + c1 + c2 / 2, y0 + 7 * K); g.fillText(x.dept || "Quality", ML + c1 + c2 / 2, y0 + 14 * K);
+    g.textAlign = "left"; g.font = `30px ${SANS}`;
+    ["DOC. NO: " + x.no, "Issue No./ Date :", "Revision No. : " + (x.rev || "00"), "Revision Date:"].forEach((s2, i) => {
+      if (i) line(ML + c1 + c2, y0 + i * 5 * K, ML + CW, y0 + i * 5 * K); g.fillText(s2, ML + c1 + c2 + 10, y0 + i * 5 * K + 2.6 * K); });
+    // table title
+    let y = y0 + HH + 3 * K;
+    const title = txt(t.title || "");
+    if (title) { g.textAlign = "left"; fit(title, `bold {} ${SANS}`, 34, CW); g.fillText(title, ML, y + 2.4 * K); y += 6 * K; }
+    // footer
+    const FH = 18 * K, fy = H - MT - FH, fw = CW / 4;
+    box(ML, fy, CW, FH); line(ML, fy + 6 * K, ML + CW, fy + 6 * K);
+    ["Prepared By", "Approved By", "Issued By", "Control Status"].forEach((c, i) => { if (i) line(ML + i * fw, fy, ML + i * fw, fy + FH);
+      g.textAlign = "center"; g.font = `36px ${SERIF}`; g.fillText(c, ML + i * fw + fw / 2, fy + 3 * K); });
+    if (sig) { const sh = 8 * K, sw = Math.min(fw - 40, sig.naturalWidth * sh / sig.naturalHeight); g.drawImage(sig, ML + fw / 2 - sw / 2, fy + 6.5 * K, sw, sh); }
+    g.font = `26px ${SANS}`; g.textAlign = "center"; g.fillText("Durgesh Mishra", ML + fw / 2, fy + FH - 1.6 * K);
+    // the table itself - fills the space between title and footer
+    const rows = t.rows.map(r => r.map(txt)), nC = Math.max(...rows.map(r => r.length));
+    const tTop = y, tBot = fy - 3 * K, nR = rows.length;
+    const rh = (tBot - tTop) / (nR + 0.5), hh = rh * 1.5;   // header row 1.5 x
+    g.font = `bold 30px ${SANS}`;
+    const h0 = (rows[0][0] || "").split(" "), h0a = h0.slice(0, Math.ceil(h0.length / 2)).join(" "), h0b = h0.slice(Math.ceil(h0.length / 2)).join(" ");
+    const firstW = Math.min(CW * 0.12, Math.max(14 * K, g.measureText(h0a).width * 0.8 + 20, g.measureText(h0b).width * 0.8 + 20, ...rows.slice(1).map(r => g.measureText(r[0] || "").width + 20)));
+    const cw = (CW - firstW) / (nC - 1), colX = i => ML + (i ? firstW + (i - 1) * cw : 0), colW = i => i ? cw : firstW;
+    let fs = Math.floor(rh * 0.62); g.font = `${fs}px ${SANS}`;
+    const widest = Math.max(...rows.slice(1).flatMap(r => r.slice(1).map(c => g.measureText(c).width)));
+    if (widest > cw - 8) fs = Math.floor(fs * (cw - 8) / widest);
+    g.fillStyle = "#e8e8e8"; g.fillRect(ML, tTop, CW, hh); g.fillStyle = "#000";
+    rows.forEach((r, ri) => {
+      const ry = ri ? tTop + hh + (ri - 1) * rh : tTop, h = ri ? rh : hh;
+      for (let ci = 0; ci < nC; ci++) {
+        const c = r[ci] || "", cx = colX(ci), w = colW(ci);
+        g.textAlign = "center";
+        if (ri === 0 || ci === 0) {
+          const f0 = `bold {} ${SANS}`; let z = fit(c, f0, fs, w - 8);
+          if (z < fs * 0.8 && / /.test(c)) {   // long header text: two lines
+            const words = c.split(" "), half = Math.ceil(words.length / 2), l1 = words.slice(0, half).join(" "), l2 = words.slice(half).join(" ");
+            z = Math.min(fit(l1, f0, fs, w - 8), fit(l2, f0, fs, w - 8)); g.font = f0.replace("{}", z + "px");
+            g.fillText(l1, cx + w / 2, ry + h / 2 - z * 0.55); g.fillText(l2, cx + w / 2, ry + h / 2 + z * 0.55);
+          } else g.fillText(c, cx + w / 2, ry + h / 2 + 1);
+        } else { g.font = `${fs}px ${SANS}`; g.fillText(c, cx + w / 2, ry + h / 2 + 1); }
+      }
+      if (ri % 2 === 0 && ri) { g.fillStyle = "rgba(0,0,0,.035)"; g.fillRect(ML, ry, CW, h); g.fillStyle = "#000"; }
+      line(ML, ry + h, ML + CW, ry + h, 1.5);
+    });
+    const tEnd = tTop + hh + (nR - 1) * rh;
+    for (let ci = 1; ci < nC; ci++) line(colX(ci), tTop, colX(ci), tEnd, 1.5);
+    box(ML, tTop, CW, tEnd - tTop, 2.5);
+    if (t.after) { g.textAlign = "left"; fit(txt(t.after), `{} ${SANS}`, 26, CW); g.fillText(txt(t.after), ML, tEnd + 1.5 * K); }
+    if (ti) doc.addPage("a4", "landscape");
+    doc.addImage(cv.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, 297, 210, undefined, "FAST");
+  });
+  const blob = doc.output("blob"), u = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = u; a.download = `${x.no.replace(/\//g, "-")}_Table_${lang === "hi" ? "HI" : "EN"}.pdf`; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 10000);
+  if (!SIGNATURE_IMG && typeof sigMissingWarn === "function" && typeof account !== "undefined" && account) sigMissingWarn();
+}
 function openSopDoc(id, lang, mode) {
   const x = SOP_LIST.find(z => z.id === id); if (!x) return;
   lang = lang || sopLang();
@@ -12846,7 +12929,14 @@ function openSopDoc(id, lang, mode) {
       <iframe id="sopDocFrame" title="SOP / WI" style="flex:1;border:0;width:100%;background:#fff"></iframe>`;
     document.body.appendChild(ov);
     ov.querySelector("#sopDocClose").addEventListener("click", () => ov.classList.add("hidden"));
-    ov.querySelector("#sopDocPrint").addEventListener("click", () => { const f = document.getElementById("sopDocFrame"); f.contentWindow.focus(); f.contentWindow.print(); });
+    ov.querySelector("#sopDocPrint").addEventListener("click", async () => {
+      if (ov.dataset.mode === "land") {   // table only: a real landscape A4 PDF (upright)
+        const b = ov.querySelector("#sopDocPrint"), t0 = b.textContent; b.disabled = true; b.textContent = "⏳ Making PDF...";
+        try { await sopLandPdf(SOP_LIST.find(z => z.id === ov.dataset.id), ov.dataset.lang); } catch (e) { alert("PDF failed: " + e.message); }
+        finally { b.disabled = false; b.textContent = t0; }
+        return;
+      }
+      const f = document.getElementById("sopDocFrame"); f.contentWindow.focus(); f.contentWindow.print(); });
     ov.querySelector("#sopDocLang").addEventListener("click", () => openSopDoc(ov.dataset.id, ov.dataset.lang === "hi" ? "en" : "hi", ov.dataset.mode));
     ov.querySelector("#sopDocLand").addEventListener("click", () => openSopDoc(ov.dataset.id, ov.dataset.lang, ov.dataset.mode === "land" ? "" : "land"));
     document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") ov.classList.add("hidden"); });
@@ -12858,6 +12948,7 @@ function openSopDoc(id, lang, mode) {
   ov.querySelector("#sopDocLang").textContent = lang === "hi" ? "English" : "हिंदी";
   const lb = ov.querySelector("#sopDocLand");
   lb.style.display = hasLand ? "" : "none"; lb.textContent = mode ? "📄 Full document" : "📐 Table (landscape)";
+  ov.querySelector("#sopDocPrint").textContent = mode ? "⬇️ Landscape PDF" : "🖨️ Print / PDF";
   document.getElementById("sopDocFrame").srcdoc = sopPrintableHtml(x, lang, mode);
   ov.classList.remove("hidden");
 }
