@@ -4810,7 +4810,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.17.10";
+const APP_VERSION = "2026.10.17.11";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
   "🔑 File Location: give / remove app access for other e-mails (they use their own OneDrive, no Kashvi) + 📦 put all Excel formats on a new OneDrive's Desktop in one tap",
@@ -6465,7 +6465,7 @@ if (typeof msal === "undefined") {
 const msalInstance = new msal.PublicClientApplication(msalConfig);
 let account = null;
 // Only these Microsoft accounts may use the app (compared in lower case).
-const ALLOWED_EMAILS = ["durgesh.mishra@marutisteel.in", "mishrachemist@hotmail.in", "mishrachemist@gmail.com"];
+const ALLOWED_EMAILS = ["durgesh.mishra@marutisteel.in", "mishrachemist@hotmail.com", "mishrachemist@gmail.com"];
 function accountEmail(acc) {
   if (!acc) return "";
   const c = acc.idTokenClaims || {};
