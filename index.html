@@ -2809,7 +2809,7 @@
   <div id="settingsPanel" class="settingsPanel closed">
     <div class="settingsPanelHead">Menu</div>
     <button id="cmdPaletteBtn" title="Quick search (Ctrl+K)">🔍 Search</button>
-    <button id="fileLocationMenuBtn" title="File Location">📁 File Location</button>
+    <button id="fileLocationMenuBtn" title="Get Started">🚀 Get Started</button>
     <button id="qrShareBtn" title="Share via QR code">📱 Share via QR</button>
     <button id="langToggle" title="Switch language / भाषा बदलें">🌐 EN / हिं</button>
     <button id="darkModeToggle" title="Toggle dark mode">🌙 Dark Mode</button>
@@ -2854,7 +2854,7 @@
   </div>
   <div class="navDrawerList" id="navDrawerList">
     <button class="navDrawerItem" data-drawer-action="search"><span class="navDrawerIcon">🔍</span><span>Search</span></button>
-    <button class="navDrawerItem" data-drawer-action="filelocation"><span class="navDrawerIcon">📁</span><span>File Location</span></button>
+    <button class="navDrawerItem" data-drawer-action="filelocation"><span class="navDrawerIcon">🚀</span><span>Get Started</span></button>
     <button class="navDrawerItem" data-drawer-action="qr"><span class="navDrawerIcon">📱</span><span>Share via QR</span></button>
     <button class="navDrawerItem" data-drawer-action="lang"><span class="navDrawerIcon">🌐</span><span>EN / हिं</span></button>
     <button class="navDrawerItem" data-drawer-action="dark"><span class="navDrawerIcon">🌙</span><span>Dark Mode</span></button>
@@ -2964,7 +2964,8 @@
 
         <div class="sectionPanel hidden" id="section-filelocation">
           <div class="card">
-            <h2>File Location</h2>
+            <h2>Get Started</h2>
+            <p style="font-size:12.5px;color:var(--muted);margin:-4px 0 14px;">Set up the app on a new phone / OneDrive: Excel formats, signature, WhatsApp auto-fetch and app access.</p>
             <div class="hidden" aria-hidden="true"><!-- not needed any more: the month file is found by itself; kept (hidden) as the fallback the code still reads -->
             <label for="filePath">OneDrive file path (from root, e.g.: <code>Desktop/August'26_Reports.xlsx</code>)</label>
             <input type="text" id="filePath" value="Desktop/August'26_Reports.xlsx">
@@ -2997,6 +2998,24 @@
                 Reports file from the Template. A file already there is never replaced.</div>
               <div class="btnRow"><button class="secondary" id="fmtPushBtn" type="button">📦 Put formats on the Desktop</button></div>
               <div id="fmtStatus" style="font-size:12.5px;margin-top:8px;white-space:pre-line;"></div>
+            </div>
+
+            <div id="waGuideBox" style="margin-top:18px;">
+              <label>📲 WhatsApp auto-fetch (your own groups)</label>
+              <div style="font-size:12.5px;color:var(--muted);">Messages of your WhatsApp groups go into your own Google Sheet, and <b>📥 Fetch WhatsApp</b> writes them into your Excel. Android phone only. Needs about 15 minutes once.</div>
+              <details style="margin-top:8px;"><summary style="cursor:pointer;font-size:13px;font-weight:600;">Show the steps</summary>
+                <ol style="font-size:13px;line-height:1.55;padding-left:20px;margin:8px 0;">
+                  <li><b>Google Sheet:</b> ask Durgesh Mishra for the <b>WA Inbox template</b> link, open it on your Gmail and tap <b>Make a copy</b> (the script comes with the copy).</li>
+                  <li><b>Your own TOKEN:</b> in the copy open <b>Extensions → Apps Script</b> and change the secret TOKEN written in the code to a new word / number of your own. Save.</li>
+                  <li><b>Deploy:</b> Deploy → New deployment → type <b>Web app</b> → Execute as: <b>Me</b> → Who has access: <b>Anyone</b> → Deploy → allow access → copy the <b>Web app URL</b> (it ends with <b>/exec</b>).</li>
+                  <li><b>MacroDroid</b> (Play Store) on the Android phone that is in the WhatsApp groups: import the macro file you get from Durgesh Mishra, put <b>your</b> Web app URL and TOKEN in it, choose <b>your</b> group names, and allow MacroDroid to read notifications.</li>
+                  <li><b>WhatsApp:</b> keep notifications of those groups ON (not muted) and keep the phone on / connected.</li>
+                  <li><b>This app:</b> tap the button below and enter the same Web app URL and TOKEN (last row: 0). Then Production → <b>📥 Fetch WhatsApp</b>.</li>
+                </ol>
+                <div style="font-size:12px;color:var(--muted);">The app reads messages written in this plant's format (heat no. like 01.1001, chemistry lines, billets, "Consumption"). Messages written another way may not be read - then paste them by hand in Production Update, or ask for the reading to be changed.</div>
+              </details>
+              <div class="btnRow"><button class="secondary" id="waGuideSettingsBtn" type="button">⚙️ Enter my Inbox URL / TOKEN</button></div>
+              <div id="waGuideInfo" style="font-size:12.5px;margin-top:6px;"></div>
             </div>
 
             <div id="accessBox" class="ownerOnly" style="margin-top:18px;">
@@ -4638,7 +4657,7 @@ function uiHiDict() {
     "← Back to Menu": "← मेनू पर वापस", "← Back to Dashboard Menu": "← डैशबोर्ड मेनू पर वापस",
     "← Back to Trend Charts Menu": "← ट्रेंड चार्ट मेनू पर वापस", "← Back to Production Menu": "← प्रोडक्शन मेनू पर वापस",
     "← Back to Reports Menu": "← रिपोर्ट्स मेनू पर वापस", "← Back to ISO 9001 Menu": "← आईएसओ 9001 मेनू पर वापस",
-    "Search": "खोजें", "File Location": "फ़ाइल लोकेशन", "Share via QR": "QR से शेयर करें", "Dark Mode": "डार्क मोड",
+    "Search": "खोजें", "Get Started": "शुरुआत करें", "File Location": "फ़ाइल लोकेशन", "Share via QR": "QR से शेयर करें", "Dark Mode": "डार्क मोड",
     "Theme Colour": "थीम रंग", "Icon Style": "आइकन स्टाइल", "Home": "होम", "More": "और", "Fetch": "फ़ेच", "Fetching": "फ़ेच हो रहा",
     "★ Pinned": "★ पिन किए गए", "Production": "उत्पादन", "Quality": "गुणवत्ता", "Stock & Raw Material": "स्टॉक और कच्चा माल",
     "Documents": "दस्तावेज़",
@@ -4810,9 +4829,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.17.11";
+const APP_VERSION = "2026.10.17.12";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🚀 \"File Location\" is now \"Get Started\": Excel formats, signature, WhatsApp auto-fetch setup steps and app access in one place",
   "🔑 File Location: give / remove app access for other e-mails (they use their own OneDrive, no Kashvi) + 📦 put all Excel formats on a new OneDrive's Desktop in one tap",
   "🌈 Sponge Iron sticky note: new multi-colour design + choose the paper colour, heading / date / table colours and a colour for each line",
   "📐 SOP tables (Carbon correction factor table): \"Table (landscape)\" now gives an upright landscape A4 PDF - no more sideways page",
@@ -6422,7 +6442,7 @@ function loadSignature(force) {
 }
 function sigMissingWarn() {
   if (_sigWarned) return; _sigWarned = true;
-  alert("Signature not found in your OneDrive, so the PDF is made without it.\nMenu (☰) → File Location → \"✍️ Upload signature\" se ek baar signature.png upload kar dijiye.");
+  alert("Signature not found in your OneDrive, so the PDF is made without it.\nMenu (☰) → Get Started → \"✍️ Upload signature\" se ek baar signature.png upload kar dijiye.");
 }
 async function uploadSignatureFile(file) {
   try {
@@ -9669,7 +9689,7 @@ async function submitConsumptionMessage(msg) {
 
     if (!filePath) {
       statusEl.className = "err";
-      statusEl.textContent = `Couldn't automatically find the file for ${MONTH_ABBR[m - 1]} ${y}, and no File Location is set either.`;
+      statusEl.textContent = `Couldn't automatically find the file for ${MONTH_ABBR[m - 1]} ${y} - is it on your OneDrive? (Menu → Get Started → Put formats on the Desktop)`;
       return;
     }
 
@@ -9868,7 +9888,7 @@ async function updateExcel(msgOverride, opts = {}) {
         filePath = autoPath;
       } else if (!manualFilePath) {
         statusEl.className = "err";
-        statusEl.textContent = `Couldn't automatically find the file for ${MONTH_ABBR[heatMonth - 1]} ${year}, and no File Location is set either.`;
+        statusEl.textContent = `Couldn't automatically find the file for ${MONTH_ABBR[heatMonth - 1]} ${year} - is it on your OneDrive? (Menu → Get Started → Put formats on the Desktop)`;
         return { ok: false, error: `Couldn't find the file for ${MONTH_ABBR[heatMonth - 1]} ${year}` };
       }
       // else: auto-detect failed but a manual File Location is set - fall back to it.
@@ -14214,7 +14234,7 @@ async function submitHotOut() {
     let filePath = hoAutoPath || manualFilePath;
     if (!filePath) {
       statusEl.className = "err";
-      statusEl.textContent = `Couldn't automatically find the file for ${MONTH_ABBR[hom - 1]} ${hoy}, and no File Location is set either.`;
+      statusEl.textContent = `Couldn't automatically find the file for ${MONTH_ABBR[hom - 1]} ${hoy} - is it on your OneDrive? (Menu → Get Started → Put formats on the Desktop)`;
       return;
     }
 
@@ -14387,7 +14407,7 @@ async function submitRHF() {
     let filePath = autoPath || manualFilePath;
     if (!filePath) {
       statusEl.className = "err";
-      statusEl.textContent = `Couldn't automatically find the file for ${MONTH_ABBR[pm - 1]} ${py}, and no File Location is set either.`;
+      statusEl.textContent = `Couldn't automatically find the file for ${MONTH_ABBR[pm - 1]} ${py} - is it on your OneDrive? (Menu → Get Started → Put formats on the Desktop)`;
       return;
     }
 
@@ -14548,7 +14568,7 @@ async function submitRawMaterial() {
     const filePath = rmAutoPath || manualFilePath;
     if (!filePath) {
       statusEl.className = "err";
-      statusEl.textContent = `Couldn't automatically find the file for ${MONTH_ABBR[rmm - 1]} ${rmy}, and no File Location is set either.`;
+      statusEl.textContent = `Couldn't automatically find the file for ${MONTH_ABBR[rmm - 1]} ${rmy} - is it on your OneDrive? (Menu → Get Started → Put formats on the Desktop)`;
       return;
     }
 
@@ -16064,7 +16084,7 @@ async function createNextDayBlock() {
     const filePath = autoPath || manualFilePath;
     if (!filePath) {
       statusEl.className = "err";
-      statusEl.textContent = "Couldn't automatically find this month's file, and no File Location is set either.";
+      statusEl.textContent = "Couldn't automatically find this month's file - is it on your OneDrive? (Menu → Get Started → Put formats on the Desktop)";
       return;
     }
 
@@ -16127,7 +16147,7 @@ async function createAllNextDayBlocks() {
     statusEl.textContent = "Locating this month's file...";
     const autoPath = await detectFilePathForMonth(token, today.getFullYear(), today.getMonth());
     const filePath = autoPath || document.getElementById("filePath").value.trim();
-    if (!filePath) throw new Error("Couldn't automatically find this month's file, and no File Location is set either.");
+    if (!filePath) throw new Error("Couldn't automatically find this month's file - is it on your OneDrive? (Menu → Get Started → Put formats on the Desktop)");
     const wb = await resolveWorkbook(token, filePath);
     statusEl.textContent = "Opening the Excel file...";
     await nextDayJobStart(wb, token); started = true;
@@ -22892,7 +22912,7 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
       const token = await getToken();
       if (await tryGetItem(token, "Desktop/Template.xlsx")) { localStorage.setItem(k, "1"); return; }
       localStorage.setItem(k, "1");
-      if (!confirm("Welcome to SMS Reports!\n\nYour OneDrive does not have the Excel formats yet. Put them on your OneDrive Desktop now?\n(You can also do it later: Menu → File Location → Put formats on the Desktop)")) return;
+      if (!confirm("Welcome to SMS Reports!\n\nYour OneDrive does not have the Excel formats yet. Put them on your OneDrive Desktop now?\n(You can also do it later: Menu → Get Started → Put formats on the Desktop)")) return;
       const sec = document.getElementById("fileLocationMenuBtn"); if (sec) sec.click();
       const out = $("fmtStatus"); out.textContent = "Starting...";
       await pushFormats(out);
@@ -22998,6 +23018,10 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
     b.disabled = true; st.textContent = "Removing...";
     try { draw(await call("remove", em)); st.textContent = `🚫 ${em} removed.`; } catch (x) { st.textContent = "⚠️ " + x.message; b.disabled = false; }
   });
+  const waBtn = $("waGuideSettingsBtn"), waInfo = $("waGuideInfo");
+  const waShow = () => { try { const u = localStorage.getItem("waInboxUrl"); waInfo.textContent = u ? "✅ Inbox set: " + u.replace(/^https:\/\/script\.google\.com\/macros\/s\/(.{6}).*(.{6})\/exec$/, "…$1…$2/exec") : "Not set up on this phone yet."; } catch (e) {} };
+  if (waBtn) waBtn.addEventListener("click", () => { if (typeof waInboxEditSettings === "function") waInboxEditSettings(); waShow(); });
+  if ($("fileLocationMenuBtn")) $("fileLocationMenuBtn").addEventListener("click", waShow);
   const flBtn = $("fileLocationMenuBtn");
   if (flBtn) flBtn.addEventListener("click", () => { if (account && accountRole(account) === "owner") { showSetup(); refresh(); } });
 })();
