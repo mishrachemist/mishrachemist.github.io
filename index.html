@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; connect-src 'self' https://api.open-meteo.com https://graph.microsoft.com https://login.microsoftonline.com https://login.live.com https://*.1drv.com https://*.files.1drv.com https://*.livefilestore.com https://*.sharepoint.com https://script.google.com https://script.googleusercontent.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; frame-src 'self' blob: data: https://login.microsoftonline.com https://login.live.com https://script.google.com https://*.googleusercontent.com; media-src 'self' blob: data:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; connect-src 'self' https://api.open-meteo.com https://graph.microsoft.com https://login.microsoftonline.com https://login.live.com https://*.1drv.com https://*.files.1drv.com https://*.livefilestore.com https://*.sharepoint.com https://script.google.com https://script.googleusercontent.com https://get.geojs.io https://cdn.jsdelivr.net https://tessdata.projectnaptha.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; frame-src 'self' blob: data: https://login.microsoftonline.com https://login.live.com https://script.google.com https://*.googleusercontent.com; media-src 'self' blob: data:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <script>
   // Text from Excel / OneDrive / WhatsApp / typed boxes is shown as TEXT, never as HTML (stops "<img onerror=...>" tricks).
@@ -5153,9 +5153,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.22.10";
+const APP_VERSION = "2026.10.22.11";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📍 Login log: every sign-in / app open now also records the IP address and approximate location (needs the updated access script)",
   "🐞 Bug check: no more stray \"${...}\" image requests at start-up; app store label says 7 periodic table designs",
   "⚛️ Periodic Table: 2 new designs - \"in Pictures\" and \"in Words\" (Keith Enevoldsen, CC BY-SA 4.0), JPG + vector SVG",
   "🧱 More textured themes: Green = Leaf, Burnt Orange = Rusted Iron, Red = Brick wall, Grey = Concrete (Menu → Theme Colour)",
@@ -7995,8 +7996,23 @@ function logLoginEvent(event) {   // the access server writes the log itself, us
       if (localStorage.getItem(k) === today) return;
       localStorage.setItem(k, today);
     }
-    authCall({ action: "log", event, device: loginDeviceLabel() }).catch(() => {});
+    loginGeo().then(g => authCall({ action: "log", event, device: loginDeviceLabel(), ip: g.ip, loc: g.loc })).catch(() => {});
   } catch (e) { console.warn("login log failed", e); }
+}
+// Public IP + approximate place (city / state / country + internet provider) from GeoJS (free, no key).
+// Mobile data often shows the operator's city, not the exact place. Kept 30 min per tab; if it fails the log still goes.
+async function loginGeo() {
+  try { const c = JSON.parse(sessionStorage.getItem("loginGeo") || "null"); if (c && Date.now() - c.t < 30 * 60000) return c; } catch (e) {}
+  try {
+    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 5000);
+    const r = await fetch("https://get.geojs.io/v1/ip/geo.json", { cache: "no-store", credentials: "omit", signal: ctl.signal });
+    clearTimeout(tm);
+    const j = await r.json();
+    const place = [j.city, j.region, j.country].filter(Boolean).join(", ");
+    const g = { ip: String(j.ip || "").slice(0, 45), loc: (place + (j.organization_name ? " · " + j.organization_name : "")).slice(0, 120), t: Date.now() };
+    try { sessionStorage.setItem("loginGeo", JSON.stringify(g)); } catch (e) {}
+    return g;
+  } catch (e) { return { ip: "", loc: "" }; }
 }
 
 function resumePendingAction() {
@@ -23812,7 +23828,8 @@ function doPost(e) {
     }
     if (action === "log") {
       rate_(me.email);
-      sheet_().appendRow([new Date(), safe_(me.email), safe_(me.name), role, safe_(String(p.event || "").slice(0, 40)), safe_(String(p.device || "").slice(0, 120))]);
+      sheet_().appendRow([new Date(), safe_(me.email), safe_(me.name), role, safe_(String(p.event || "").slice(0, 40)), safe_(String(p.device || "").slice(0, 120)),
+        safe_(String(p.ip || "").slice(0, 45)), safe_(String(p.loc || "").slice(0, 120))]);
       return out_({ ok: true });
     }
     // everything below: owner only = the owner's Microsoft sign-in AND the admin key
@@ -23892,9 +23909,11 @@ function sheet_() {
   if (!ss) {
     ss = SpreadsheetApp.create("SMS Reports - login log");
     props.setProperty("logSheet", ss.getId());
-    ss.getSheets()[0].appendRow(["Time", "E-mail", "Name", "Role", "Event", "Device"]);
+    ss.getSheets()[0].appendRow(["Time", "E-mail", "Name", "Role", "Event", "Device", "IP", "Location"]);
   }
-  return ss.getSheets()[0];
+  const sh = ss.getSheets()[0];
+  if (sh.getRange(1, 7).getValue() === "") sh.getRange(1, 7, 1, 2).setValues([["IP", "Location"]]);   // older log sheets: add the 2 new headings
+  return sh;
 }
 
 function authorize() { UrlFetchApp.fetch("https://graph.microsoft.com/v1.0/$metadata", { muteHttpExceptions: true }); sheet_(); }
