@@ -5,6 +5,8 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <script>
   // Text from Excel / OneDrive / WhatsApp / typed boxes is shown as TEXT, never as HTML (stops "<img onerror=...>" tricks).
+  // Logo on downloaded reports (PDF / JPG): one switch for the whole app, remembered on this device. Default ON.
+  function reportLogoOn() { try { return localStorage.getItem("reportLogo") !== "off"; } catch (e) { return true; } }
   function htmlEsc(t) { return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   // Clickjacking guard: the app must never run inside someone else's page/iframe.
   try { if (window.top !== window.self) { document.documentElement.style.display = "none"; window.top.location = window.self.location; } } catch (e) { document.documentElement.style.display = "none"; }
@@ -1997,6 +1999,12 @@
   .pdfModal{ position:relative; }
   /* report zoom: pinching inside a report zooms only the report */
   .pdfOverlay{ touch-action:pan-x pan-y; }
+  /* "Logo on report" switch shown in every report card whose PDF / JPG carries the logo */
+  .logoChip{ display:flex !important; width:fit-content !important; max-width:100%; box-sizing:border-box; align-items:center; gap:8px; margin:12px 0 0 !important; padding:5px 12px 5px 9px; border-radius:999px;
+    border:1px solid rgba(128,128,128,.4); font-size:12.5px; font-weight:600; cursor:pointer; color:inherit !important; user-select:none; }
+  .logoChip input{ width:16px !important; height:16px; margin:0 !important; accent-color:var(--gold); cursor:pointer; }
+  .logoChip.off{ opacity:.75; }
+  .logoChip + .btnRow, .logoChip + button{ margin-top:10px; }
   /* Theme Colour pop-up: always fits the screen - the list scrolls inside, Close stays visible at the bottom */
   #themePickerOverlay .tpCard{ max-width:380px; width:100%; margin:12px; box-sizing:border-box; display:flex; flex-direction:column;
     max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px); padding:16px 16px 14px; }
@@ -5185,9 +5193,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.23.6";
+const APP_VERSION = "2026.10.23.7";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🖼️ New switch in every report card: Logo on report ON / OFF - applies to all PDF and JPG downloads (also the ISI mark on the T.C.)",
   "🧹 Jute and Slate themes removed; the Kashvi \"Any query?\" sticker now shows only on the Home screen",
   "🎨 Theme Colour pop-up fits the screen: 5 colours per row, the list scrolls and Close is always visible",
   "🎨 New themes: Brushed Steel, Molten Steel, Copper Patina, Graph Paper, Blueprint, Kraft Paper, Jute, Slate, Brass Gold. Leaf, Rusted Iron, Brick, Concrete and Transparent removed (Menu → Theme Colour)",
@@ -6836,6 +6845,7 @@ function coApply(o) {
   const okImg = v => (typeof v === "string" && /^data:image\/(png|jpe?g);base64,/i.test(v) && v.length < 450000) ? v : "";
   COMPANY.logo = okImg(o.logo); COMPANY.lw = COMPANY.logo ? (+o.lw || 0) : 0; COMPANY.lh = COMPANY.logo ? (+o.lh || 0) : 0;
   COMPANY.tc = okImg(o.tc); COMPANY.tcw = COMPANY.tc ? (+o.tcw || 0) : 0; COMPANY.tch = COMPANY.tc ? (+o.tch || 0) : 0;
+  if (typeof window.reportLogoRefresh === "function") window.reportLogoRefresh();   // show / hide the "Logo on report" switches
 }
 function companyLoadLocal() {
   coApply({});
@@ -6944,6 +6954,7 @@ document.addEventListener("change", async e => {
 function coCmlText() { return /^\s*CM\s*\/\s*L/i.test(COMPANY.cml) ? COMPANY.cml : "CM/L- " + COMPANY.cml; }
 function coTag(x) { const n = COMPANY.short || COMPANY.name; return (n ? n + "  \u00b7  " : "") + x; }   // "ABC  ·  QAD - SMS"
 function coDrawLogo(doc, x, y, maxW, maxH, forTc) {   // forTc: the Test Certificate logo if one was added, else the main logo   // logo fitted inside the box, keeping its shape; prints nothing when there is no logo
+  if (!reportLogoOn()) return false;   // "Logo on report" switched off
   const useTc = forTc && COMPANY.tc;
   const img = useTc ? COMPANY.tc : COMPANY.logo, iw = useTc ? COMPANY.tcw : COMPANY.lw, ih = useTc ? COMPANY.tch : COMPANY.lh;
   if (!img) return false;
@@ -12456,7 +12467,7 @@ function renderTCPage(doc, t, certDateText) {
   doc.setFont("helvetica", "bold");   // ISI mark stays in the code; the CM/L licence no. comes from Company details
   doc.setFontSize(8);
   doc.text("IS 14650:2023", 794, 16, { align: "center" });
-  doc.addImage(ISI_LOGO, "PNG", 767, 18, 55, 41);
+  if (reportLogoOn()) doc.addImage(ISI_LOGO, "PNG", 767, 18, 55, 41);   // ISI mark also follows the "Logo on report" switch
   if (COMPANY.cml) { doc.setFontSize(7.5); doc.text(coCmlText(), 794, 66, { align: "center" }); }
 
   doc.setFont("helvetica", "bold");
@@ -20354,7 +20365,7 @@ function snWrap(g, text, maxW) {
   return out;
 }
 async function snLogo() {   // company logo from Get Started > Company details (none if not added)
-  if (!COMPANY.logo) return null;
+  if (!COMPANY.logo || !reportLogoOn()) return null;
   return new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = COMPANY.logo; });
 }
 // blocks: {cards:[{label,value,tone}]} | {text} | {image: canvas} | {table:[[...]]} | {calendar:{cells,legend}}
@@ -24407,6 +24418,48 @@ async function downloadAndroidApk() {
   link();
   // cards that are built later (pop-ups, new panels)
   new MutationObserver(ms => { if (ms.some(m => m.addedNodes.length)) link(); }).observe(document.body, { childList: true, subtree: true });
+})();
+</script>
+<script>
+/* ===== "Logo on report" switch: added to each report card whose PDF / JPG prints the company logo (or the ISI mark on the T.C.).
+   One shared setting: switching it in any card changes it everywhere; remembered on this device. ===== */
+(function reportLogoSwitch() {
+  const NO_LOGO = new Set(["snDownload", "rmdDownload", "spJpgBtn", "spPdfBtn", "sdsAllBtn", "sdsPdfBtn", "ptJpgBtn", "sopReqPdf", "sopDocPrint"]);
+  const EXTRA = new Set(["isoPackGenBtn"]);
+  const isReportBtn = b => !NO_LOGO.has(b.id) && (EXTRA.has(b.id) || /\b(PDF|JPG|JPEG)\b/i.test(b.textContent || ""));
+  const chips = [];
+  function setAll() {
+    const on = reportLogoOn(), hasLogo = !!(COMPANY.logo || COMPANY.tc);
+    chips.forEach(c => {
+      c.querySelector("input").checked = on; c.classList.toggle("off", !on);
+      c.querySelector("span").textContent = on ? "🖼️ Logo on report: ON" : "🖼️ Logo on report: OFF";
+      c.hidden = !(hasLogo || c.dataset.tc);   // nothing to switch when no logo was added (except the ISI mark on the T.C.)
+    });
+  }
+  function add() {
+    document.querySelectorAll(".card").forEach(card => {
+      if (card.querySelector(":scope .logoChip")) return;
+      const btn = Array.from(card.querySelectorAll("button")).find(isReportBtn);
+      if (!btn || btn.closest(".logoChip")) return;
+      const anchor = btn.closest(".btnRow") && btn.closest(".btnRow").parentElement && card.contains(btn.closest(".btnRow")) ? btn.closest(".btnRow") : btn;
+      const chip = document.createElement("label");
+      chip.className = "logoChip"; chip.title = "Print the company logo on this report (PDF / JPG)";
+      chip.innerHTML = '<input type="checkbox"><span></span>';
+      if (card.querySelector("#tcPdfBtn")) chip.dataset.tc = "1";
+      chip.querySelector("input").addEventListener("change", e => {
+        try { localStorage.setItem("reportLogo", e.target.checked ? "on" : "off"); } catch (err) {}
+        setAll();
+      });
+      anchor.parentNode.insertBefore(chip, anchor);
+      chips.push(chip);
+    });
+    setAll();
+  }
+  add();
+  let t = 0;
+  new MutationObserver(() => { clearTimeout(t); t = setTimeout(add, 300); }).observe(document.body, { childList: true, subtree: true });
+  window.reportLogoRefresh = setAll;
+  window.addEventListener("storage", e => { if (e.key === "reportLogo") setAll(); });
 })();
 </script>
 </body>
