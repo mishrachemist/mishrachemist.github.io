@@ -1760,12 +1760,6 @@
     font-size:14px;
     margin-bottom:14px;
   }
-  /* date box + its button stacked with the SAME width (PC: as wide as the date needs; phone: full width) */
-  .dateSubmitPair{ display:inline-flex; flex-direction:column; align-items:stretch; max-width:100%; vertical-align:top; }
-  .dateSubmitPair input[type=date]{ width:auto !important; margin-bottom:12px; }
-  .dateSubmitPair .btnRow{ margin-top:0; }
-  .dateSubmitPair .btnRow button{ width:100%; margin:0; }
-  @media (max-width:600px){ .dateSubmitPair{ display:flex; } .dateSubmitPair input[type=date]{ width:100% !important; } }
   input[type=date], input[type=month], input[type=number], select{
     width:50%;
     padding:10px 12px;
@@ -3328,11 +3322,9 @@ body.tex-concrete header, body.tex-concrete #mainSidebar, body.tex-concrete .sid
           <div class="card">
             <h2>Dashboard - Daily Summary</h2>
             <label for="dashDate">Date</label>
-            <div class="dateSubmitPair">
-              <input type="date" id="dashDate">
-              <div class="btnRow">
-                <button class="primary" id="dashLoadBtn">Load Summary</button>
-              </div>
+            <input type="date" id="dashDate">
+            <div class="btnRow">
+              <button class="primary" id="dashLoadBtn">Load Summary</button>
             </div>
             <div id="dashStats" class="hidden" style="margin-top:18px;">
               <div id="furnaceAnim" class="furnaceWrap" style="position:relative;overflow:hidden;border-radius:8px;">
@@ -5165,10 +5157,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.23.2";
+const APP_VERSION = "2026.10.23.3";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
-  "📅 Dashboard - Daily Summary: the date box is now exactly as wide as the Load Summary button (PC and phone)",
+  "📅 All pages: every date / month box is now exactly as wide as its button (PC and phone)",
   "🖥️ Computer screen: the page now uses the full width - same gap on the left and right as below the header",
   "🏅 New Moltrix app icon - the Quality Seal",
   "🔥 New name: SMS Reports is now Moltrix (molten + matrix)",
@@ -24344,6 +24336,41 @@ async function downloadAndroidApk() {
   let inApp = false;
   try { inApp = matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || document.referrer.startsWith("android-app://"); } catch (e) {}
   if (ios || inApp) it.style.display = "none";   // already inside the app, or an iPhone (APK is Android only)
+})();
+</script>
+<script>
+/* ===== Every date / month box is exactly as wide as the button that follows it in the same card (its "submit" button).
+   PC: button width (a very short button is widened to the date's own width); phone: the button is full width, so the date box is too. Kept in step when the page / window / panel
+   size changes (ResizeObserver). Never narrower than the date itself needs (150 px date, 165 px month). ===== */
+(function dateWidthLikeButton() {
+  if (!("ResizeObserver" in window)) return;
+  const MIN = { date: 150, month: 165 };
+  const pairs = new Map();   // button -> [inputs]
+  function link(root) {
+    (root || document).querySelectorAll('.card input[type="date"], .card input[type="month"]').forEach(inp => {
+      if (inp.dataset.wLinked) return;
+      const card = inp.closest(".card"); if (!card) return;
+      const btn = Array.from(card.querySelectorAll("button")).find(b => inp.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+      if (!btn) return;
+      inp.dataset.wLinked = "1";
+      if (!pairs.has(btn)) { pairs.set(btn, []); ro.observe(btn); }
+      pairs.get(btn).push(inp);
+    });
+  }
+  const ro = new ResizeObserver(entries => {
+    entries.forEach(e => {
+      const btn = e.target, w = Math.round(btn.getBoundingClientRect().width);
+      if (!w) return;   // panel still hidden
+      (pairs.get(btn) || []).forEach(inp => {
+        const want = Math.max(w, MIN[inp.type] || 150);
+        inp.style.width = want + "px"; inp.style.maxWidth = "100%"; inp.style.boxSizing = "border-box";
+        if (want > w) btn.style.minWidth = want + "px";   // short button (e.g. "Add NCR"): widen it to the date's width
+      });
+    });
+  });
+  link();
+  // cards that are built later (pop-ups, new panels)
+  new MutationObserver(ms => { if (ms.some(m => m.addedNodes.length)) link(); }).observe(document.body, { childList: true, subtree: true });
 })();
 </script>
 </body>
