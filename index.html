@@ -1171,6 +1171,10 @@
     padding:0 16px 90px;
     overflow-x:hidden;
   }
+  /* Computer / tablet: use the full width - the gap left and right of the page equals the gap below the header (28 px) */
+  @media (min-width:601px){
+    main{ max-width:none; padding-left:28px; padding-right:28px; }
+  }
   .appLayout{
     display:grid;
     grid-template-columns:1fr;
@@ -1756,6 +1760,12 @@
     font-size:14px;
     margin-bottom:14px;
   }
+  /* date box + its button stacked with the SAME width (PC: as wide as the date needs; phone: full width) */
+  .dateSubmitPair{ display:inline-flex; flex-direction:column; align-items:stretch; max-width:100%; vertical-align:top; }
+  .dateSubmitPair input[type=date]{ width:auto !important; margin-bottom:12px; }
+  .dateSubmitPair .btnRow{ margin-top:0; }
+  .dateSubmitPair .btnRow button{ width:100%; margin:0; }
+  @media (max-width:600px){ .dateSubmitPair{ display:flex; } .dateSubmitPair input[type=date]{ width:100% !important; } }
   input[type=date], input[type=month], input[type=number], select{
     width:50%;
     padding:10px 12px;
@@ -3318,9 +3328,11 @@ body.tex-concrete header, body.tex-concrete #mainSidebar, body.tex-concrete .sid
           <div class="card">
             <h2>Dashboard - Daily Summary</h2>
             <label for="dashDate">Date</label>
-            <input type="date" id="dashDate">
-            <div class="btnRow">
-              <button class="primary" id="dashLoadBtn">Load Summary</button>
+            <div class="dateSubmitPair">
+              <input type="date" id="dashDate">
+              <div class="btnRow">
+                <button class="primary" id="dashLoadBtn">Load Summary</button>
+              </div>
             </div>
             <div id="dashStats" class="hidden" style="margin-top:18px;">
               <div id="furnaceAnim" class="furnaceWrap" style="position:relative;overflow:hidden;border-radius:8px;">
@@ -5153,9 +5165,11 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.22.13";
+const APP_VERSION = "2026.10.23.2";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📅 Dashboard - Daily Summary: the date box is now exactly as wide as the Load Summary button (PC and phone)",
+  "🖥️ Computer screen: the page now uses the full width - same gap on the left and right as below the header",
   "🏅 New Moltrix app icon - the Quality Seal",
   "🔥 New name: SMS Reports is now Moltrix (molten + matrix)",
   "📍 Login log: every sign-in / app open now also records the IP address and approximate location (needs the updated access script)",
