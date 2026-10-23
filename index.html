@@ -1997,6 +1997,15 @@
   .pdfModal{ position:relative; }
   /* report zoom: pinching inside a report zooms only the report */
   .pdfOverlay{ touch-action:pan-x pan-y; }
+  /* Theme Colour pop-up: always fits the screen - the list scrolls inside, Close stays visible at the bottom */
+  #themePickerOverlay .tpCard{ max-width:380px; width:100%; margin:12px; box-sizing:border-box; display:flex; flex-direction:column;
+    max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px); padding:16px 16px 14px; }
+  #themePickerOverlay .tpScroll{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; margin:0 -6px; padding:0 6px; }
+  #themeSwatches{ display:grid; grid-template-columns:repeat(5,1fr); gap:10px 6px; margin:4px 0 12px; }
+  #themeSwatches button{ width:46px !important; height:46px !important; }
+  #themeSwatches div div{ font-size:10px !important; margin-top:3px !important; }
+  #themePickerOverlay .fxSettings{ margin-top:0; }
+  #themePickerCloseBtn{ flex:none; margin-top:10px; }
   .reportZoom{ touch-action:pan-x pan-y; overscroll-behavior:contain; }
   .reportZoom > canvas, .reportZoom img{ width:calc(100% * var(--rz, 1)) !important; flex-shrink:0; }
   .reportZoom.rzOn > canvas, .reportZoom.rzOn img{ max-width:none !important; }
@@ -2693,6 +2702,7 @@
   body.askFabHidden #askFab, body.askFabHidden #askFabBubble{ display:none; }
   /* hidden by default - shown only after sign-in (class added by script) */
   body:not(.askFabOn) #askFab, body:not(.askFabOn) #askFabBubble{ display:none; }
+  body:has(#themePickerOverlay:not(.hidden)) #askFab, body:has(#themePickerOverlay:not(.hidden)) #askFabBubble{ display:none; }   /* not over the Theme Colour pop-up */
 
   /* ===== Kashvi chat box ===== */
   #kashviPanel{
@@ -3081,9 +3091,10 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
 </div>
 
 <div id="themePickerOverlay" class="pdfOverlay hidden" style="align-items:center;justify-content:center;">
-  <div class="card" style="max-width:340px;margin:20px;width:100%;">
-    <h3 style="color:var(--navy);margin-top:0;">Choose Theme Colour</h3>
-    <div id="themeSwatches" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:18px 0;"></div>
+  <div class="card tpCard">
+    <h3 style="color:var(--navy);margin-top:0;margin-bottom:10px;">Choose Theme Colour</h3>
+    <div class="tpScroll">
+    <div id="themeSwatches"></div>
     <div id="fxSettings" class="fxSettings">
       <div class="fxHead">✨ Home effects</div>
       <label class="fxRow"><input type="checkbox" id="fxFestival"> <span>🎉 Festival themes (Diwali, Holi, 15 Aug...)</span></label>
@@ -3091,6 +3102,7 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
       <label class="fxRow"><input type="checkbox" id="fxSparks"> <span>🔥 Furnace glow &amp; sparks</span></label>
       <label class="fxRow fxTarget"><span>Month production target (MT)</span><input type="number" id="fxTarget" min="0" step="100" placeholder="e.g. 6000"></label>
       <div class="fxNote">Shown as a meter around today's date (gold near the target); sparks also get faster as production gets close to it.</div>
+    </div>
     </div>
     <button class="secondary" id="themePickerCloseBtn" style="width:100%;">Close</button>
   </div>
@@ -5179,9 +5191,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.23.4";
+const APP_VERSION = "2026.10.23.5";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🎨 Theme Colour pop-up fits the screen: 5 colours per row, the list scrolls and Close is always visible",
   "🎨 New themes: Brushed Steel, Molten Steel, Copper Patina, Graph Paper, Blueprint, Kraft Paper, Jute, Slate, Brass Gold. Leaf, Rusted Iron, Brick, Concrete and Transparent removed (Menu → Theme Colour)",
   "📅 All pages: every date / month box is now exactly as wide as its button (PC and phone)",
   "🖥️ Computer screen: the page now uses the full width - same gap on the left and right as below the header",
