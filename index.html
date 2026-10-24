@@ -5243,9 +5243,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.24.7";
+const APP_VERSION = "2026.10.24.8";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🐞 ERP Upload: billets total uses the item code from column B (F counted, R skipped)",
   "🧱 ERP Upload: billets total counts only item codes starting with F (R codes skipped)",
   "🧱 ERP Upload (Durgesh): Billet Stock Format Total H = ERP billets total - the difference left after the Q changes is added at the end of H and G (I stays the same)",
   "📥 ERP Upload: better automatic item match for sizes (4 / 4.0 / 4000 mm, 160*160, 160X160X4)",
@@ -24623,16 +24624,14 @@ async function downloadAndroidApk() {
     if (hr < 0) for (let r = 0; r < Math.min(rows.length, 15) && hr < 0; r++) rows[r].forEach((v, c) => { if (cc < 0 && /CLOSING/i.test(String(v))) { hr = r; cc = c; } });
     if (hr < 0) return { error: 'no "4-CLOSING" column found in the first 15 rows of the ERP file' };
     const items = [];
-    // item-code column: the header with "CODE" (else column C, as FC Report uses)
-    let codeCol = rows[hr].findIndex((v, c) => c < cc && /CODE/i.test(String(v)));
-    if (codeCol < 0) codeCol = 2;
     let billetTotal = 0, billetCount = 0, billetSkipped = 0, billetSkippedWt = 0;
     for (let r = hr + 1; r < rows.length; r++) {
       const row = rows[r], val = num(row[cc]);
       // billet total for Billet Stock Format: items with "BILLET" in the name AND item code starting with F
       // (codes starting with R are skipped); total / sub-total lines never counted
       if (val != null && row.slice(0, cc).some(v => typeof v === "string" && /BILLET/i.test(v)) && !row.slice(0, cc).some(v => typeof v === "string" && /\b(SUB\s*-?\s*)?TOTAL\b/i.test(v))) {
-        const code = String(row[codeCol] == null ? "" : row[codeCol]).trim().toUpperCase();
+        // item code = column B of the ERP sheet (e.g. F03010026 / R03010026)
+        const code = String(row[1] == null ? "" : row[1]).trim().toUpperCase();
         if (code.startsWith("F")) { billetTotal += val; billetCount++; }
         else { billetSkipped++; billetSkippedWt += val; }
       }
@@ -24642,9 +24641,11 @@ async function downloadAndroidApk() {
       const name = texts.filter(t => t !== code).sort((x, y) => y.length - x.length)[0] || "";   // the longest text = item name
       if (/^(GRAND\s*)?TOTAL\b/i.test(name) && !code) continue;
       const key = code || name;
-      items.push({ key, label: code && name ? `${name} (${code})` : (name || code), value: val, row: r + 1 });
+      const all = [code, ...texts].filter(Boolean), codeLike = String(row[1] == null ? "" : row[1]).trim();   // item code = column B
+      const nm = all.filter(v => v !== codeLike).sort((x, y) => y.length - x.length)[0] || "";
+      items.push({ key, label: codeLike && nm ? `${nm} (${codeLike})` : (nm || codeLike || key), value: val, row: r + 1 });
     }
-    return { headerRow: hr + 1, col: cc, colName: String(rows[hr][cc]), items, billetTotal: r3(billetTotal), billetCount, billetSkipped, billetSkippedWt: r3(billetSkippedWt), codeColName: String(rows[hr][codeCol] || XLSX.utils.encode_col(codeCol)) };
+    return { headerRow: hr + 1, col: cc, colName: String(rows[hr][cc]), items, billetTotal: r3(billetTotal), billetCount, billetSkipped, billetSkippedWt: r3(billetSkippedWt) };
   }
   // best guess of the ERP item(s) for a Daily Stock size like "130 X 6", "RAN 160", "110X 5.25"
   function guessFor(size, items) {
@@ -24737,8 +24738,8 @@ async function downloadAndroidApk() {
         const qDelta = j.q && j.q.rows ? j.q.rows.reduce((a, r) => a + (r.newF != null && typeof r.q === "number" && r.newQ != null ? r.newQ - r.q : 0), 0) : 0;
         const est = typeof j.b.h === "number" ? r3(j.b.target - (j.b.h + qDelta)) : null;
         h += `<div class="erpBox"><h4>🧱 Billet Stock Format ${esc(j.iso.split("-").reverse().join("."))} · Total line (row ${j.b.row})</h4>
-          <div>ERP billets total (${j.b.count} "BILLET" items with code starting F, 4-CLOSING): <b>${j.b.target.toFixed(3)}</b></div>
-          ${j.b.skipped ? `<div style="font-size:12px;opacity:.85;">Skipped ${j.b.skipped} "BILLET" item(s) whose code (${esc(j.b.codeColName)}) does not start with F - ${j.b.skippedWt.toFixed(3)} MT</div>` : ""}
+          <div>ERP billets total (${j.b.count} "BILLET" items with item code in column B starting F, 4-CLOSING): <b>${j.b.target.toFixed(3)}</b></div>
+          ${j.b.skipped ? `<div style="font-size:12px;opacity:.85;">Skipped ${j.b.skipped} "BILLET" item(s) whose item code (column B) does not start with F (e.g. R…) - ${j.b.skippedWt.toFixed(3)} MT</div>` : ""}
           <div>H total now: <b>${typeof j.b.h === "number" ? j.b.h.toFixed(3) : esc(j.b.h)}</b> · G total now: <b>${typeof j.b.g === "number" ? j.b.g.toFixed(3) : esc(j.b.g)}</b></div>
           <div style="margin-top:4px;">After the Daily Stock Q changes, the difference left is added at the end of <b>both</b> H and G (I stays the same)${est == null ? "" : ` - expected about <b class="${Math.abs(est) >= 0.0005 ? "chg" : ""}">${est >= 0 ? "+" : ""}${est.toFixed(3)}</b>`}.</div>
           <div class="erpF">H: ${esc(j.b.hF)} · G: ${esc(j.b.gF)}</div></div>`;
@@ -24814,10 +24815,10 @@ async function downloadAndroidApk() {
           recalcQ();
         }
         // Billet Stock Format total (G / H) of the same day
-        if (!d.billetCount) job.b = { error: 'no "BILLET" item with an item code starting with F in the ERP file' };
+        if (!d.billetCount) job.b = { error: 'no "BILLET" item with an item code (column B) starting with F in the ERP file' };
         else {
           const bt = await readBilletTotal(wb, token, iso);
-          job.b = bt ? { ...bt, target: d.billetTotal, count: d.billetCount, skipped: d.billetSkipped, skippedWt: d.billetSkippedWt, codeColName: d.codeColName } : { error: `no Billet Stock Format block "As on ${iso.split("-").reverse().join(".")}" with a Total line` };
+          job.b = bt ? { ...bt, target: d.billetTotal, count: d.billetCount, skipped: d.billetSkipped, skippedWt: d.billetSkippedWt } : { error: `no Billet Stock Format block "As on ${iso.split("-").reverse().join(".")}" with a Total line` };
         }
       }
     }
