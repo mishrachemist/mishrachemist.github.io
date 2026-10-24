@@ -1999,6 +1999,22 @@
   .pdfModal{ position:relative; }
   /* report zoom: pinching inside a report zooms only the report */
   .pdfOverlay{ touch-action:pan-x pan-y; }
+  /* ERP Upload */
+  #subwhatsapp-erpupload .erpBox{ margin-top:12px; padding:12px; border:1px solid rgba(128,128,128,.35); border-radius:10px; font-size:13px; }
+  #subwhatsapp-erpupload .erpBox h4{ margin:0 0 8px; font-size:14px; }
+  #subwhatsapp-erpupload .erpScroll{ overflow:auto; max-height:240px; border-radius:8px; }
+  #subwhatsapp-erpupload table.erpT{ border-collapse:collapse; font-size:11.5px; width:max-content; min-width:100%; }
+  #subwhatsapp-erpupload table.erpT td, #subwhatsapp-erpupload table.erpT th{ border:1px solid rgba(128,128,128,.35); padding:3px 6px; white-space:nowrap; text-align:left; }
+  #subwhatsapp-erpupload table.erpT th{ background:rgba(128,128,128,.15); }
+  #subwhatsapp-erpupload .erpRow{ padding:8px 0; border-bottom:1px solid rgba(128,128,128,.25); }
+  #subwhatsapp-erpupload .erpRowHead{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:4px; }
+  #subwhatsapp-erpupload .erpRowHead .num{ font-variant-numeric:tabular-nums; white-space:nowrap; font-size:12.5px; }
+  #subwhatsapp-erpupload .erpRow select{ width:100% !important; font-size:12.5px; padding:6px; margin:2px 0; box-sizing:border-box; }
+  #subwhatsapp-erpupload .erpRowFoot{ display:flex; align-items:center; gap:10px; }
+  #subwhatsapp-erpupload .erpGuess{ font-size:11.5px; color:#e0a100; font-weight:600; }
+  #subwhatsapp-erpupload .chg{ color:#e0a100; font-weight:700; }
+  #subwhatsapp-erpupload .addItem{ font-size:11.5px; padding:2px 8px; margin-top:2px; }
+
   /* "Logo on report" switch shown in every report card whose PDF / JPG carries the logo */
   .logoChip{ display:flex !important; width:fit-content !important; max-width:100%; box-sizing:border-box; align-items:center; gap:8px; margin:12px 0 0 !important; padding:5px 12px 5px 9px; border-radius:999px;
     border:1px solid rgba(128,128,128,.4); font-size:12.5px; font-weight:600; cursor:pointer; color:inherit !important; user-select:none; }
@@ -3843,6 +3859,7 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
             <button class="navItem" data-subwhatsapp="rhf"><span class="navIcon">🧱</span> RHF Billets Entry</button>
             <button class="navItem" data-subwhatsapp="rawmaterial"><span class="navIcon">🧪</span> Raw Material / Scrap</button>
             <button class="navItem" data-subwhatsapp="spongenote"><span class="navIcon">📝</span> Sponge Iron Note</button>
+            <button class="navItem" data-subwhatsapp="erpupload"><span class="navIcon">📥</span> ERP Upload</button>
           </div>
 
           <div class="contentArea hidden" id="whatsappSubContent">
@@ -3988,6 +4005,29 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
             </div>
             <div class="btnRow">
               <button class="primary" id="rhfBtn">Submit RHF</button>
+            </div>
+          </div>
+          </div>
+
+          <div class="sub-sectionPanel hidden" id="subwhatsapp-erpupload">
+          <div class="card">
+            <h2>ERP Upload - Durgesh / M2M</h2>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">Upload the ERP report someone sent you. In the month's Reports file the whole <b>Durgesh</b> or <b>M2M</b> sheet is cleared and the ERP data is written as it is (same as pasting at A1). A Durgesh upload also sets <b>ERP weight (Q)</b> in Daily Stock equal to Durgesh "4-CLOSING". Nothing is written until you tap ✅ Write.</p>
+            <label for="erpDate">Daily Stock date (also picks the month's Reports file)</label>
+            <input type="date" id="erpDate">
+            <div class="btnRow">
+              <button class="primary" id="erpDurgeshBtn" type="button">📥 Durgesh ERP file</button>
+              <button class="primary" id="erpM2mBtn" type="button">📥 M2M ERP file</button>
+            </div>
+            <input type="file" id="erpFileInput" accept=".xls,.xlsx,.xlsm,.xlsb,.csv,.ods" class="hidden">
+            <div id="erpStatus" style="font-size:13px;margin-top:10px;"></div>
+            <div id="erpPreview"></div>
+            <div class="btnRow hidden" id="erpApplyRow">
+              <button class="primary" id="erpApplyBtn" type="button">✅ Write to Reports file</button>
+              <button class="secondary" id="erpCancelBtn" type="button">Cancel</button>
+            </div>
+            <div class="btnRow hidden" id="erpUndoRow">
+              <button class="secondary" id="erpUndoBtn" type="button">↩️ Undo this upload</button>
             </div>
           </div>
           </div>
@@ -5202,9 +5242,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.24.2";
+const APP_VERSION = "2026.10.24.3";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📥 New: Production → ERP Upload - upload the Durgesh / M2M ERP report (sent by anyone); the sheet is replaced in the Reports file and Daily Stock ERP weight (Q) = Durgesh 4-CLOSING. Preview first, Undo available",
   "🐞 Market: phone Back after the India dashboard no longer opens the USA dashboard",
   "📈 Market tile now has two tiles inside: IND MKT (Dashboard 2) and US MKT (USA dashboard) - each keeps its own link (⚙️)",
   "🖼️ New switch in every report card: Logo on report ON / OFF - applies to all PDF and JPG downloads (also the ISI mark on the T.C.)",
@@ -24502,6 +24543,283 @@ async function downloadAndroidApk() {
   new MutationObserver(() => { clearTimeout(t); t = setTimeout(add, 300); }).observe(document.body, { childList: true, subtree: true });
   window.reportLogoRefresh = setAll;
   window.addEventListener("storage", e => { if (e.key === "reportLogo") setAll(); });
+})();
+</script>
+<script>
+/* ===================== ERP UPLOAD (Durgesh / M2M) =====================
+   The ERP report (sent by someone while you are on leave) is written into the month's Reports file:
+   the whole Durgesh or M2M sheet is cleared and the ERP data is written as it is from A1 (like paste).
+   Durgesh also fills Daily Stock column Q (ERP weight) of the chosen date's block = Durgesh "4-CLOSING"
+   of the ERP item(s) chosen for each size (chosen once, remembered on this device).
+   Preview first; nothing is written until "Write". The last upload can be undone. ===== */
+(function erpUpload() {
+  const $ = id => document.getElementById(id);
+  if (!$("erpDurgeshBtn")) return;
+  const MAP_KEY = "erpQMap";
+  let target = "Durgesh", job = null, undo = null;
+  const say = (t, cls) => { const st = $("erpStatus"); st.className = cls || ""; st.innerHTML = t; };
+  const esc = htmlEsc;
+  const r3 = x => Math.round(x * 1000) / 1000;
+  const num = v => { if (typeof v === "number") return v; const t = String(v == null ? "" : v).replace(/,/g, "").trim(); return t !== "" && isFinite(+t) ? +t : null; };
+  const loadMap = () => { try { return JSON.parse(localStorage.getItem(MAP_KEY) || "{}") || {}; } catch (e) { return {}; } };
+  const saveMap = m => { try { localStorage.setItem(MAP_KEY, JSON.stringify(m)); } catch (e) {} };
+  const sheetUrl = (wb, name) => `${wb}/worksheets('${encodeURIComponent(String(name).replace(/'/g, "''"))}')`;
+  const colL = i => XLSX.utils.encode_col(i);
+  const normSize = t => String(t || "").toUpperCase().replace(/\s+/g, "");
+
+  if (!$("erpDate").value) $("erpDate").value = todayISO();
+
+  // ---- read the uploaded ERP file: values exactly as shown in the ERP sheet ----
+  function readErp(buf, name) {
+    const wbx = XLSX.read(buf, { type: "array", cellDates: false, cellNF: true, cellText: true, raw: /\.csv$/i.test(name) ? false : undefined });
+    let ws = null, wsName = "";
+    for (const n of wbx.SheetNames) { const w = wbx.Sheets[n]; if (w && w["!ref"]) { ws = w; wsName = n; break; } }
+    if (!ws) throw new Error("the file has no data");
+    const rg = XLSX.utils.decode_range(ws["!ref"]);
+    const rows = [];
+    for (let r = 0; r <= rg.e.r; r++) {
+      const row = [];
+      for (let c = 0; c <= rg.e.c; c++) {
+        const cell = ws[XLSX.utils.encode_cell({ r, c })];
+        let v = "";
+        if (cell && cell.v != null) {
+          if (cell.t === "n" && cell.z && XLSX.SSF.is_date(cell.z) && cell.w) v = cell.w;   // dates as shown (Excel reads them back as dates)
+          else if (cell.t === "b") v = cell.v ? "TRUE" : "FALSE";
+          else if (cell.t === "e") v = cell.w || "";
+          else v = cell.v;
+        }
+        row.push(v);
+      }
+      rows.push(row);
+    }
+    while (rows.length && rows[rows.length - 1].every(v => v === "")) rows.pop();   // no blank tail
+    let lastC = -1; rows.forEach(r => r.forEach((v, c) => { if (v !== "" && c > lastC) lastC = c; }));
+    return { wsName, rows: rows.map(r => r.slice(0, lastC + 1)), cols: lastC + 1 };
+  }
+
+  // a date written in the ERP title rows ("as on 23-10-2026", "From .. To 23/10/2026") -> suggested Daily Stock date
+  function erpDateGuess(rows) {
+    let found = null;
+    rows.slice(0, 6).forEach(r => r.forEach(v => {
+      const re = /(\d{1,2})[\/\-.](\d{1,2}|[A-Za-z]{3})[\/\-.](\d{2,4})/g; let m;
+      while ((m = re.exec(String(v)))) {
+        let d = +m[1], mo = isNaN(+m[2]) ? "JANFEBMARAPRMAYJUNJULAUGSEPOCTNOVDEC".indexOf(m[2].toUpperCase()) / 3 + 1 : +m[2], y = +m[3]; if (y < 100) y += 2000;
+        const dt = new Date(y, mo - 1, d);
+        if (mo >= 1 && mo <= 12 && dt.getDate() === d) found = `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      }
+    }));
+    return found;
+  }
+
+  // ---- Durgesh: "4-CLOSING" column and the item list ----
+  function durgeshItems(rows) {
+    let hr = -1, cc = -1;
+    for (let r = 0; r < Math.min(rows.length, 15) && hr < 0; r++) rows[r].forEach((v, c) => { if (cc < 0 && /4\s*-?\s*CLOSING/i.test(String(v))) { hr = r; cc = c; } });
+    if (hr < 0) for (let r = 0; r < Math.min(rows.length, 15) && hr < 0; r++) rows[r].forEach((v, c) => { if (cc < 0 && /CLOSING/i.test(String(v))) { hr = r; cc = c; } });
+    if (hr < 0) return { error: 'no "4-CLOSING" column found in the first 15 rows of the ERP file' };
+    const items = [];
+    for (let r = hr + 1; r < rows.length; r++) {
+      const row = rows[r], val = num(row[cc]);
+      const texts = row.slice(0, cc).filter(v => typeof v === "string" && v.trim() && !/^[\d.,\s-]+$/.test(v)).map(v => v.trim());
+      if (!texts.length) continue;
+      const code = String(row[2] == null ? "" : row[2]).trim();               // FC Report looks items up by column C
+      const name = texts.filter(t => t !== code).sort((x, y) => y.length - x.length)[0] || "";   // the longest text = item name
+      if (/^(GRAND\s*)?TOTAL\b/i.test(name) && !code) continue;
+      const key = code || name;
+      items.push({ key, label: code && name ? `${name} (${code})` : (name || code), value: val, row: r + 1 });
+    }
+    return { headerRow: hr + 1, col: cc, colName: String(rows[hr][cc]), items };
+  }
+  // best guess of the ERP item(s) for a Daily Stock size like "130 X 6", "RAN 160", "110X 5.25"
+  function guessFor(size, items) {
+    const t = normSize(size); let sec, len = null, ran = false, m;
+    if ((m = t.match(/^RAN(\d{3})$/))) { sec = m[1]; ran = true; } else if ((m = t.match(/^(\d{3})X([\d.]+)$/))) { sec = m[1]; len = m[2]; } else return [];
+    const hits = items.filter(it => {
+      const L = it.label.toUpperCase();
+      if (!new RegExp("(^|\\D)" + sec + "(\\D|$)").test(L)) return false;
+      const isRan = /RANDOM|\bRAN\b|R\/L|\bRL\b/.test(L);
+      if (ran) return isRan;
+      if (isRan) return false;
+      const lenRe = new RegExp("(^|[^\\d.])" + len.replace(".", "\\.") + "\\s*(M|MT|MTR|MTRS|METER|METRE|MTRS?\\b|$|[^\\d.])");
+      return lenRe.test(L.replace(new RegExp("(^|\\D)" + sec + "\\s*X\\s*" + sec, "g"), " "));
+    });
+    return hits.length === 1 ? [hits[0].key] : [];
+  }
+
+  // ---- Daily Stock block of the date ----
+  function cellISO(v) {
+    if (typeof v === "number" && v > 40000) return excelSerialToISODate(v);
+    const m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/.exec(String(v || "").trim());
+    if (!m) return null; let y = +m[3]; if (y < 100) y += 2000;
+    return `${y}-${String(+m[2]).padStart(2, "0")}-${String(+m[1]).padStart(2, "0")}`;
+  }
+  async function readStockBlock(wb, token, iso) {
+    const sh = sheetUrl(wb, "Daily Stock");
+    const colA = await graphFetch(`${sh}/range(address='A1:A2000')?$select=values`, token, { noCache: true });
+    let top = -1;
+    colA.values.forEach((r, i) => { if (cellISO(r[0]) === iso) top = i + 1; });
+    if (top < 0) return null;
+    const blk = await graphFetch(`${sh}/range(address='A${top}:Q${top + 17}')?$select=values,formulas,text`, token, { noCache: true });
+    const rows = [];
+    for (let i = 3; i < blk.values.length; i++) {
+      const size = String(blk.text[i][0] || "").trim();
+      if (!size) { if (rows.length) break; continue; }
+      rows.push({ size, rowNo: top + i, q: blk.values[i][16], qText: blk.text[i][16], qFormula: blk.formulas[i][16] });
+    }
+    return { top, rows };
+  }
+
+  // ---- preview ----
+  function previewHtml() {
+    const j = job, show = j.erp.rows.slice(0, 8), more = j.erp.rows.length - show.length;
+    let h = `<div class="erpBox"><h4>📄 ${esc(j.fileName)}${j.erp.wsName ? " · " + esc(j.erp.wsName) : ""}</h4>
+      <div>${j.erp.rows.length} rows × ${j.erp.cols} columns → <b>${esc(j.fileLabel)}</b> → sheet <b>${esc(target)}</b> (whole sheet cleared, then written from A1).</div>
+      <div class="erpScroll" style="margin-top:8px;"><table class="erpT"><tr><th></th>${Array.from({ length: Math.min(j.erp.cols, 26) }, (_, c) => `<th>${colL(c)}</th>`).join("")}</tr>
+      ${show.map((r, i) => `<tr><th>${i + 1}</th>${r.slice(0, 26).map(v => `<td>${esc(v)}</td>`).join("")}</tr>`).join("")}</table></div>
+      ${more > 0 ? `<div style="font-size:12px;opacity:.8;margin-top:4px;">… and ${more} more rows</div>` : ""}</div>`;
+    if (j.q) {
+      if (j.q.error) h += `<div class="erpBox">⚠️ Daily Stock not changed: ${esc(j.q.error)}</div>`;
+      else {
+        const opts = sel => `<option value="">— leave Q as it is —</option>` + j.q.items.map(it => `<option value="${esc(it.key)}"${it.key === sel ? " selected" : ""}>${esc(it.label)}${it.value != null ? " = " + it.value : ""}</option>`).join("");
+        h += `<div class="erpBox"><h4>📦 Daily Stock ${esc(j.iso.split("-").reverse().join("."))} · ERP weight (Q) = Durgesh "${esc(j.q.colName)}"</h4>
+          <div style="font-size:12px;opacity:.85;margin-bottom:6px;">Pick the ERP item for each size once - it is remembered on this device. More than one item for a size = their total.</div>
+          ${j.q.rows.map((r, i) => `<div class="erpRow" data-i="${i}">
+            <div class="erpRowHead"><b>${esc(r.size)}</b><span class="num">Q: ${typeof r.q === "number" ? r.q.toFixed(3) : esc(r.qText || "blank")} → <b class="${r.newQ != null && r.newQ !== r3(+r.q) ? "chg" : ""}">${r.newQ == null ? "no change" : r.newQ.toFixed(3)}</b></span></div>
+            ${(r.keys.length ? r.keys : [""]).map(k => `<select class="erpSel">${opts(k)}</select>`).join("")}
+            <div class="erpRowFoot"><button type="button" class="secondary addItem">+ item</button>${r.guessed ? '<span class="erpGuess">guessed - please check</span>' : ""}</div>
+          </div>`).join("")}</div>`;
+      }
+    }
+    return h;
+  }
+  function recalcQ() {
+    if (!job || !job.q || job.q.error) return;
+    const byKey = new Map(job.q.items.map(it => [it.key, it]));
+    job.q.rows.forEach(r => {
+      const keys = r.keys.filter(k => byKey.has(k));
+      r.newQ = keys.length ? r3(keys.reduce((a, k) => a + (byKey.get(k).value || 0), 0)) : null;
+    });
+  }
+  function render() { $("erpPreview").innerHTML = job ? previewHtml() : ""; $("erpApplyRow").classList.toggle("hidden", !job); }
+  $("erpPreview").addEventListener("change", e => {
+    if (!e.target.classList.contains("erpSel")) return;
+    const tr = e.target.closest(".erpRow"), r = job.q.rows[+tr.dataset.i];
+    r.keys = Array.from(tr.querySelectorAll(".erpSel")).map(s => s.value).filter(Boolean); r.guessed = false;
+    recalcQ(); render();
+  });
+  $("erpPreview").addEventListener("click", e => {
+    if (!e.target.classList.contains("addItem")) return;
+    const row = e.target.closest(".erpRow"), sel = row.querySelector(".erpSel").cloneNode(true); sel.value = "";
+    row.insertBefore(sel, e.target.parentElement);
+  });
+
+  async function prepare(file) {
+    job = null; render(); $("erpUndoRow").classList.add("hidden");
+    say("⏳ Reading " + esc(file.name) + "…");
+    const erp = readErp(new Uint8Array(await file.arrayBuffer()), file.name);
+    if (!erp.rows.length) throw new Error("the ERP file is empty");
+    const guess = erpDateGuess(erp.rows);
+    if (guess && guess !== $("erpDate").value && confirm(`The ERP file says ${guess.split("-").reverse().join(".")}.\n\nUse this date for the Daily Stock / Reports file?\n(Cancel = keep ${$("erpDate").value.split("-").reverse().join(".")})`)) $("erpDate").value = guess;
+    const iso = $("erpDate").value; if (!iso) throw new Error("pick the date first");
+    const [y, m] = iso.split("-").map(Number);
+    const token = await getToken();
+    const path = await detectFilePathForMonth(token, y, m - 1);
+    if (!path) throw new Error(`the Reports file for ${MONTH_ABBR[m - 1]} ${y} was not found`);
+    const wb = await resolveWorkbook(token, path);
+    const sheets = await graphFetch(`${wb}/worksheets?$select=name`, token, { noCache: true });
+    if (!(sheets.value || []).some(w => w.name === target)) throw new Error(`sheet "${target}" not found in ${path.split("/").pop()}`);
+    job = { target, fileName: file.name, fileLabel: path.split("/").pop(), path, wb, iso, erp, q: null };
+    if (target === "Durgesh") {
+      const d = durgeshItems(erp.rows);
+      if (d.error) job.q = { error: d.error };
+      else {
+        const blk = await readStockBlock(wb, token, iso);
+        if (!blk) job.q = { error: `no Daily Stock block for ${iso.split("-").reverse().join(".")} - create the day's block first, or pick another date` };
+        else {
+          const map = loadMap(), keys = new Set(d.items.map(it => it.key));
+          const rows = blk.rows.map(r => {
+            const saved = (map[normSize(r.size)] || []).filter(k => keys.has(k));
+            const g = saved.length ? saved : guessFor(r.size, d.items);
+            return { ...r, keys: g, guessed: !saved.length && g.length > 0 };
+          });
+          job.q = { ...d, top: blk.top, rows };
+          recalcQ();
+        }
+      }
+    }
+    render();
+    say(`Check the preview, then tap <b>✅ Write to Reports file</b>.`);
+  }
+
+  async function writeGrid(sh, token, rows, cols) {
+    const CH = 400;
+    for (let i = 0; i < rows.length; i += CH) {
+      const part = rows.slice(i, i + CH).map(r => { const a = r.slice(); while (a.length < cols) a.push(""); return a; });
+      await graphFetch(`${sh}/range(address='A${i + 1}:${colL(cols - 1)}${i + part.length}')`, token, { method: "PATCH", body: JSON.stringify({ values: part }) });
+    }
+  }
+  async function apply() {
+    if (!job) return;
+    const j = job, btn = $("erpApplyBtn"); btn.disabled = true;
+    try {
+      const token = await getToken(), sh = sheetUrl(j.wb, j.target);
+      say(`⏳ Saving a copy of the old ${esc(j.target)} sheet (for Undo)…`);
+      const used = await graphFetch(`${sh}/usedRange?$select=address,values`, token, { noCache: true });
+      const addr = String(used.address || "").split("!").pop() || "A1";
+      const u = { wb: j.wb, target: j.target, fileLabel: j.fileLabel, addr, values: used.values, q: null };
+      say(`⏳ Clearing ${esc(j.target)} and writing ${j.erp.rows.length} ERP rows…`);
+      await graphFetch(`${sh}/range(address='${addr}')/clear`, token, { method: "POST", body: JSON.stringify({ applyTo: "Contents" }) });
+      await writeGrid(sh, token, j.erp.rows, j.erp.cols);
+      let qMsg = "";
+      if (j.q && !j.q.error) {
+        const map = loadMap(); j.q.rows.forEach(r => { map[normSize(r.size)] = r.keys; }); saveMap(map);
+        const ch = j.q.rows.filter(r => r.newQ != null);
+        if (ch.length) {
+          const first = j.q.rows[0].rowNo, last = j.q.rows[j.q.rows.length - 1].rowNo;
+          const vals = j.q.rows.map(r => [r.newQ == null ? null : r.newQ]);
+          u.q = { first, last, formulas: j.q.rows.map(r => [r.qFormula === "" || r.qFormula == null ? "" : r.qFormula]) };
+          await graphFetch(`${sheetUrl(j.wb, "Daily Stock")}/range(address='Q${first}:Q${last}')`, token, { method: "PATCH", body: JSON.stringify({ values: vals }) });
+          qMsg = `<br>📦 Daily Stock ${esc(j.iso.split("-").reverse().join("."))}: ERP weight (Q) set for ${ch.length} size(s).`;
+        } else qMsg = `<br>📦 Daily Stock not changed (no ERP item chosen).`;
+      } else if (j.q && j.q.error) qMsg = `<br>⚠️ Daily Stock not changed: ${esc(j.q.error)}`;
+      undo = u; job = null; render();
+      $("erpUndoRow").classList.remove("hidden");
+      say(`✅ ${esc(j.fileLabel)} → <b>${esc(j.target)}</b> updated from ${esc(j.fileName)} (${j.erp.rows.length} rows).${qMsg}`, "ok");
+    } catch (e) {
+      say("❌ " + esc(e && e.message ? e.message : e), "err");
+    } finally { btn.disabled = false; }
+  }
+  async function doUndo() {
+    if (!undo || !confirm(`Undo: put back the old ${undo.target} sheet${undo.q ? " and the old Daily Stock ERP weights" : ""}?`)) return;
+    const u = undo;
+    try {
+      const token = await getToken(), sh = sheetUrl(u.wb, u.target);
+      say("⏳ Undoing…");
+      const used = await graphFetch(`${sh}/usedRange?$select=address`, token, { noCache: true });
+      await graphFetch(`${sh}/range(address='${String(used.address || "A1").split("!").pop()}')/clear`, token, { method: "POST", body: JSON.stringify({ applyTo: "Contents" }) });
+      const start = u.addr.split(":")[0];
+      if (u.values && u.values.length && !(u.values.length === 1 && u.values[0].length === 1 && u.values[0][0] === "")) {
+        const c0 = XLSX.utils.decode_cell(start);
+        const endC = colL(c0.c + u.values[0].length - 1), endR = c0.r + u.values.length;
+        await graphFetch(`${sh}/range(address='${start}:${endC}${endR}')`, token, { method: "PATCH", body: JSON.stringify({ values: u.values }) });
+      }
+      if (u.q) await graphFetch(`${sheetUrl(u.wb, "Daily Stock")}/range(address='Q${u.q.first}:Q${u.q.last}')`, token, { method: "PATCH", body: JSON.stringify({ formulas: u.q.formulas }) });
+      undo = null; $("erpUndoRow").classList.add("hidden");
+      say(`↩️ Undone - ${esc(u.target)}${u.q ? " and Daily Stock" : ""} are back as they were.`, "ok");
+    } catch (e) { say("❌ Undo failed: " + esc(e && e.message ? e.message : e), "err"); }
+  }
+
+  const pick = t => { target = t; $("erpFileInput").value = ""; $("erpFileInput").click(); };
+  $("erpDurgeshBtn").addEventListener("click", () => pick("Durgesh"));
+  $("erpM2mBtn").addEventListener("click", () => pick("M2M"));
+  $("erpFileInput").addEventListener("change", async e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    try { await prepare(f); } catch (err) { job = null; render(); say("❌ " + esc(err && err.message ? err.message : err), "err"); }
+  });
+  $("erpApplyBtn").addEventListener("click", apply);
+  $("erpCancelBtn").addEventListener("click", () => { job = null; render(); say("Cancelled - nothing was written."); });
+  $("erpUndoBtn").addEventListener("click", doUndo);
+  window._erpTest = { readErp, durgeshItems, guessFor, erpDateGuess };
 })();
 </script>
 </body>
