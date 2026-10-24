@@ -5202,9 +5202,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.24.1";
+const APP_VERSION = "2026.10.24.2";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🐞 Market: phone Back after the India dashboard no longer opens the USA dashboard",
   "📈 Market tile now has two tiles inside: IND MKT (Dashboard 2) and US MKT (USA dashboard) - each keeps its own link (⚙️)",
   "🖼️ New switch in every report card: Logo on report ON / OFF - applies to all PDF and JPG downloads (also the ISI mark on the T.C.)",
   "🧹 Jute and Slate themes removed; the Kashvi \"Any query?\" sticker now shows only on the Home screen",
@@ -24262,14 +24263,18 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
     if (force || !loaded || loadedUrl !== u) {
       $("mdLoading").classList.remove("hidden"); f.classList.add("mdHide"); $("mdReload").classList.add("spin");
       $("mdSub").textContent = "Dashboard · loading…";
-      f.src = u; loaded = true; loadedUrl = u;
+      // A NEW frame each time: changing an iframe's src adds a step to the phone's back history, so "back"
+      // used to reopen the previous dashboard (India -> back -> USA). A fresh frame adds nothing.
+      const nf = f.cloneNode(false); nf.removeAttribute("src"); nf.addEventListener("load", onFrameLoad);
+      f.replaceWith(nf); nf.src = u; loaded = true; loadedUrl = u;
     }
   }
-  $("mdFrame").addEventListener("load", () => {
+  function onFrameLoad() {
     if (!$("mdFrame").getAttribute("src")) return;
     $("mdLoading").classList.add("hidden"); $("mdFrame").classList.remove("mdHide"); $("mdReload").classList.remove("spin");
     $("mdSub").textContent = "Dashboard · opened " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  });
+  }
+  $("mdFrame").addEventListener("load", onFrameLoad);
   // Market tile -> IND MKT / US MKT tiles -> the chosen dashboard
   function openMarket(k) {
     cur = MKT[k] ? k : "ind";
