@@ -1999,6 +1999,9 @@
   .pdfModal{ position:relative; }
   /* report zoom: pinching inside a report zooms only the report */
   .pdfOverlay{ touch-action:pan-x pan-y; }
+  .autoBlkBox{ margin-top:14px; padding:12px; border:1px dashed rgba(128,128,128,.6); border-radius:10px; }
+  .autoBlkTimeRow{ display:flex; align-items:center; gap:10px; margin:8px 0 4px; font-size:13px; }
+  .autoBlkTimeRow input[type=time]{ width:auto !important; margin:0; }
   /* ERP Upload */
   #subwhatsapp-erpupload .erpBox{ margin-top:12px; padding:12px; border:1px solid rgba(128,128,128,.35); border-radius:10px; font-size:13px; }
   #subwhatsapp-erpupload .erpBox h4{ margin:0 0 8px; font-size:14px; }
@@ -4094,6 +4097,12 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
             <div class="btnRow">
               <button class="primary" id="nextDayAllBtn">⚡ Create All Next Day Blocks (all 5 sheets)</button>
             </div>
+            <div class="autoBlkBox">
+              <label class="fxRow" style="margin:0;"><input type="checkbox" id="autoBlkToggle"> <span>🤖 <b>Automatic:</b> every day create <b>tomorrow's</b> blocks in all 5 sheets</span></label>
+              <div class="autoBlkTimeRow"><span>Daily at</span><input type="time" id="autoBlkTime" value="20:00"></div>
+              <div id="autoBlkInfo" style="font-size:12px;opacity:.8;"></div>
+              <div style="font-size:11.5px;opacity:.7;margin-top:4px;">Runs while the app is open (or the next time it is opened after that time). A sheet that already has tomorrow's block is left alone. On the last day of a month it only reminds you to use "Create Next Month File". App closed? MacroDroid can open the app at this time (same link as the WhatsApp scheduled sync).</div>
+            </div>
             <div class="btnRow">
               <button class="secondary" id="fixColoursBtn">🎨 Fix Colours of Last Block</button>
             </div>
@@ -5243,9 +5252,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.24.8";
+const APP_VERSION = "2026.10.24.9";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🤖 New Block: automatic daily blocks - every day at the chosen time (default 20:00) tomorrow's block is created in all 5 sheets (never further; skipped on month end)",
   "🐞 ERP Upload: billets total uses the item code from column B (F counted, R skipped)",
   "🧱 ERP Upload: billets total counts only item codes starting with F (R codes skipped)",
   "🧱 ERP Upload (Durgesh): Billet Stock Format Total H = ERP billets total - the difference left after the Q changes is added at the end of H and G (I stays the same)",
@@ -16422,6 +16432,13 @@ async function cloneNextDayBlock({ wb, sheetName, token, srcTop, destTop, nRows,
   return { skipped };
 }
 
+/* Automatic next-day blocks: while it runs, no sheet may create a block AFTER this date (sheets that already
+   have tomorrow's block are left alone). Empty = no limit (the manual buttons). */
+let _ndLimitISO = "";
+function ndGuard(nextISO, label) {
+  if (_ndLimitISO && nextISO > _ndLimitISO) { const e = new Error(`${label}: already has the ${_ndLimitISO.split("-").reverse().join(".")} block`); e.upToDate = true; throw e; }
+}
+const ndISO = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 async function createNextDayProdFromSheet(wb, token) {
   const sheetName = document.getElementById("sheetName").value.trim();
   const scanM = await graphFetch(`${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='M1:M2000')?$select=text`, token);
@@ -16435,6 +16452,7 @@ async function createNextDayProdFromSheet(wb, token) {
   if (typeof lastSerial !== "number") throw new Error("Prod.: couldn't read the date of the last block.");
   const nextSerial = lastSerial + 1;
   const nextISO = excelSerialToISODate(nextSerial);
+  ndGuard(nextISO, "Prod.");
   const [ny, nm, nd] = nextISO.split("-").map(x => parseInt(x));
   const newTitleRow = lastTitleRow + PROD_BLOCK_PERIOD;
 
@@ -16468,6 +16486,7 @@ async function createNextDayStripMillFromSheet(wb, token) {
   const newTitleRow = lastTitleRow + PERIOD;
   const nextSerial = lastSerial + 1;
   const nextISO = excelSerialToISODate(nextSerial);
+  ndGuard(nextISO, "Strip Mill");
   const [ny, nm, nd] = nextISO.split("-").map(x => parseInt(x));
 
   // Analysis (C:G) and 130x130 (I:L) cells of the 12 heat rows: a FORMULA is carried on to the
@@ -16522,6 +16541,7 @@ async function createNextDayBilletStockFromSheet(wb, token) {
   if (!m) throw new Error(`Billet Stock Format: couldn't parse the date text ("${lastDateText}").`);
   const nextDate = new Date(new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1])).getTime() + 86400000);
   const nextDateText = `As on ${String(nextDate.getDate()).padStart(2, "0")}.${String(nextDate.getMonth() + 1).padStart(2, "0")}.${nextDate.getFullYear()}`;
+  ndGuard(ndISO(nextDate), "Billet Stock Format");
   const newTitleRow = lastTitleRow + PERIOD;
 
   const r = await cloneNextDayBlock({
@@ -16554,6 +16574,7 @@ async function createNextDayDailyStockFromSheet(wb, token) {
     }
   }
   if (lastTitleRow === -1) throw new Error("Daily Stock: no existing date found.");
+  ndGuard(excelSerialToISODate(lastSerial + 1), "Daily Stock");
   const newTitleRow = lastTitleRow + PERIOD;
 
   const r = await cloneNextDayBlock({
@@ -16579,6 +16600,7 @@ async function createNextDayDailyProdFormatFromSheet(wb, token) {
   if (!m) throw new Error(`Daily Prod Format: couldn't parse the date text ("${lastDateText}").`);
   const nextDate = new Date(new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1])).getTime() + 86400000);
   const nextDateText = `DATE-${String(nextDate.getDate()).padStart(2, "0")}-${String(nextDate.getMonth() + 1).padStart(2, "0")}-${nextDate.getFullYear()}`;
+  ndGuard(ndISO(nextDate), "Daily Prod Format");
   const newTitleRow = lastTitleRow + PERIOD;
 
   const r = await cloneNextDayBlock({
@@ -17046,13 +17068,16 @@ document.getElementById("nextDayBtn").addEventListener("click", createNextDayBlo
 
 // One click: next-day block in every sheet, one after the other. A failure in
 // one sheet does not stop the others; the summary shows each sheet's result.
-async function createAllNextDayBlocks() {
+async function createAllNextDayBlocks(ev, opts) {
+  const auto = !!(opts && opts.auto);   // automatic daily run: no question, never past opts.limitISO
   const statusEl = document.getElementById("status");
   const btn = document.getElementById("nextDayAllBtn");
-  if (!confirm("Create the next day's block in ALL sheets (Prod., Strip Mill, Billet Stock Format, Daily Prod Format, Daily Stock)?")) return;
-  btn.disabled = true;
+  if (!auto && !confirm("Create the next day's block in ALL sheets (Prod., Strip Mill, Billet Stock Format, Daily Prod Format, Daily Stock)?")) return;
+  if (btn) btn.disabled = true;
   statusEl.className = "wait";
-  askNotifyPermission();
+  if (!auto) askNotifyPermission();
+  _ndLimitISO = auto ? (opts.limitISO || "") : "";
+  const result = { created: [], fails: 0, upToDate: 0, error: "" };
   let token = null, started = false;
   try {
     token = await getTokenFresh(30 * 60000);   // valid for the whole job
@@ -17081,29 +17106,39 @@ async function createAllNextDayBlocks() {
       try {
         token = await getTokenFresh(10 * 60000);
         const r = await run();
-        const dt = blockDateText(r); if (dt) dates.add(dt);
+        const dt = blockDateText(r); if (dt) { dates.add(dt); const [d, m, y] = dt.split("."); result.created.push(`${y}-${m}-${d}`); }
         lines.push(`✅ ${label} (${r.sheetName}): ${fmt(r)}` + (r.skipped ? ` - ${r.skipped} cell(s) already had data, left untouched` : "") +
           (_nextDayWarn.length ? ` - ⚠️ ${_nextDayWarn.length} formatting write(s) not accepted` : "") +
           ` [${Math.round((Date.now() - tj) / 1000)} s, ${_nextDayWrites - w0} writes]`);
-      } catch (e) { fails++; lines.push(`❌ ${label}: ${e.message} [${Math.round((Date.now() - tj) / 1000)} s]`); }
+      } catch (e) {
+        if (e && e.upToDate) { result.upToDate++; lines.push(`➖ ${e.message} - left as it is`); }
+        else { fails++; lines.push(`❌ ${label}: ${e.message} [${Math.round((Date.now() - tj) / 1000)} s]`); }
+      }
       warnAll.push(..._nextDayWarn);
     }
     const dHead = dates.size ? `📅 ${[...dates].join(", ")} ka block ban gaya` : "";
     if (dates.size) { try { localStorage.setItem("lastBlockDate", [...dates].sort().pop()); } catch (e) {} updateNavSubs(); }
-    const msg = (dHead ? dHead + "\n" : "") + (fails ? `⚠️ ${jobs.length - fails} of ${jobs.length} sheets done.` : `✅ All ${jobs.length} next-day blocks created.`) + "\n\n" + lines.join("\n") +
+    result.fails = fails;
+    const msg = (auto ? "🤖 Automatic daily blocks\n" : "") + (dHead ? dHead + "\n" : "") + (fails ? `⚠️ ${jobs.length - fails} of ${jobs.length} sheets done.` : result.upToDate ? `✅ ${jobs.length - result.upToDate} created, ${result.upToDate} already there.` : `✅ All ${jobs.length} next-day blocks created.`) + "\n\n" + lines.join("\n") +
       (fails ? "\n\nFor a failed sheet, pick it in the Sheet list above and use 'Create Next Day Block' after checking it." : "\nFormulas, number formats, colours and borders copied from the previous day's blocks.") +
       `\n⏱ ${Math.round((Date.now() - t0) / 1000)} s` + (wbHasSession(wb) ? " (Excel session)" : " (no Excel session)") +
       (warnAll.length ? "\n\nNot accepted by Excel (first 5):\n" + warnAll.slice(0, 5).join("\n") : "");
     statusEl.className = fails ? "err" : "ok";
     statusEl.textContent = msg;
-    showCompletionPopup(msg);
-    phoneNotify(dHead || "Next day blocks", fails ? `${jobs.length - fails} of ${jobs.length} sheets done - ${fails} failed, app kholkar dekhiye` : `All ${jobs.length} sheets done`);
+    if (!auto || result.created.length || fails) {
+      showCompletionPopup(msg);
+      phoneNotify((auto ? "🤖 " : "") + (dHead || "Next day blocks"), fails ? `${jobs.length - fails} of ${jobs.length} sheets done - ${fails} failed, app kholkar dekhiye` : `All ${jobs.length} sheets done`);
+    }
   } catch (e) {
-    statusEl.className = "err"; statusEl.textContent = "Error: " + e.message;
+    result.error = e.message;
+    statusEl.className = "err"; statusEl.textContent = (auto ? "🤖 Automatic daily blocks - " : "") + "Error: " + e.message;
+    if (auto) phoneNotify("🤖 Next day blocks NOT created", e.message);
   } finally {
-    btn.disabled = false;
+    _ndLimitISO = "";
+    if (btn) btn.disabled = false;
     if (started) await nextDayJobEnd(token);
   }
+  return result;
 }
 document.getElementById("nextDayAllBtn").addEventListener("click", createAllNextDayBlocks);
 document.getElementById("fixColoursBtn").addEventListener("click", fixColoursOfLastBlock);
@@ -24917,6 +24952,73 @@ async function downloadAndroidApk() {
   $("erpCancelBtn").addEventListener("click", () => { job = null; render(); say("Cancelled - nothing was written."); });
   $("erpUndoBtn").addEventListener("click", doUndo);
   window._erpTest = { readErp, durgeshItems, guessFor, erpDateGuess };
+})();
+</script>
+<script>
+/* ===== Automatic next-day blocks: every day at the chosen time (default 20:00) tomorrow's block is created
+   in all 5 sheets - only up to tomorrow, never further; skipped on the last day of a month. Runs while the app
+   is open, or on the next opening after that time. Done-flag per day on this device; a second device finds the
+   blocks already there and leaves them. ===== */
+(function autoNextDayBlocks() {
+  const $ = id => document.getElementById(id);
+  const ls = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
+  const set = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const on = () => ls("autoBlkOn", "1") !== "0";
+  const hhmm = () => { const t = ls("autoBlkTime", "20:00"); return /^\d{2}:\d{2}$/.test(t) ? t : "20:00"; };
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const dmy = s => s.split("-").reverse().join(".");
+  let running = false;
+  function plan(now) {
+    now = now || new Date();
+    const [h, m] = hhmm().split(":").map(Number);
+    const at = new Date(now); at.setHours(h, m, 0, 0);
+    const tom = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    return { at, due: now >= at, tomISO: iso(tom), monthEnd: tom.getMonth() !== now.getMonth() };
+  }
+  function info() {
+    const el = $("autoBlkInfo"); if (!el) return;
+    if ($("autoBlkToggle")) $("autoBlkToggle").checked = on();
+    if ($("autoBlkTime") && document.activeElement !== $("autoBlkTime")) $("autoBlkTime").value = hhmm();
+    if (!on()) { el.textContent = "Automatic blocks are off on this device."; return; }
+    const p = plan(), done = ls("autoBlkDone", "");
+    if (done === p.tomISO) el.textContent = `✅ Done for ${dmy(p.tomISO)}. Next run: tomorrow ${hhmm()}.`;
+    else if (p.monthEnd) el.textContent = `📅 Tomorrow is a new month - use "Create Next Month File" (no automatic block today).`;
+    else el.textContent = p.due ? `⏳ Due now: blocks for ${dmy(p.tomISO)} will be created shortly.` : `Next run: today ${hhmm()} → blocks for ${dmy(p.tomISO)}.`;
+  }
+  async function tick() {
+    info();
+    if (!on() || running || typeof account === "undefined" || !account) return;
+    if (typeof isViewer === "function" && isViewer()) return;
+    if (navigator.onLine === false) return;
+    const p = plan(); if (!p.due || ls("autoBlkDone", "") === p.tomISO) return;
+    if (p.monthEnd) {
+      if (ls("autoBlkMonthNote", "") !== p.tomISO) { set("autoBlkMonthNote", p.tomISO); phoneNotify("📅 Kal naya mahina hai", "Next day block ki jagah 'Create Next Month File' chalaiye"); }
+      return;
+    }
+    if (Date.now() - (+ls("autoBlkLastTry", "0") || 0) < 20 * 60000) return;    // a failed try waits 20 min
+    if ((typeof waAutoRun !== "undefined" && waAutoRun) || (typeof waInboxBusy !== "undefined" && waInboxBusy)) return;   // WhatsApp sync first
+    const bAll = $("nextDayAllBtn"); if (bAll && bAll.disabled) return;           // a block job is already running
+    try { await msalInstance.acquireTokenSilent({ scopes: graphScopes, account }); } catch (e) { return; }   // needs a sign-in -> wait, never redirect
+    running = true; set("autoBlkLastTry", String(Date.now()));
+    try {
+      let r = null;
+      for (let round = 0; round < 3; round++) {          // a sheet that is behind catches up, one day per round, up to tomorrow
+        r = await createAllNextDayBlocks(null, { auto: true, limitISO: p.tomISO });
+        if (!r || r.error || r.fails || !r.created.length || r.created.every(d => d >= p.tomISO)) break;
+      }
+      if (r && !r.error && !r.fails) set("autoBlkDone", p.tomISO);
+    } catch (e) { console.warn("auto blocks failed", e); }
+    finally { running = false; info(); }
+  }
+  document.addEventListener("change", e => {
+    if (e.target && e.target.id === "autoBlkToggle") { set("autoBlkOn", e.target.checked ? "1" : "0"); info(); }
+    if (e.target && e.target.id === "autoBlkTime" && /^\d{2}:\d{2}$/.test(e.target.value)) { set("autoBlkTime", e.target.value); info(); }
+  });
+  info();
+  setInterval(tick, 60000);
+  setTimeout(tick, 30000);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") setTimeout(tick, 8000); });
+  window._autoBlk = { tick, plan, info };
 })();
 </script>
 </body>
