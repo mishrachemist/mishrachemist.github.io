@@ -2011,6 +2011,7 @@
   #subwhatsapp-erpupload .erpRowHead .num{ font-variant-numeric:tabular-nums; white-space:nowrap; font-size:12.5px; }
   #subwhatsapp-erpupload .erpRow select{ width:100% !important; font-size:12.5px; padding:6px; margin:2px 0; box-sizing:border-box; }
   #subwhatsapp-erpupload .erpRowFoot{ display:flex; align-items:center; gap:10px; }
+  #subwhatsapp-erpupload .erpF{ font-size:11.5px; opacity:.85; margin:-2px 0 4px; font-family:ui-monospace, Consolas, monospace; word-break:break-all; }
   #subwhatsapp-erpupload .erpGuess{ font-size:11.5px; color:#e0a100; font-weight:600; }
   #subwhatsapp-erpupload .chg{ color:#e0a100; font-weight:700; }
   #subwhatsapp-erpupload .addItem{ font-size:11.5px; padding:2px 8px; margin-top:2px; }
@@ -4012,7 +4013,7 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
           <div class="sub-sectionPanel hidden" id="subwhatsapp-erpupload">
           <div class="card">
             <h2>ERP Upload - Durgesh / M2M</h2>
-            <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">Upload the ERP report someone sent you. In the month's Reports file the whole <b>Durgesh</b> or <b>M2M</b> sheet is cleared and the ERP data is written as it is (same as pasting at A1). A Durgesh upload also sets <b>ERP weight (Q)</b> in Daily Stock equal to Durgesh "4-CLOSING". Nothing is written until you tap ✅ Write.</p>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">Upload the ERP report someone sent you. In the month's Reports file the whole <b>Durgesh</b> or <b>M2M</b> sheet is cleared and the ERP data is written as it is (same as pasting at A1). A Durgesh upload also makes <b>ERP weight (Q)</b> in Daily Stock equal to Durgesh "4-CLOSING" - the Q formula stays, only the difference is added at its end (e.g. <code>=34.364-1.28+0.001</code>). Nothing is written until you tap ✅ Write.</p>
             <label for="erpDate">Daily Stock date (also picks the month's Reports file)</label>
             <input type="date" id="erpDate">
             <div class="btnRow">
@@ -5242,9 +5243,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.24.3";
+const APP_VERSION = "2026.10.24.4";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📥 ERP Upload: Daily Stock Q keeps its formula - only the ERP difference is added at the end (+0.001 / -0.001)",
   "📥 New: Production → ERP Upload - upload the Durgesh / M2M ERP report (sent by anyone); the sheet is replaced in the Reports file and Daily Stock ERP weight (Q) = Durgesh 4-CLOSING. Preview first, Undo available",
   "🐞 Market: phone Back after the India dashboard no longer opens the USA dashboard",
   "📈 Market tile now has two tiles inside: IND MKT (Dashboard 2) and US MKT (USA dashboard) - each keeps its own link (⚙️)",
@@ -24684,7 +24686,8 @@ async function downloadAndroidApk() {
         h += `<div class="erpBox"><h4>📦 Daily Stock ${esc(j.iso.split("-").reverse().join("."))} · ERP weight (Q) = Durgesh "${esc(j.q.colName)}"</h4>
           <div style="font-size:12px;opacity:.85;margin-bottom:6px;">Pick the ERP item for each size once - it is remembered on this device. More than one item for a size = their total.</div>
           ${j.q.rows.map((r, i) => `<div class="erpRow" data-i="${i}">
-            <div class="erpRowHead"><b>${esc(r.size)}</b><span class="num">Q: ${typeof r.q === "number" ? r.q.toFixed(3) : esc(r.qText || "blank")} → <b class="${r.newQ != null && r.newQ !== r3(+r.q) ? "chg" : ""}">${r.newQ == null ? "no change" : r.newQ.toFixed(3)}</b></span></div>
+            <div class="erpRowHead"><b>${esc(r.size)}</b><span class="num">Q: ${typeof r.q === "number" ? r.q.toFixed(3) : esc(r.qText || "blank")} → <b class="${r.newF != null ? "chg" : ""}">${r.newQ == null ? "no change" : r.newQ.toFixed(3)}</b></span></div>
+            <div class="erpF">${r.qErr ? "⚠️ " + esc(r.qErr) : r.newF == null ? (r.newQ == null ? "" : "same as ERP - cell not touched") : `${esc(r.qFormula === "" || r.qFormula == null ? "(blank)" : r.qFormula)} → <b>${esc(r.newF)}</b>`}</div>
             ${(r.keys.length ? r.keys : [""]).map(k => `<select class="erpSel">${opts(k)}</select>`).join("")}
             <div class="erpRowFoot"><button type="button" class="secondary addItem">+ item</button>${r.guessed ? '<span class="erpGuess">guessed - please check</span>' : ""}</div>
           </div>`).join("")}</div>`;
@@ -24698,7 +24701,21 @@ async function downloadAndroidApk() {
     job.q.rows.forEach(r => {
       const keys = r.keys.filter(k => byKey.has(k));
       r.newQ = keys.length ? r3(keys.reduce((a, k) => a + (byKey.get(k).value || 0), 0)) : null;
+      r.newF = qFormula(r);
     });
+  }
+  // Q keeps its own formula; only the difference to the ERP value is added at its end: =34.364-1.28  ->  =34.364-1.28+0.001
+  function qFormula(r) {
+    r.qErr = "";
+    if (r.newQ == null) return null;                                   // no ERP item chosen -> cell untouched
+    const f = r.qFormula == null ? "" : String(r.qFormula).trim();
+    const cur = typeof r.q === "number" ? r.q : (String(r.q == null ? "" : r.q).trim() === "" ? null : NaN);
+    if (cur !== null && isNaN(cur)) { r.qErr = "Q is not a number - left as it is"; return null; }
+    if (cur === null && f === "") return r.newQ === 0 ? null : r.newQ;   // empty cell -> just the ERP value (stays empty when ERP is 0)
+    const diff = r3(r.newQ - cur);
+    if (Math.abs(diff) < 0.0005) return null;                         // already equal -> untouched
+    const d = (diff > 0 ? "+" : "-") + String(+Math.abs(diff).toFixed(3));
+    return (f.startsWith("=") ? f : "=" + (f === "" ? "0" : f)) + d;  // a typed number 74.87 becomes =74.87+0.001
   }
   function render() { $("erpPreview").innerHTML = job ? previewHtml() : ""; $("erpApplyRow").classList.toggle("hidden", !job); }
   $("erpPreview").addEventListener("change", e => {
@@ -24773,14 +24790,14 @@ async function downloadAndroidApk() {
       let qMsg = "";
       if (j.q && !j.q.error) {
         const map = loadMap(); j.q.rows.forEach(r => { map[normSize(r.size)] = r.keys; }); saveMap(map);
-        const ch = j.q.rows.filter(r => r.newQ != null);
+        const ch = j.q.rows.filter(r => r.newF != null);
         if (ch.length) {
           const first = j.q.rows[0].rowNo, last = j.q.rows[j.q.rows.length - 1].rowNo;
-          const vals = j.q.rows.map(r => [r.newQ == null ? null : r.newQ]);
-          u.q = { first, last, formulas: j.q.rows.map(r => [r.qFormula === "" || r.qFormula == null ? "" : r.qFormula]) };
-          await graphFetch(`${sheetUrl(j.wb, "Daily Stock")}/range(address='Q${first}:Q${last}')`, token, { method: "PATCH", body: JSON.stringify({ values: vals }) });
-          qMsg = `<br>📦 Daily Stock ${esc(j.iso.split("-").reverse().join("."))}: ERP weight (Q) set for ${ch.length} size(s).`;
-        } else qMsg = `<br>📦 Daily Stock not changed (no ERP item chosen).`;
+          u.q = { first, last, formulas: j.q.rows.map(r => [r.qFormula === "" || r.qFormula == null ? "" : r.qFormula]), changed: j.q.rows.map((r, i) => r.newF != null ? i : -1).filter(i => i >= 0) };
+          for (const r of ch)   // one cell at a time: other Q cells are never touched
+            await graphFetch(`${sheetUrl(j.wb, "Daily Stock")}/range(address='Q${r.rowNo}')`, token, { method: "PATCH", body: JSON.stringify({ formulas: [[r.newF]] }) });
+          qMsg = `<br>📦 Daily Stock ${esc(j.iso.split("-").reverse().join("."))}: ERP weight (Q) adjusted in ${ch.length} cell(s) - ${ch.map(r => esc(r.size.replace(/\s+/g, " ")) + " " + esc(String(r.newF))).join(", ")}.`;
+        } else qMsg = `<br>📦 Daily Stock: all ERP weights already match - nothing changed.`;
       } else if (j.q && j.q.error) qMsg = `<br>⚠️ Daily Stock not changed: ${esc(j.q.error)}`;
       undo = u; job = null; render();
       $("erpUndoRow").classList.remove("hidden");
@@ -24803,7 +24820,8 @@ async function downloadAndroidApk() {
         const endC = colL(c0.c + u.values[0].length - 1), endR = c0.r + u.values.length;
         await graphFetch(`${sh}/range(address='${start}:${endC}${endR}')`, token, { method: "PATCH", body: JSON.stringify({ values: u.values }) });
       }
-      if (u.q) await graphFetch(`${sheetUrl(u.wb, "Daily Stock")}/range(address='Q${u.q.first}:Q${u.q.last}')`, token, { method: "PATCH", body: JSON.stringify({ formulas: u.q.formulas }) });
+      if (u.q) for (const i of u.q.changed)   // only the cells this upload changed
+        await graphFetch(`${sheetUrl(u.wb, "Daily Stock")}/range(address='Q${u.q.first + i}')`, token, { method: "PATCH", body: JSON.stringify({ formulas: [u.q.formulas[i]] }) });
       undo = null; $("erpUndoRow").classList.add("hidden");
       say(`↩️ Undone - ${esc(u.target)}${u.q ? " and Daily Stock" : ""} are back as they were.`, "ok");
     } catch (e) { say("❌ Undo failed: " + esc(e && e.message ? e.message : e), "err"); }
