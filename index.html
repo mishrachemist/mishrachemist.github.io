@@ -4013,7 +4013,7 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
           <div class="sub-sectionPanel hidden" id="subwhatsapp-erpupload">
           <div class="card">
             <h2>ERP Upload - Durgesh / M2M</h2>
-            <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">Upload the ERP report someone sent you. In the month's Reports file the whole <b>Durgesh</b> or <b>M2M</b> sheet is cleared and the ERP data is written as it is (same as pasting at A1). A Durgesh upload also makes <b>ERP weight (Q)</b> in Daily Stock equal to Durgesh "4-CLOSING" - the Q formula stays, only the difference is added at its end (e.g. <code>=34.364-1.28+0.001</code>). Nothing is written until you tap ✅ Write.</p>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">Upload the ERP report someone sent you. In the month's Reports file the whole <b>Durgesh</b> or <b>M2M</b> sheet is cleared and the ERP data is written as it is (same as pasting at A1). A Durgesh upload also makes <b>ERP weight (Q)</b> in Daily Stock equal to Durgesh "4-CLOSING" - the Q formula stays, only the difference is added at its end (e.g. <code>=34.364-1.28+0.001</code>). Then the <b>Billet Stock Format</b> Total line: whatever difference is left to the ERP billets total ("BILLET" items) is added at the end of both H and G. Nothing is written until you tap ✅ Write.</p>
             <label for="erpDate">Daily Stock date (also picks the month's Reports file)</label>
             <input type="date" id="erpDate">
             <div class="btnRow">
@@ -5243,9 +5243,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.24.5";
+const APP_VERSION = "2026.10.24.6";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🧱 ERP Upload (Durgesh): Billet Stock Format Total H = ERP billets total - the difference left after the Q changes is added at the end of H and G (I stays the same)",
   "📥 ERP Upload: better automatic item match for sizes (4 / 4.0 / 4000 mm, 160*160, 160X160X4)",
   "📥 ERP Upload: Daily Stock Q keeps its formula - only the ERP difference is added at the end (+0.001 / -0.001)",
   "📥 New: Production → ERP Upload - upload the Durgesh / M2M ERP report (sent by anyone); the sheet is replaced in the Reports file and Daily Stock ERP weight (Q) = Durgesh 4-CLOSING. Preview first, Undo available",
@@ -24621,8 +24622,11 @@ async function downloadAndroidApk() {
     if (hr < 0) for (let r = 0; r < Math.min(rows.length, 15) && hr < 0; r++) rows[r].forEach((v, c) => { if (cc < 0 && /CLOSING/i.test(String(v))) { hr = r; cc = c; } });
     if (hr < 0) return { error: 'no "4-CLOSING" column found in the first 15 rows of the ERP file' };
     const items = [];
+    let billetTotal = 0, billetCount = 0;
     for (let r = hr + 1; r < rows.length; r++) {
       const row = rows[r], val = num(row[cc]);
+      // every item whose name has "BILLET" -> its 4-CLOSING counts in the billet total (Billet Stock Format)
+      if (val != null && row.slice(0, cc).some(v => typeof v === "string" && /BILLET/i.test(v)) && !row.slice(0, cc).some(v => typeof v === "string" && /\b(SUB\s*-?\s*)?TOTAL\b/i.test(v))) { billetTotal += val; billetCount++; }   // total / sub-total lines never counted
       const texts = row.slice(0, cc).filter(v => typeof v === "string" && v.trim() && !/^[\d.,\s-]+$/.test(v)).map(v => v.trim());
       if (!texts.length) continue;
       const code = String(row[2] == null ? "" : row[2]).trim();               // FC Report looks items up by column C
@@ -24631,7 +24635,7 @@ async function downloadAndroidApk() {
       const key = code || name;
       items.push({ key, label: code && name ? `${name} (${code})` : (name || code), value: val, row: r + 1 });
     }
-    return { headerRow: hr + 1, col: cc, colName: String(rows[hr][cc]), items };
+    return { headerRow: hr + 1, col: cc, colName: String(rows[hr][cc]), items, billetTotal: r3(billetTotal), billetCount };
   }
   // best guess of the ERP item(s) for a Daily Stock size like "130 X 6", "RAN 160", "110X 5.25"
   function guessFor(size, items) {
@@ -24676,6 +24680,26 @@ async function downloadAndroidApk() {
     return { top, rows };
   }
 
+  // ---- Billet Stock Format: the day's block ("As on DD.MM.YYYY" in column R) -> its "Total" line (G and H) ----
+  async function readBilletTotal(wb, token, iso) {
+    const sh = sheetUrl(wb, "Billet Stock Format");
+    const d = await graphFetch(`${sh}/range(address='A1:R2500')?$select=text`, token, { noCache: true });
+    let asOn = -1;
+    d.text.forEach((r, i) => {
+      const m = /As\s*on\s*(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})/i.exec(String(r[17] || ""));
+      if (m) { let y = +m[3]; if (y < 100) y += 2000; if (`${y}-${String(+m[2]).padStart(2, "0")}-${String(+m[1]).padStart(2, "0")}` === iso) asOn = i; }
+    });
+    if (asOn < 0) return null;
+    let tot = -1;
+    for (let i = Math.max(0, asOn - 6); i < Math.min(d.text.length, asOn + 45); i++) if (/^\s*total\s*$/i.test(String(d.text[i][0] || ""))) { tot = i; break; }
+    if (tot < 0) return null;
+    const row = tot + 1;
+    const gh = await graphFetch(`${sh}/range(address='G${row}:H${row}')?$select=values,formulas`, token, { noCache: true });
+    return { row, g: gh.values[0][0], h: gh.values[0][1], gF: gh.formulas[0][0], hF: gh.formulas[0][1] };
+  }
+  // the same amount added at the end of a cell's own formula (a typed number becomes =number+x)
+  const appendAdj = (f, diff) => { const t = f == null ? "" : String(f).trim(); const d = (diff > 0 ? "+" : "-") + String(+Math.abs(diff).toFixed(3)); return (t.startsWith("=") ? t : "=" + (t === "" ? "0" : t)) + d; };
+
   // ---- preview ----
   function previewHtml() {
     const j = job, show = j.erp.rows.slice(0, 8), more = j.erp.rows.length - show.length;
@@ -24696,6 +24720,18 @@ async function downloadAndroidApk() {
             ${(r.keys.length ? r.keys : [""]).map(k => `<select class="erpSel">${opts(k)}</select>`).join("")}
             <div class="erpRowFoot"><button type="button" class="secondary addItem">+ item</button>${r.guessed ? '<span class="erpGuess">guessed - please check</span>' : ""}</div>
           </div>`).join("")}</div>`;
+      }
+    }
+    if (j.b) {
+      if (j.b.error) h += `<div class="erpBox">⚠️ Billet Stock Format not changed: ${esc(j.b.error)}</div>`;
+      else {
+        const qDelta = j.q && j.q.rows ? j.q.rows.reduce((a, r) => a + (r.newF != null && typeof r.q === "number" && r.newQ != null ? r.newQ - r.q : 0), 0) : 0;
+        const est = typeof j.b.h === "number" ? r3(j.b.target - (j.b.h + qDelta)) : null;
+        h += `<div class="erpBox"><h4>🧱 Billet Stock Format ${esc(j.iso.split("-").reverse().join("."))} · Total line (row ${j.b.row})</h4>
+          <div>ERP billets total (${j.b.count} "BILLET" items, 4-CLOSING): <b>${j.b.target.toFixed(3)}</b></div>
+          <div>H total now: <b>${typeof j.b.h === "number" ? j.b.h.toFixed(3) : esc(j.b.h)}</b> · G total now: <b>${typeof j.b.g === "number" ? j.b.g.toFixed(3) : esc(j.b.g)}</b></div>
+          <div style="margin-top:4px;">After the Daily Stock Q changes, the difference left is added at the end of <b>both</b> H and G (I stays the same)${est == null ? "" : ` - expected about <b class="${Math.abs(est) >= 0.0005 ? "chg" : ""}">${est >= 0 ? "+" : ""}${est.toFixed(3)}</b>`}.</div>
+          <div class="erpF">H: ${esc(j.b.hF)} · G: ${esc(j.b.gF)}</div></div>`;
       }
     }
     return h;
@@ -24767,6 +24803,12 @@ async function downloadAndroidApk() {
           job.q = { ...d, top: blk.top, rows };
           recalcQ();
         }
+        // Billet Stock Format total (G / H) of the same day
+        if (!d.billetCount) job.b = { error: 'no item with "BILLET" in its name in the ERP file' };
+        else {
+          const bt = await readBilletTotal(wb, token, iso);
+          job.b = bt ? { ...bt, target: d.billetTotal, count: d.billetCount } : { error: `no Billet Stock Format block "As on ${iso.split("-").reverse().join(".")}" with a Total line` };
+        }
       }
     }
     render();
@@ -24804,6 +24846,22 @@ async function downloadAndroidApk() {
           qMsg = `<br>📦 Daily Stock ${esc(j.iso.split("-").reverse().join("."))}: ERP weight (Q) adjusted in ${ch.length} cell(s) - ${ch.map(r => esc(r.size.replace(/\s+/g, " ")) + " " + esc(String(r.newF))).join(", ")}.`;
         } else qMsg = `<br>📦 Daily Stock: all ERP weights already match - nothing changed.`;
       } else if (j.q && j.q.error) qMsg = `<br>⚠️ Daily Stock not changed: ${esc(j.q.error)}`;
+      // Billet Stock Format: re-read H after the Q changes, then the difference left goes at the end of H and G
+      if (j.b && !j.b.error) {
+        const now = await readBilletTotal(j.wb, token, j.iso);
+        if (!now || typeof now.h !== "number") qMsg += `<br>⚠️ Billet Stock Format not changed: Total line could not be read again.`;
+        else {
+          const diff = r3(j.b.target - now.h);
+          if (Math.abs(diff) < 0.0005) qMsg += `<br>🧱 Billet Stock Format: H total already equals the ERP billets total (${j.b.target.toFixed(3)}) - nothing changed.`;
+          else {
+            const nH = appendAdj(now.hF, diff), nG = appendAdj(now.gF, diff), bs = sheetUrl(j.wb, "Billet Stock Format");
+            u.b = { row: now.row, gF: now.gF, hF: now.hF };
+            await graphFetch(`${bs}/range(address='H${now.row}')`, token, { method: "PATCH", body: JSON.stringify({ formulas: [[nH]] }) });
+            await graphFetch(`${bs}/range(address='G${now.row}')`, token, { method: "PATCH", body: JSON.stringify({ formulas: [[nG]] }) });
+            qMsg += `<br>🧱 Billet Stock Format (row ${now.row}): ${diff > 0 ? "+" : ""}${diff.toFixed(3)} added to H (${esc(nH)}) and G (${esc(nG)}).`;
+          }
+        }
+      } else if (j.b && j.b.error) qMsg += `<br>⚠️ Billet Stock Format not changed: ${esc(j.b.error)}`;
       undo = u; job = null; render();
       $("erpUndoRow").classList.remove("hidden");
       say(`✅ ${esc(j.fileLabel)} → <b>${esc(j.target)}</b> updated from ${esc(j.fileName)} (${j.erp.rows.length} rows).${qMsg}`, "ok");
@@ -24812,7 +24870,7 @@ async function downloadAndroidApk() {
     } finally { btn.disabled = false; }
   }
   async function doUndo() {
-    if (!undo || !confirm(`Undo: put back the old ${undo.target} sheet${undo.q ? " and the old Daily Stock ERP weights" : ""}?`)) return;
+    if (!undo || !confirm(`Undo: put back the old ${undo.target} sheet${undo.q ? ", the old Daily Stock ERP weights" : ""}${undo.b ? " and the old Billet Stock Format totals" : ""}?`)) return;
     const u = undo;
     try {
       const token = await getToken(), sh = sheetUrl(u.wb, u.target);
@@ -24827,8 +24885,13 @@ async function downloadAndroidApk() {
       }
       if (u.q) for (const i of u.q.changed)   // only the cells this upload changed
         await graphFetch(`${sheetUrl(u.wb, "Daily Stock")}/range(address='Q${u.q.first + i}')`, token, { method: "PATCH", body: JSON.stringify({ formulas: [u.q.formulas[i]] }) });
+      if (u.b) {
+        const bs = sheetUrl(u.wb, "Billet Stock Format");
+        await graphFetch(`${bs}/range(address='H${u.b.row}')`, token, { method: "PATCH", body: JSON.stringify({ formulas: [[u.b.hF]] }) });
+        await graphFetch(`${bs}/range(address='G${u.b.row}')`, token, { method: "PATCH", body: JSON.stringify({ formulas: [[u.b.gF]] }) });
+      }
       undo = null; $("erpUndoRow").classList.add("hidden");
-      say(`↩️ Undone - ${esc(u.target)}${u.q ? " and Daily Stock" : ""} are back as they were.`, "ok");
+      say(`↩️ Undone - ${esc(u.target)}${u.q ? ", Daily Stock" : ""}${u.b ? ", Billet Stock Format" : ""} are back as they were.`, "ok");
     } catch (e) { say("❌ Undo failed: " + esc(e && e.message ? e.message : e), "err"); }
   }
 
