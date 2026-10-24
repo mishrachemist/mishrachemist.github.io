@@ -5243,9 +5243,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.24.4";
+const APP_VERSION = "2026.10.24.5";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📥 ERP Upload: better automatic item match for sizes (4 / 4.0 / 4000 mm, 160*160, 160X160X4)",
   "📥 ERP Upload: Daily Stock Q keeps its formula - only the ERP difference is added at the end (+0.001 / -0.001)",
   "📥 New: Production → ERP Upload - upload the Durgesh / M2M ERP report (sent by anyone); the sheet is replaced in the Reports file and Daily Stock ERP weight (Q) = Durgesh 4-CLOSING. Preview first, Undo available",
   "🐞 Market: phone Back after the India dashboard no longer opens the USA dashboard",
@@ -24635,18 +24636,22 @@ async function downloadAndroidApk() {
   // best guess of the ERP item(s) for a Daily Stock size like "130 X 6", "RAN 160", "110X 5.25"
   function guessFor(size, items) {
     const t = normSize(size); let sec, len = null, ran = false, m;
-    if ((m = t.match(/^RAN(\d{3})$/))) { sec = m[1]; ran = true; } else if ((m = t.match(/^(\d{3})X([\d.]+)$/))) { sec = m[1]; len = m[2]; } else return [];
+    if ((m = t.match(/^RAN(\d{3})$/))) { sec = m[1]; ran = true; } else if ((m = t.match(/^(\d{3})X([\d.]+)$/))) { sec = m[1]; len = +m[2]; } else return [];
     const hits = items.filter(it => {
-      const L = it.label.toUpperCase();
+      // "160X160X4MTR", "160*160 4.0 M", "BILLET 160 SQ 4000MM", "160 X 160 X 4 MTRS" ...
+      let L = " " + it.label.toUpperCase().replace(/[×*]/g, "X").replace(/\(([^)]*)\)\s*$/, " $1 ") + " ";
       if (!new RegExp("(^|\\D)" + sec + "(\\D|$)").test(L)) return false;
-      const isRan = /RANDOM|\bRAN\b|R\/L|\bRL\b/.test(L);
+      const isRan = /RANDOM|\bRAN\b|R\/L|\bRL\b|\bR\.L\b/.test(L);
       if (ran) return isRan;
       if (isRan) return false;
-      const lenRe = new RegExp("(^|[^\\d.])" + len.replace(".", "\\.") + "\\s*(M|MT|MTR|MTRS|METER|METRE|MTRS?\\b|$|[^\\d.])");
-      return lenRe.test(L.replace(new RegExp("(^|\\D)" + sec + "\\s*X\\s*" + sec, "g"), " "));
+      L = L.replace(new RegExp(sec + "\\s*X\\s*" + sec, "g"), " SEC ").replace(new RegExp("(^|\\D)" + sec + "(\\D|$)", "g"), "$1 SEC $2");
+      const nums = (L.match(/\d+(\.\d+)?/g) || []).map(Number);
+      return nums.some(n => Math.abs(n - len) < 1e-9 || Math.abs(n - len * 1000) < 1e-6);   // metres (4, 4.0, 5.25) or mm (4000, 5250)
     });
-    return hits.length === 1 ? [hits[0].key] : [];
+    if (hits.length === 1) return [hits[0].key];
+    return [];
   }
+
 
   // ---- Daily Stock block of the date ----
   function cellISO(v) {
