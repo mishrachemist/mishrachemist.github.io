@@ -6,6 +6,7 @@
 <script>
   // Text from Excel / OneDrive / WhatsApp / typed boxes is shown as TEXT, never as HTML (stops "<img onerror=...>" tricks).
   // Logo on downloaded reports (PDF / JPG): one switch for the whole app, remembered on this device. Default ON.
+  try { ["autoBlkOn", "autoBlkTime", "autoBlkDone", "autoBlkLastTry", "autoBlkMonthNote"].forEach(k => localStorage.removeItem(k)); } catch (e) {}   // automatic blocks were removed
   function reportLogoOn() { try { return localStorage.getItem("reportLogo") !== "off"; } catch (e) { return true; } }
   function htmlEsc(t) { return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   // Clickjacking guard: the app must never run inside someone else's page/iframe.
@@ -2001,9 +2002,6 @@
   .pdfOverlay{ touch-action:pan-x pan-y; }
   .delBlkBox{ margin-top:14px; padding:12px; border:1px dashed rgba(229,83,61,.7); border-radius:10px; }
   #delBlkBtn{ border-color:rgba(229,83,61,.8) !important; }
-  .autoBlkBox{ margin-top:14px; padding:12px; border:1px dashed rgba(128,128,128,.6); border-radius:10px; }
-  .autoBlkTimeRow{ display:flex; align-items:center; gap:10px; margin:8px 0 4px; font-size:13px; }
-  .autoBlkTimeRow input[type=time]{ width:auto !important; margin:0; }
   /* ERP Upload */
   #subwhatsapp-erpupload .erpBox{ margin-top:12px; padding:12px; border:1px solid rgba(128,128,128,.35); border-radius:10px; font-size:13px; }
   #subwhatsapp-erpupload .erpBox h4{ margin:0 0 8px; font-size:14px; }
@@ -4099,12 +4097,7 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
             <div class="btnRow">
               <button class="primary" id="nextDayAllBtn">⚡ Create All Next Day Blocks (all 5 sheets)</button>
             </div>
-            <div class="autoBlkBox">
-              <label class="fxRow" style="margin:0;"><input type="checkbox" id="autoBlkToggle"> <span>🤖 <b>Automatic:</b> every day create <b>tomorrow's</b> blocks in all 5 sheets</span></label>
-              <div class="autoBlkTimeRow"><span>Daily at</span><input type="time" id="autoBlkTime" value="20:00"></div>
-              <div id="autoBlkInfo" style="font-size:12px;opacity:.8;"></div>
-              <div style="font-size:11.5px;opacity:.7;margin-top:4px;">Runs while the app is open (or the next time it is opened after that time). A sheet that already has tomorrow's block is left alone. On the last day of a month it only reminds you to use "Create Next Month File". App closed? MacroDroid can open the app at this time (same link as the WhatsApp scheduled sync).</div>
-            </div>
+
             <div class="btnRow">
               <button class="secondary" id="fixColoursBtn">🎨 Fix Colours of Last Block</button>
             </div>
@@ -5264,14 +5257,14 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.25.4";
+const APP_VERSION = "2026.10.25.5";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🧹 Automatic daily blocks removed (on request) - blocks are made only with the buttons",
   "🗑️ New Block screen: Delete Block - removes the last block of the chosen sheet for the chosen date (made by mistake)",
   "💡 Daily Summary insight: average per heat, heats per day, average per day and the expected month total if this rate continues",
   "🐞 Daily Summary 💡 insight fixed: only complete days count (no heat-count cells taken as dates, no today / blank blocks); it now shows its basis and numbers",
   "🐞 Slow network no longer opens an old version: the offline copy is always refreshed, and a newer version shows the \"tap to update\" bar (also upload service-worker.js)",
-  "🤖 New Block: automatic daily blocks - every day at the chosen time (default 20:00) tomorrow's block is created in all 5 sheets (never further; skipped on month end)",
   "🐞 ERP Upload: billets total uses the item code from column B (F counted, R skipped)",
   "🧱 ERP Upload: billets total counts only item codes starting with F (R codes skipped)",
   "🧱 ERP Upload (Durgesh): Billet Stock Format Total H = ERP billets total - the difference left after the Q changes is added at the end of H and G (I stays the same)",
@@ -24976,73 +24969,6 @@ async function downloadAndroidApk() {
   $("erpCancelBtn").addEventListener("click", () => { job = null; render(); say("Cancelled - nothing was written."); });
   $("erpUndoBtn").addEventListener("click", doUndo);
   window._erpTest = { readErp, durgeshItems, guessFor, erpDateGuess };
-})();
-</script>
-<script>
-/* ===== Automatic next-day blocks: every day at the chosen time (default 20:00) tomorrow's block is created
-   in all 5 sheets - only up to tomorrow, never further; skipped on the last day of a month. Runs while the app
-   is open, or on the next opening after that time. Done-flag per day on this device; a second device finds the
-   blocks already there and leaves them. ===== */
-(function autoNextDayBlocks() {
-  const $ = id => document.getElementById(id);
-  const ls = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
-  const set = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
-  const on = () => ls("autoBlkOn", "1") !== "0";
-  const hhmm = () => { const t = ls("autoBlkTime", "20:00"); return /^\d{2}:\d{2}$/.test(t) ? t : "20:00"; };
-  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const dmy = s => s.split("-").reverse().join(".");
-  let running = false;
-  function plan(now) {
-    now = now || new Date();
-    const [h, m] = hhmm().split(":").map(Number);
-    const at = new Date(now); at.setHours(h, m, 0, 0);
-    const tom = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    return { at, due: now >= at, tomISO: iso(tom), monthEnd: tom.getMonth() !== now.getMonth() };
-  }
-  function info() {
-    const el = $("autoBlkInfo"); if (!el) return;
-    if ($("autoBlkToggle")) $("autoBlkToggle").checked = on();
-    if ($("autoBlkTime") && document.activeElement !== $("autoBlkTime")) $("autoBlkTime").value = hhmm();
-    if (!on()) { el.textContent = "Automatic blocks are off on this device."; return; }
-    const p = plan(), done = ls("autoBlkDone", "");
-    if (done === p.tomISO) el.textContent = `✅ Done for ${dmy(p.tomISO)}. Next run: tomorrow ${hhmm()}.`;
-    else if (p.monthEnd) el.textContent = `📅 Tomorrow is a new month - use "Create Next Month File" (no automatic block today).`;
-    else el.textContent = p.due ? `⏳ Due now: blocks for ${dmy(p.tomISO)} will be created shortly.` : `Next run: today ${hhmm()} → blocks for ${dmy(p.tomISO)}.`;
-  }
-  async function tick() {
-    info();
-    if (!on() || running || typeof account === "undefined" || !account) return;
-    if (typeof isViewer === "function" && isViewer()) return;
-    if (navigator.onLine === false) return;
-    const p = plan(); if (!p.due || ls("autoBlkDone", "") === p.tomISO) return;
-    if (p.monthEnd) {
-      if (ls("autoBlkMonthNote", "") !== p.tomISO) { set("autoBlkMonthNote", p.tomISO); phoneNotify("📅 Kal naya mahina hai", "Next day block ki jagah 'Create Next Month File' chalaiye"); }
-      return;
-    }
-    if (Date.now() - (+ls("autoBlkLastTry", "0") || 0) < 20 * 60000) return;    // a failed try waits 20 min
-    if ((typeof waAutoRun !== "undefined" && waAutoRun) || (typeof waInboxBusy !== "undefined" && waInboxBusy)) return;   // WhatsApp sync first
-    const bAll = $("nextDayAllBtn"); if (bAll && bAll.disabled) return;           // a block job is already running
-    try { await msalInstance.acquireTokenSilent({ scopes: graphScopes, account }); } catch (e) { return; }   // needs a sign-in -> wait, never redirect
-    running = true; set("autoBlkLastTry", String(Date.now()));
-    try {
-      let r = null;
-      for (let round = 0; round < 3; round++) {          // a sheet that is behind catches up, one day per round, up to tomorrow
-        r = await createAllNextDayBlocks(null, { auto: true, limitISO: p.tomISO });
-        if (!r || r.error || r.fails || !r.created.length || r.created.every(d => d >= p.tomISO)) break;
-      }
-      if (r && !r.error && !r.fails) set("autoBlkDone", p.tomISO);
-    } catch (e) { console.warn("auto blocks failed", e); }
-    finally { running = false; info(); }
-  }
-  document.addEventListener("change", e => {
-    if (e.target && e.target.id === "autoBlkToggle") { set("autoBlkOn", e.target.checked ? "1" : "0"); info(); }
-    if (e.target && e.target.id === "autoBlkTime" && /^\d{2}:\d{2}$/.test(e.target.value)) { set("autoBlkTime", e.target.value); info(); }
-  });
-  info();
-  setInterval(tick, 60000);
-  setTimeout(tick, 30000);
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") setTimeout(tick, 8000); });
-  window._autoBlk = { tick, plan, info };
 })();
 </script>
 <script>
