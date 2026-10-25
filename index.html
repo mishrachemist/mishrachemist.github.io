@@ -5253,9 +5253,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.24.9";
+const APP_VERSION = "2026.10.25.1";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🐞 Slow network no longer opens an old version: the offline copy is always refreshed, and a newer version shows the \"tap to update\" bar (also upload service-worker.js)",
   "🤖 New Block: automatic daily blocks - every day at the chosen time (default 20:00) tomorrow's block is created in all 5 sheets (never further; skipped on month end)",
   "🐞 ERP Upload: billets total uses the item code from column B (F counted, R skipped)",
   "🧱 ERP Upload: billets total counts only item codes starting with F (R codes skipped)",
@@ -6857,17 +6858,35 @@ if (SpeechRecognitionAPI) {
 /* ===================== SERVICE WORKER (PWA) ===================== */
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js").catch(() => {
+    navigator.serviceWorker.register("./service-worker.js").then(reg => { try { reg.update(); } catch (e) {} }).catch(() => {
       // Non-fatal - the app still works fully without offline caching.
     });
   });
+  // A little after opening (and when the app comes back on screen): the worker quietly fetches the newest
+  // index.html and saves it as the offline copy - so a slow-network start never keeps an old version.
+  // If the page on screen is older, the worker answers "sms-new-version" (one-tap update bar below).
+  const refreshShell = () => {
+    try {
+      if (navigator.onLine === false) return;
+      const last = +(localStorage.getItem("shellRefreshAt") || 0);
+      if (Date.now() - last < 10 * 60000) return;
+      navigator.serviceWorker.ready.then(reg => {
+        const w = navigator.serviceWorker.controller || reg.active; if (!w) return;
+        localStorage.setItem("shellRefreshAt", String(Date.now()));
+        w.postMessage({ action: "refreshShell", version: typeof APP_VERSION !== "undefined" ? APP_VERSION : "" });
+      }).catch(() => {});
+    } catch (e) {}
+  };
+  window.addEventListener("load", () => setTimeout(refreshShell, 6000));
+  window.addEventListener("online", () => setTimeout(refreshShell, 3000));
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") setTimeout(refreshShell, 4000); });
   // The page opens instantly from the saved copy; when a newer version has been
   // downloaded in the background, offer a one-tap update.
   navigator.serviceWorker.addEventListener("message", (e) => {
     if (!e.data || e.data.type !== "sms-new-version" || document.getElementById("swUpdateBar")) return;
     const bar = document.createElement("button");
     bar.id = "swUpdateBar"; bar.type = "button";
-    bar.textContent = "🔄 New version available - tap to update";
+    bar.textContent = "🔄 New version available" + (e.data.version ? " (" + e.data.version + ")" : "") + " - tap to update";
     bar.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:2147483002;" +
       "background:var(--gold,#c9a227);color:#0b2545;border:none;border-radius:999px;padding:10px 18px;" +
       "font-weight:700;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.3);cursor:pointer;";
