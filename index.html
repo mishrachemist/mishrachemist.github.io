@@ -5253,9 +5253,11 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.25.1";
+const APP_VERSION = "2026.10.25.3";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "💡 Daily Summary insight: average per heat, heats per day, average per day and the expected month total if this rate continues",
+  "🐞 Daily Summary 💡 insight fixed: only complete days count (no heat-count cells taken as dates, no today / blank blocks); it now shows its basis and numbers",
   "🐞 Slow network no longer opens an old version: the offline copy is always refreshed, and a newer version shows the \"tap to update\" bar (also upload service-worker.js)",
   "🤖 New Block: automatic daily blocks - every day at the chosen time (default 20:00) tomorrow's block is created in all 5 sheets (never further; skipped on month end)",
   "🐞 ERP Upload: billets total uses the item code from column B (F counted, R skipped)",
@@ -18460,60 +18462,49 @@ async function loadDashboard() {
   }
 }
 
-// Scans the whole month's data for simple patterns - best weekday, and
-// whether the last few days are trending up or down - and writes a short
-// plain-language summary. Purely descriptive, not predictive.
+// Month insight under the Daily Summary. Basis (shown in the text): only COMPLETE days with production -
+// real dates in column A (Excel date numbers, not the heat-count cell under each block), real heat rows only
+// (same rule as the Daily Summary, MIN/MAX rows excluded), today (still running), future and blank (0 MT)
+// blocks are left out. Shows: average per heat, heats per day, average per day, and - if that rate continues
+// for the days left (today to month end) - the month's expected total.
 async function generateInsightsNarrative(wb, sheetName, token) {
   const box = document.getElementById("insightsNarrative");
   try {
     const data = await graphFetch(`${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='A1:AB2000')?$select=values`, token);
-    const values = data.values;
-    const dayTotals = {}; // { iso: total }
+    const values = data.values, today = todayISO();
+    const isDate = v => typeof v === "number" && v > 40000;
+    const dayTotals = {}, dayHeats = {};   // { iso: MT }, { iso: heats }
     for (let i = 0; i < values.length; i++) {
-      if (typeof values[i][0] !== "number") continue;
+      if (!isDate(values[i][0])) continue;
       const iso = excelSerialToISODate(values[i][0]);
-      let total = 0;
-      for (let r = i; r < i + 12 && r < values.length; r++) {
-        if (values[r][1] && typeof values[r][27] === "number") total += values[r][27];
+      if (iso >= today) continue;                                     // today is not finished; future blocks are empty
+      let total = 0, heats = 0;
+      for (let r = i; r < Math.min(values.length, i + 12); r++) {     // the 12 heat rows of the block
+        if (r > i && isDate(values[r][0])) break;                       // next day's block starts
+        if (/^(MIN|MAX)$/i.test(String(values[r][1] || "").trim())) break;
+        if (!isRealHeatRow(values[r])) continue;
+        heats++; if (typeof values[r][27] === "number") total += values[r][27];   // AB = Total Prod
       }
-      dayTotals[iso] = (dayTotals[iso] || 0) + total;
+      if (heats > 0 && total > 0) { dayTotals[iso] = (dayTotals[iso] || 0) + total; dayHeats[iso] = (dayHeats[iso] || 0) + heats; }
     }
-    const sortedDates = Object.keys(dayTotals).sort();
-    if (sortedDates.length < 3) { box.classList.add("hidden"); return; }
+    const days = Object.keys(dayTotals).sort();
+    if (days.length < 1) { box.classList.add("hidden"); return; }
+    const f0 = v => Math.round(v).toLocaleString("en-IN");
+    const dm = iso => { const [, m, d] = iso.split("-"); return `${+d}.${+m}`; };
+    const totalMT = days.reduce((a, d) => a + dayTotals[d], 0), totalHeats = days.reduce((a, d) => a + dayHeats[d], 0);
+    const perDay = totalMT / days.length, perHeat = totalHeats ? totalMT / totalHeats : 0, heatsPerDay = totalHeats / days.length;
+    const [y, m] = days[days.length - 1].split("-").map(Number);
+    const monthName = new Date(y, m - 1, 1).toLocaleString("en-GB", { month: "long" });
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const [ty, tm, td] = today.split("-").map(Number);
+    // days still to come in this month: from today (not finished yet) to the month end
+    const left = (ty === y && tm === m) ? daysInMonth - td + 1 : (ty < y || (ty === y && tm < m)) ? daysInMonth : 0;
 
-    // Best weekday (by average production on days with data this month).
-    const weekdaySums = [0, 0, 0, 0, 0, 0, 0], weekdayCounts = [0, 0, 0, 0, 0, 0, 0];
-    const weekdayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    sortedDates.forEach(iso => {
-      const wd = new Date(iso + "T00:00:00").getDay();
-      weekdaySums[wd] += dayTotals[iso];
-      weekdayCounts[wd] += 1;
-    });
-    let bestDay = -1, bestAvg = -1;
-    for (let d = 0; d < 7; d++) {
-      if (weekdayCounts[d] === 0) continue;
-      const avg = weekdaySums[d] / weekdayCounts[d];
-      if (avg > bestAvg) { bestAvg = avg; bestDay = d; }
-    }
-
-    // Trend over the last up-to-5 days with data.
-    const recent = sortedDates.slice(-5).map(iso => dayTotals[iso]);
-    let trendText = "";
-    if (recent.length >= 3) {
-      const firstHalf = recent.slice(0, Math.floor(recent.length / 2));
-      const secondHalf = recent.slice(Math.ceil(recent.length / 2));
-      const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
-      const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
-      if (avgSecond > avgFirst * 1.05) trendText = " Production has been trending upward over the last few days.";
-      else if (avgSecond < avgFirst * 0.95) trendText = " Production has dipped a little over the last few days.";
-      else trendText = " Production has stayed fairly steady over the last few days.";
-    }
-
-    let narrative = "💡 ";
-    if (bestDay !== -1) narrative += `${weekdayNames[bestDay]}s have had the highest average production this month (${bestAvg.toFixed(0)} MT).`;
-    narrative += trendText;
-
-    box.textContent = narrative;
+    let txt = `💡 ${dm(days[0])} – ${dm(days[days.length - 1])} (${days.length} complete day${days.length > 1 ? "s" : ""}; today and blank days not counted): ` +
+      `${totalHeats} heats, ${f0(totalMT)} MT → average ${perHeat.toFixed(2)} MT per heat, ${heatsPerDay.toFixed(1)} heats per day, ${f0(perDay)} MT per day.`;
+    if (left > 0) txt += ` If this continues for the ${left} day${left > 1 ? "s" : ""} left (${td}.${m} – ${daysInMonth}.${m}), ${monthName} will end at about ${f0(totalMT + perDay * left)} MT.`;
+    else txt += ` ${monthName} total: ${f0(totalMT)} MT.`;
+    box.textContent = txt;
     box.classList.remove("hidden");
   } catch (e) {
     box.classList.add("hidden"); // insights are a bonus - fail quietly
