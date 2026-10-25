@@ -925,6 +925,7 @@
     color:var(--muted);
     font-weight:600;
   }
+  .navDrawerVer{ font-weight:500; opacity:.75; margin-left:4px; font-variant-numeric:tabular-nums; }
   .navDrawerSignOutBtn{
     background:rgba(163,39,28,.1);
     border:1.5px solid var(--bad);
@@ -3093,7 +3094,7 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
     <button class="navDrawerItem" data-drawer-action="iconstyle"><span class="navDrawerIcon">🧩</span><span>Icon Style</span></button>
   </div>
   <div class="navDrawerFooter">
-    <span class="navDrawerVersion">Moltrix</span>
+    <span class="navDrawerVersion">Moltrix <span id="navDrawerVer" class="navDrawerVer"></span></span>
     <button id="navDrawerSignOut" class="navDrawerSignOutBtn hidden" title="Sign Out">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 2v10"/>
@@ -5257,9 +5258,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.25.5";
+const APP_VERSION = "2026.10.25.6";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "ℹ️ Menu footer shows the app version next to Moltrix",
   "🧹 Automatic daily blocks removed (on request) - blocks are made only with the buttons",
   "🗑️ New Block screen: Delete Block - removes the last block of the chosen sheet for the chosen date (made by mistake)",
   "💡 Daily Summary insight: average per heat, heats per day, average per day and the expected month total if this rate continues",
@@ -25059,6 +25061,10 @@ async function downloadAndroidApk() {
     }
   });
 })();
+</script>
+<script>
+/* Drawer footer: "Moltrix v<version on screen>" - always the version of the page actually running */
+(function () { const el = document.getElementById("navDrawerVer"); if (el && typeof APP_VERSION !== "undefined") el.textContent = "v" + APP_VERSION; })();
 </script>
 </body>
 </html>
