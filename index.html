@@ -5276,9 +5276,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.26.1";
+const APP_VERSION = "2026.10.26.2";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🐞 Billet Cum Report always shows today: the Excel file is recalculated first (B1 =NOW()), so the date and the figures are today's",
   "🧮 Reports → Billet Cum Report: the Cumulative Stock sheet as PDF / JPG in the same colours as Excel",
   "ℹ️ Menu footer shows the app version next to Moltrix",
   "🧹 Automatic daily blocks removed (on request) - blocks are made only with the buttons",
@@ -25119,10 +25120,22 @@ async function downloadAndroidApk() {
       const path = await detectFilePathForMonth(token, now.getFullYear(), now.getMonth());
       if (!path) throw new Error(`${MONTH_ABBR[now.getMonth()]}'${String(now.getFullYear()).slice(2)}_Reports.xlsx not found on OneDrive.`);
       const wb = await resolveWorkbook(token, path);
-      const r = await graphFetch(`${wb}/worksheets('Cumulative%20Stock')/range(address='B1:J17')?$select=values,text`, token, { noCache: true });
+      // B1 is =NOW() and every figure looks up the "As on <B1>" block of Billet Stock Format. A file on OneDrive
+      // keeps the date of its last calculation, so Excel is asked to recalculate first -> B1 = today, figures = today.
+      const todayIso = todayISO(), rng = `${wb}/worksheets('Cumulative%20Stock')/range(address='B1:J17')?$select=values,text`;
+      const calc = async type => { try { await graphFetch(`${wb}/application/calculate`, token, { method: "POST", body: JSON.stringify({ calculationType: type }) }); } catch (e) { console.warn("calculate", type, e); } };
+      st.textContent = "Recalculating the Excel file (today's date)…";
+      await calc("Recalculate");
+      let r = await graphFetch(rng, token, { noCache: true });
+      const isoB1 = x => typeof x === "number" && x > 40000 ? excelSerialToISODate(x) : "";
+      if (isoB1(r.values[0][0]) !== todayIso) { await calc("Full"); r = await graphFetch(rng, token, { noCache: true }); }
       data = { text: r.text.map(row => row.map(v => String(v == null ? "" : v))), values: r.values, file: path.split("/").pop() };
       data.date = data.text[0][0] || now.toLocaleDateString("en-GB");
+      const b1 = isoB1(r.values[0][0]);
+      const nums = r.values.slice(3, 11).map(row => row.slice(2)).flat().filter(v => typeof v === "number");   // figures D:J (not the 110/130/160 labels)
       st.className = ""; st.textContent = "";
+      if (b1 && b1 !== todayIso) { st.className = "err"; st.textContent = `⚠️ Excel could not be recalculated - the sheet still shows ${data.date}, so these figures are for ${data.date}, not today.`; }
+      else if (nums.length && nums.every(v => v === 0)) { st.className = "err"; st.textContent = `⚠️ All figures are 0 - Billet Stock Format has no "As on ${todayIso.split("-").reverse().join(".")}" block yet (create today's block first).`; }
       $("bcPreview").src = (await draw()).toDataURL("image/jpeg", 0.92);
     } catch (e) { st.className = "err"; st.textContent = "⚠️ " + (e && e.message ? e.message : e); }
   }
