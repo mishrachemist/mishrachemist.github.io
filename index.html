@@ -5307,9 +5307,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.29.4";
+const APP_VERSION = "2026.10.29.5";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🐞 Access denied screen shows the e-mail Microsoft confirms for that sign-in (the one App Access must contain); blocked sign-ins are logged again",
   "🐞 Mirror: finds the colleague's file by name when it is kept in a different folder (e.g. not inside Reports 26-27)",
   "🪞 Switch Account → Every entry also in: each Excel entry is written in a second account's OneDrive too (same file, same cells)",
   "🔄 Menu → Switch Account: use another Microsoft account (e.g. a colleague's) - the app then works on that account's files; one tap to switch back",
@@ -7615,7 +7616,7 @@ function blockAccount(reason) {
   const acc = account;
   if (!reason && acc && accountRole(acc) === "" && accessUrl() && !_accessAsked.has(accountEmail(acc))) { accessAsk(acc); return; }
   if (reason === "revoked") { try { localStorage.removeItem("roleCache:" + accountEmail(acc)); delete _roleMem[accountEmail(acc)]; } catch (e) {} }
-  try { logLoginEvent("Blocked"); } catch (e) {}
+  try { logLoginEvent("Blocked", acc); } catch (e) {}
   account = null; cachedAccessToken = null; cachedTokenExpiry = 0; SIGNATURE_IMG = "";
   try { localStorage.removeItem("lastSignedInAccountId"); sessionStorage.removeItem("pendingResume"); } catch (e) {}
   const hide = id => { const el = document.getElementById(id); if (el) el.classList.add("hidden"); };
@@ -7631,7 +7632,23 @@ function blockAccount(reason) {
         : reason === "nocheck" ? '<div>Could not check access for <b>' + em + '</b> (no internet?). Please try again.</div>'
         : reason === "revoked" ? '<div>Access for <b>' + em + '</b> has been removed by the owner.</div>'
         : '<div>This account (<b>' + em + '</b>) is not allowed to use this app. Ask Durgesh Mishra for access.</div>') +
+      '<div id="deniedWho" style="font-size:12.5px;margin-top:8px;opacity:.9;"></div>' +
       '<button id="deniedSignOutBtn" type="button" style="margin-top:12px;">Sign out / use another account</button>';
+    // which e-mail Microsoft confirms for this sign-in - the access server checks exactly this one
+    if (acc && reason !== "nocheck") (async () => {
+      try {
+        const t = await authToken(acc);
+        const r = await fetch("https://graph.microsoft.com/v1.0/me?$select=displayName,mail,userPrincipalName", { headers: { Authorization: "Bearer " + t } });
+        if (!r.ok) return;
+        const j = await r.json(), work = t.split(".").length === 3;
+        const upn = String(j.userPrincipalName || "").trim().toLowerCase(), mail = String(j.mail || "").trim().toLowerCase();
+        const checked = work ? upn : (mail || upn), esc = x => String(x).replace(/[&<>"']/g, ch => "&#" + ch.charCodeAt(0) + ";");
+        const el = document.getElementById("deniedWho"); if (!el || !checked) return;
+        el.innerHTML = 'Microsoft confirms this sign-in as: <b>' + esc(checked) + '</b>' +
+          (checked !== String(accountEmail(acc)).toLowerCase() ? '<br>⚠️ This is <b>not</b> the e-mail shown above - add <b>' + esc(checked) + '</b> in Get Started → App Access.' : '') +
+          '<br><span style="opacity:.75;">(mail: ' + esc(mail || "-") + ' · sign-in name: ' + esc(upn || "-") + ')</span>';
+      } catch (e) {}
+    })();
     document.getElementById("deniedSignOutBtn").addEventListener("click", () => {
       msalInstance.logoutRedirect({ account: acc }).catch(() => location.reload());
     });
@@ -8191,16 +8208,17 @@ function loginDeviceLabel() {
   const app = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches ? " (app)" : "";
   return `${os} · ${br}${app} · ${screen.width}x${screen.height}`;
 }
-function logLoginEvent(event) {   // the access server writes the log itself, using the e-mail Microsoft confirmed (nothing to forge)
+function logLoginEvent(event, accArg) {   // the access server writes the log itself, using the e-mail Microsoft confirmed (nothing to forge)
   try {
-    if (!account || !accessUrl()) return;
+    const acct = accArg || account;   // a blocked sign-in passes its account (the global one is cleared at once)
+    if (!acct || !accessUrl()) return;
     if (event === "App open") { // only once per day per account
-      const k = "loginLogDay:" + (account.homeAccountId || accountEmail(account));
+      const k = "loginLogDay:" + (acct.homeAccountId || accountEmail(acct));
       const today = new Date().toISOString().slice(0, 10);
       if (localStorage.getItem(k) === today) return;
       localStorage.setItem(k, today);
     }
-    loginGeo().then(g => authCall({ action: "log", event, device: loginDeviceLabel(), ip: g.ip, loc: g.loc })).catch(() => {});
+    loginGeo().then(g => authCall({ action: "log", event, device: loginDeviceLabel(), ip: g.ip, loc: g.loc }, acct)).catch(() => {});
   } catch (e) { console.warn("login log failed", e); }
 }
 // Public IP + approximate place (city / state / country + internet provider) from GeoJS (free, no key).
