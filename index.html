@@ -5307,9 +5307,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.29.8";
+const APP_VERSION = "2026.10.29.9";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🐞 Kashvi sticker stays where you put it - it no longer jumps to another place after opening and closing Kashvi (moves only when you drag it)",
   "📚 DM/QA/WI/12 (Fe(M) HgCl₂): reference added - A Text Book of Metallurgical Analysis, B. C. Aggarwal & S. P. Jain (Khanna Publishers)",
   "🐞 SOP/WI print header: chemical formulas in the title (KIO₃, HgCl₂) now print as formulas, not as code",
   "🧪 New DM/QA/WI/12 - Metallic Iron Fe(M) in Sponge Iron by HgCl₂ method, K₂Cr₂O₇ titration (lab method), English + Hindi; WI numbers after it moved up by one (WI/13 to WI/61)",
@@ -14378,11 +14379,15 @@ async function answerAnyQuery(question) {
     placeBubble();
     return [x, y];
   };
+  // the saved spot (set only by the user's own drag) is the single source of truth
+  const saved = () => {
+    try { const p = JSON.parse(localStorage.getItem(KEY) || "null"); return p && typeof p.fx === "number" ? p : null; } catch (e) { return null; }
+  };
+  const visible = () => fab.getClientRects().length > 0;
   const restore = () => {
-    try {
-      const p = JSON.parse(localStorage.getItem(KEY) || "null");
-      if (p && typeof p.fx === "number") place(p.fx * window.innerWidth, p.fy * window.innerHeight);
-    } catch (e) {}
+    const p = saved();
+    if (p && visible()) place(p.fx * window.innerWidth, p.fy * window.innerHeight);
+    else if (visible()) placeBubble();
   };
   let start = null, moved = false, suppressClick = false;
   fab.addEventListener("pointerdown", e => {
@@ -14413,9 +14418,11 @@ async function answerAnyQuery(question) {
   fab.addEventListener("pointercancel", end);
   // a drag must not count as a tap (capture phase runs before the open handler)
   fab.addEventListener("click", e => { if (suppressClick) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
-  window.addEventListener("resize", () => { if (fab.style.left) { const r = fab.getBoundingClientRect(); place(r.left, r.top); } });
-  // the bubble size is known only once it is shown
-  new MutationObserver(placeBubble).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  // keyboard / rotation / sticker hidden while Kashvi is open: never move it from where the user put it -
+  // re-apply the saved spot instead of re-clamping the current (possibly hidden = 0,0) position
+  window.addEventListener("resize", restore);
+  // when the sticker shows again (Kashvi closed, back on Home) put it back on its saved spot; also places the bubble
+  new MutationObserver(restore).observe(document.body, { attributes: true, attributeFilter: ["class"] });
   restore();
   setTimeout(restore, 600);
 })();
