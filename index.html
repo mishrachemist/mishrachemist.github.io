@@ -6,7 +6,7 @@
 <script>
   // Text from Excel / OneDrive / WhatsApp / typed boxes is shown as TEXT, never as HTML (stops "<img onerror=...>" tricks).
   // Logo on downloaded reports (PDF / JPG): one switch for the whole app, remembered on this device. Default ON.
-  try { ["autoBlkOn", "autoBlkTime", "autoBlkDone", "autoBlkLastTry", "autoBlkMonthNote"].forEach(k => localStorage.removeItem(k)); } catch (e) {}   // automatic blocks were removed
+  try { ["autoBlkOn", "autoBlkTime", "autoBlkDone", "autoBlkLastTry", "autoBlkMonthNote", "delegateCfg"].forEach(k => localStorage.removeItem(k)); } catch (e) {}   // automatic blocks were removed
   function reportLogoOn() { try { return localStorage.getItem("reportLogo") !== "off"; } catch (e) { return true; } }
   function htmlEsc(t) { return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   // Clickjacking guard: the app must never run inside someone else's page/iframe.
@@ -2001,6 +2001,12 @@
   .pdfModal{ position:relative; }
   /* report zoom: pinching inside a report zooms only the report */
   .pdfOverlay{ touch-action:pan-x pan-y; }
+  #saList .saRow{ display:flex; align-items:center; gap:8px; margin:6px 0; }
+  #saList .saAcc{ flex:1; text-align:left; padding:10px 12px; border-radius:10px; border:1.5px solid rgba(128,128,128,.4); background:rgba(128,128,128,.08);
+    color:inherit; cursor:pointer; font-size:13px; line-height:1.35; width:auto !important; margin:0 !important; }
+  #saList .saAcc.cur{ border-color:var(--gold); background:rgba(201,162,39,.15); }
+  #saList .saAcc small{ display:block; opacity:.75; font-size:11.5px; word-break:break-all; }
+  #saList .saDel{ width:38px !important; height:38px; margin:0 !important; padding:0 !important; border-radius:50%; font-size:14px; }
   .delBlkBox{ margin-top:14px; padding:12px; border:1px dashed rgba(229,83,61,.7); border-radius:10px; }
   #delBlkBtn{ border-color:rgba(229,83,61,.8) !important; }
   /* ERP Upload */
@@ -2731,7 +2737,8 @@
   body.askFabHidden #askFab, body.askFabHidden #askFabBubble{ display:none; }
   /* hidden by default - shown only after sign-in (class added by script) */
   body:not(.askFabOn) #askFab, body:not(.askFabOn) #askFabBubble{ display:none; }
-  body:has(#themePickerOverlay:not(.hidden)) #askFab, body:has(#themePickerOverlay:not(.hidden)) #askFabBubble{ display:none; }   /* not over the Theme Colour pop-up */
+  body:has(#themePickerOverlay:not(.hidden)) #askFab, body:has(#themePickerOverlay:not(.hidden)) #askFabBubble,
+  body:has(#switchAcctOverlay:not(.hidden)) #askFab, body:has(#switchAcctOverlay:not(.hidden)) #askFabBubble{ display:none; }   /* not over the Theme Colour pop-up */
 
   /* ===== Kashvi chat box ===== */
   #kashviPanel{
@@ -3086,6 +3093,7 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
   </div>
   <div class="navDrawerList" id="navDrawerList">
     <button class="navDrawerItem" data-drawer-action="filelocation"><span class="navDrawerIcon">🚀</span><span>Get Started</span></button>
+    <button class="navDrawerItem" data-drawer-action="switchacct"><span class="navDrawerIcon">🔄</span><span>Switch Account</span></button>
     <button class="navDrawerItem" data-drawer-action="qr"><span class="navDrawerIcon">📱</span><span>Share via QR</span></button>
     <button class="navDrawerItem" data-drawer-action="apk" id="navApkItem"><span class="navDrawerIcon">🤖</span><span>Download Android App</span></button>
     <button class="navDrawerItem" data-drawer-action="lang"><span class="navDrawerIcon">🌐</span><span>EN / हिं</span></button>
@@ -3128,6 +3136,17 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
     </div>
     </div>
     <button class="secondary" id="themePickerCloseBtn" style="width:100%;">Close</button>
+  </div>
+</div>
+
+<div id="switchAcctOverlay" class="pdfOverlay hidden" style="align-items:center;justify-content:center;">
+  <div class="card" style="max-width:380px;margin:16px;width:100%;box-sizing:border-box;">
+    <h3 style="color:var(--navy);margin-top:0;">🔄 Switch Account</h3>
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px;">Accounts signed in on this phone / PC. Tap one to use it - the app then works on <b>that account's</b> OneDrive files. Passwords are never kept by the app (Microsoft remembers the sign-in).</p>
+    <div id="saList"></div>
+    <div class="btnRow"><button class="primary" id="saAddBtn" type="button">➕ Sign in with another account</button></div>
+    <div id="saNote" style="font-size:12px;color:var(--muted);margin-top:8px;">A new account (e.g. a colleague's) must first be given access in Get Started → App Access.</div>
+    <button class="secondary" id="saCloseBtn" type="button" style="width:100%;margin-top:10px;">Close</button>
   </div>
 </div>
 
@@ -5276,9 +5295,11 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.26.3";
+const APP_VERSION = "2026.10.29.2";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🔄 Menu → Switch Account: use another Microsoft account (e.g. a colleague's) - the app then works on that account's files; one tap to switch back",
+  "👥 Get Started → Colleague's Files: sign in with your mail and update a colleague's shared report files (same company)",
   "🐞 Billet Cum Report: today's figures even when Excel on OneDrive keeps an old =NOW() (B1 is set to today for a moment, then =NOW() is put back)",
   "🐞 Billet Cum Report always shows today: the Excel file is recalculated first (B1 =NOW()), so the date and the figures are today's",
   "🧮 Reports → Billet Cum Report: the Cumulative Stock sheet as PDF / JPG in the same colours as Excel",
@@ -20931,6 +20952,7 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
 
   function runNavAction(action) {
     if (action === "theme") { openThemePicker(); return; }
+    if (action === "switchacct") { if (window.openSwitchAccount) window.openSwitchAccount(); return; }
     if (action === "iconstyle") { openIconStylePicker(); return; }
     if (action === "fpsignin") { openFpSignInSetup(); return; }
     if (action === "apk") { downloadAndroidApk(); return; }
@@ -25223,6 +25245,51 @@ async function downloadAndroidApk() {
   const tile = document.querySelector('#reportsSubNav .navItem[data-subreport="billetcum"]');
   if (tile) tile.addEventListener("click", load);
   window._bcTest = { set: d => { data = d; return draw(); } };
+})();
+</script>
+<script>
+/* ===== Switch Account: the Microsoft accounts signed in on this device; one tap = use that account (its own
+   OneDrive). "Sign in with another account" opens Microsoft's account picker. The app never stores passwords;
+   whether an account may use the app is still decided by App Access. ===== */
+(function switchAccount() {
+  const $ = id => document.getElementById(id);
+  if (!$("switchAcctOverlay")) return;
+  const close = () => $("switchAcctOverlay").classList.add("hidden");
+  function list() {
+    let accs = []; try { accs = msalInstance.getAllAccounts() || []; } catch (e) {}
+    const curId = typeof account !== "undefined" && account ? account.homeAccountId : "";
+    const seen = new Set();
+    accs = accs.filter(a => { const k = (a.username || "").toLowerCase(); if (!k || seen.has(k)) return false; seen.add(k); return true; });
+    const canForget = typeof msalInstance.clearCache === "function";
+    $("saList").innerHTML = accs.length ? accs.map((a, i) => `<div class="saRow"><button type="button" class="saAcc${a.homeAccountId === curId ? " cur" : ""}" data-i="${i}">
+        ${a.homeAccountId === curId ? "✅ " : "👤 "}<b>${htmlEsc(a.name || a.username)}</b><small>${htmlEsc(a.username || "")}${a.homeAccountId === curId ? " · in use now" : ""}</small></button>` +
+        (canForget && a.homeAccountId !== curId ? `<button type="button" class="secondary saDel" data-d="${i}" title="Remove from this device">✕</button>` : "") + `</div>`).join("")
+      : `<div style="font-size:13px;">No account signed in on this device yet.</div>`;
+    $("saList").onclick = async e => {
+      const bA = e.target.closest(".saAcc"), bD = e.target.closest(".saDel");
+      if (bD) {
+        const a = accs[+bD.dataset.d];
+        if (!confirm(`Remove ${a.username} from this device?\nIt can be signed in again any time (password needed then).`)) return;
+        try { await msalInstance.clearCache({ account: a }); } catch (x) {}
+        try { localStorage.removeItem("roleCache:" + String(a.username || "").toLowerCase()); } catch (x) {}
+        list(); return;
+      }
+      if (!bA) return;
+      const a = accs[+bA.dataset.i];
+      if (a.homeAccountId === curId) { close(); return; }
+      bA.disabled = true; bA.innerHTML += "<small>Switching…</small>";
+      try { localStorage.setItem("lastSignedInAccountId", a.homeAccountId); sessionStorage.removeItem("pendingResume"); } catch (x) {}
+      try { await msalInstance.acquireTokenSilent({ scopes: graphScopes, account: a }); location.reload(); }   // still signed in -> no password
+      catch (x) { await msalInstance.loginRedirect({ scopes: graphScopes, loginHint: a.username, prompt: "select_account" }); }   // sign-in expired
+    };
+  }
+  window.openSwitchAccount = () => { list(); $("switchAcctOverlay").classList.remove("hidden"); };
+  $("saCloseBtn").addEventListener("click", close);
+  $("switchAcctOverlay").addEventListener("click", e => { if (e.target === $("switchAcctOverlay")) close(); });
+  $("saAddBtn").addEventListener("click", async () => {
+    try { sessionStorage.removeItem("pendingResume"); } catch (x) {}
+    await msalInstance.loginRedirect({ scopes: graphScopes, prompt: "select_account" });   // Microsoft's picker -> "Use another account"
+  });
 })();
 </script>
 </body>
