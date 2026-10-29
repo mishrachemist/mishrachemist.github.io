@@ -5307,9 +5307,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.29.3";
+const APP_VERSION = "2026.10.29.4";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🐞 Mirror: finds the colleague's file by name when it is kept in a different folder (e.g. not inside Reports 26-27)",
   "🪞 Switch Account → Every entry also in: each Excel entry is written in a second account's OneDrive too (same file, same cells)",
   "🔄 Menu → Switch Account: use another Microsoft account (e.g. a colleague's) - the app then works on that account's files; one tap to switch back",
   "👥 Get Started → Colleague's Files: sign in with your mail and update a colleague's shared report files (same company)",
@@ -25352,15 +25353,33 @@ async function downloadAndroidApk() {
     let pp = j.parentReference.path.replace(/^\/drive\/root:?\/?/, ""); try { pp = decodeURIComponent(pp); } catch (e) {}
     const path = (pp ? pp + "/" : "") + j.name; idPath.set(id, path); return path;
   }
+  // their copy of a file: first the same path; if it is kept in another folder there (e.g. not inside
+  // "Reports 26-27"), the file with the same NAME is found by search (the one in the same-named folder, else under MIPPL).
+  const theirWhere = new Map();   // your path -> their path (shown in the settings)
+  async function searchByName(f, path, tok) {
+    const name = path.split("/").pop(), parent = (path.split("/").slice(-2, -1)[0] || "").toLowerCase();
+    const q = encodeURIComponent(name.replace(/'/g, "''"));
+    const r = await f(`${G}/me/drive/root/search(q='${q}')?$select=id,name,parentReference,folder,file&$top=50`, { headers: { Authorization: "Bearer " + tok }, mirror: true });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const hits = (j.value || []).filter(x => String(x.name || "").toLowerCase() === name.toLowerCase());   // exact same name only
+    if (!hits.length) return null;
+    const pathOf = x => { let pp = String((x.parentReference && x.parentReference.path) || "").replace(/^\/drive\/root:?\/?/, ""); try { pp = decodeURIComponent(pp); } catch (e) {} return (pp ? pp + "/" : "") + x.name; };
+    const score = x => { const p = pathOf(x).toLowerCase(), segs = p.split("/"); return (segs[segs.length - 2] === parent ? 4 : 0) + (p.indexOf("production sheet") >= 0 ? 2 : 0) + (p.indexOf("mippl") >= 0 ? 1 : 0); };
+    hits.sort((a, b) => score(b) - score(a));
+    return { id: hits[0].id, path: pathOf(hits[0]) };
+  }
   async function theirIdOf(f, path, tok) {
     if (theirId.has(path)) return theirId.get(path);
     for (let k = 0; k < 6; k++) {      // a file just copied ("next month") may need a few seconds to appear
       const r = await f(`${G}/me/drive/root:/${path.split("/").map(encodeURIComponent).join("/")}`, { headers: { Authorization: "Bearer " + tok }, mirror: true });
-      if (r.ok) { const j = await r.json(); theirId.set(path, j.id); return j.id; }
+      if (r.ok) { const j = await r.json(); theirId.set(path, j.id); theirWhere.set(path, path); return j.id; }
       if (r.status !== 404) throw new Error(`their "${path}" could not be opened (${r.status})`);
+      const hit = await searchByName(f, path, tok);
+      if (hit) { theirId.set(path, hit.id); theirWhere.set(path, hit.path); return hit.id; }
       await new Promise(res => setTimeout(res, 3000));
     }
-    throw new Error(`"${path}" is not in their OneDrive`);
+    throw new Error(`"${path.split("/").pop()}" is not in their OneDrive (looked at ${path} and searched by name)`);
   }
   async function mapIds(f, text, myAuth, tok) {   // every /me/drive/items/<id> in a url/body -> their id
     const ids = [...new Set((text.match(/\/me\/drive\/items\/([A-Za-z0-9!._-]+)/g) || []).map(x => x.split("/").pop()))];
@@ -25427,7 +25446,9 @@ async function downloadAndroidApk() {
     $("mirrorRetryRow").classList.toggle("hidden", !failed.length);
     if (!c || !c.on) { el.textContent = "Off."; return; }
     if (!a) { el.textContent = typeof account !== "undefined" && account && account.homeAccountId !== c.primary ? "Paused - you are signed in with another account (mirror works from the account that turned it on)." : "⚠️ The other account is not signed in on this device."; return; }
+    const where = [...theirWhere.entries()].filter(([m, t]) => m !== t).map(([m, t]) => `${htmlEsc(m.split("/").pop())} → their ${htmlEsc(t)}`);
     el.innerHTML = `✅ On → <b>${htmlEsc(a.t.username)}</b>. Copied this session: ${done}` + (pending ? `, waiting: ${pending}` : "") +
+      (where.length ? `<br><span style="font-size:11.5px;opacity:.85;">📁 ${where.join("<br>📁 ")}</span>` : "") +
       (failed.length ? `<br>⚠️ Not copied: ${failed.length} - last reason: ${htmlEsc(failed[failed.length - 1].why || "")}` : "");
   }
   function fill() {
@@ -25450,7 +25471,8 @@ async function downloadAndroidApk() {
       let note = "";
       if (path) {
         const r = await fetch(`${G}/me/drive/root:/${path.split("/").map(encodeURIComponent).join("/")}`, { headers: { Authorization: "Bearer " + tok }, mirror: true });
-        note = r.ok ? `✅ "${path.split("/").pop()}" found in ${t.username}'s OneDrive.` : `⚠️ "${path}" is NOT in ${t.username}'s OneDrive (${r.status}) - entries for it will fail.`;
+        const hit = r.ok ? null : await searchByName(window.__mirrorF || fetch.bind(window), path, tok);
+        note = r.ok ? `✅ "${path.split("/").pop()}" found in ${t.username}'s OneDrive.` : hit ? `✅ "${path.split("/").pop()}" found in ${t.username}'s OneDrive at ${hit.path}.` : `⚠️ "${path.split("/").pop()}" is NOT in ${t.username}'s OneDrive - entries for it will fail.`;
       }
       if (!confirm(`From now on every entry is also written in ${t.username}'s OneDrive (same files, same cells).\n\n${note}\n\nTurn on?`)) { $("mirrorOn").checked = false; info(); return; }
       saveCfg({ on: true, primary: account.homeAccountId, target: t.homeAccountId, user: t.username, at: Date.now() });
