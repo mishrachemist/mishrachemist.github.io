@@ -3330,11 +3330,40 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
   <div class="gmHint">All games work without internet</div>
 </div>
 
-<div id="ballOverlay" class="gmOv hidden" role="dialog" aria-label="Ball Jump">
-  <div class="gmTop"><b>🟠 BALL JUMP</b><button type="button" id="ballClose" aria-label="Close">✕</button></div>
-  <div class="gmBar"><span id="bjLevel">LEVEL 1</span><span id="bjStars">★ 0/0</span><span id="bjLives">♥♥♥</span></div>
-  <div class="gmScreen">
-    <canvas id="ballCanvas" width="384" height="384"></canvas>
+<style>
+  /* ===== Ball Jump / Diamond Mine - full screen layout ===== */
+  .gmFull{ padding:0 !important; background:#0b1016 !important; }
+  .gmHud{ width:100%; display:flex; align-items:center; gap:10px; padding:calc(6px + env(safe-area-inset-top)) 10px 6px; box-sizing:border-box;
+    background:linear-gradient(#000a, #0000); font-weight:700; font-size:15px; position:relative; z-index:3; }
+  .gmHud .sp{ flex:1; }
+  .gmHud .pill{ background:rgba(255,255,255,.12); border-radius:20px; padding:4px 10px; white-space:nowrap; }
+  .gmHud button{ width:auto; min-width:40px; height:36px; padding:0 10px; border-radius:10px; border:1px solid rgba(255,255,255,.35); background:rgba(0,0,0,.25);
+    color:#fff; font-family:inherit; font-size:16px; font-weight:700; cursor:pointer; }
+  .gmStage{ position:relative; flex:1; width:100%; min-height:0; }
+  .gmStage canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; display:block; }
+  .gmFull .gmMsg{ z-index:2; }
+  .gmFull .gmMsg .big{ font-size:30px; text-shadow:0 3px 0 #0008; }
+  .gmCtl{ width:100%; box-sizing:border-box; padding:10px 14px calc(14px + env(safe-area-inset-bottom)); display:flex; align-items:center; gap:12px; position:relative; z-index:3; }
+  .gmCtl button{ border:none; border-radius:50%; color:#fff; font-family:inherit; font-weight:700; cursor:pointer; touch-action:none;
+    background:radial-gradient(circle at 35% 30%, #4a5a69, #263039); box-shadow:0 4px 0 #11171c, inset 0 1px 0 rgba(255,255,255,.25); }
+  .gmCtl button.on, .gmCtl button:active{ transform:translateY(3px); box-shadow:0 1px 0 #11171c; }
+  .ballCtl{ justify-content:space-between; }
+  .ballCtl .lr{ display:flex; gap:14px; }
+  .ballCtl .lr button{ width:76px; height:76px; font-size:28px; }
+  .ballCtl .jump{ width:96px; height:96px; font-size:18px; background:radial-gradient(circle at 35% 30%, #ffd166, #e09a00) !important; color:#3a2600; box-shadow:0 5px 0 #8a5d00 !important; }
+  .mineCtl{ justify-content:center; }
+  .mineCtl .dpad{ display:grid; grid-template-columns:repeat(3, 68px); grid-template-rows:repeat(3, 62px); gap:6px; }
+  .mineCtl .dpad button{ width:100%; height:100%; border-radius:16px; font-size:24px; }
+  .mineCtl .dpad .c{ font-size:12px; border-radius:50%; }
+</style>
+<div id="ballOverlay" class="gmOv gmFull hidden" role="dialog" aria-label="Ball Jump">
+  <div class="gmHud">
+    <button type="button" id="ballClose" aria-label="Close">✕</button>
+    <span class="pill" id="bjLevel">LEVEL 1</span><span class="pill" id="bjStars">★ 0/0</span><span class="pill" id="bjLives">♥♥♥</span>
+    <span class="sp"></span><button type="button" id="bjPauseBtn" aria-label="Pause">II</button>
+  </div>
+  <div class="gmStage" id="bjStage">
+    <canvas id="ballCanvas"></canvas>
     <div class="gmMsg" id="bjMsg">
       <div class="big" id="bjMsgTitle">BALL JUMP</div>
       <div id="bjMsgText">Collect all ★ - then the door opens</div>
@@ -3342,19 +3371,20 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
       <button type="button" id="bjStart">START</button>
     </div>
   </div>
-  <div class="gmPad">
-    <button type="button" data-k="left" aria-label="Left">◀</button>
+  <div class="gmCtl ballCtl">
+    <div class="lr"><button type="button" data-k="left" aria-label="Left">◀</button><button type="button" data-k="right" aria-label="Right">▶</button></div>
     <button type="button" class="jump" data-k="jump">JUMP</button>
-    <button type="button" data-k="right" aria-label="Right">▶</button>
   </div>
-  <div class="gmHint">Keys: ◀ ▶ arrows, Space / ▲ = jump, P = pause</div>
 </div>
 
-<div id="mineOverlay" class="gmOv hidden" role="dialog" aria-label="Diamond Mine">
-  <div class="gmTop"><b>💎 DIAMOND MINE</b><button type="button" id="mineClose" aria-label="Close">✕</button></div>
-  <div class="gmBar"><span id="dmLevel">MINE 1</span><span id="dmGems">💎 0/0</span><button type="button" id="dmRestart" style="width:auto;padding:2px 10px;border-radius:8px;border:1px solid #e8eef2;background:transparent;color:#e8eef2;font-family:inherit;font-weight:700">↻ Restart</button></div>
-  <div class="gmScreen">
-    <canvas id="mineCanvas" width="384" height="384"></canvas>
+<div id="mineOverlay" class="gmOv gmFull hidden" role="dialog" aria-label="Diamond Mine">
+  <div class="gmHud">
+    <button type="button" id="mineClose" aria-label="Close">✕</button>
+    <span class="pill" id="dmLevel">MINE 1</span><span class="pill" id="dmGems">💎 0/0</span>
+    <span class="sp"></span><button type="button" id="dmRestart" aria-label="Restart">↻</button><button type="button" id="dmPauseBtn" aria-label="Pause">II</button>
+  </div>
+  <div class="gmStage" id="dmStage">
+    <canvas id="mineCanvas"></canvas>
     <div class="gmMsg" id="dmMsg">
       <div class="big" id="dmMsgTitle">DIAMOND MINE</div>
       <div id="dmMsgText">Dig through the earth, take every 💎, then go to the door. Rocks fall when nothing holds them!</div>
@@ -3362,13 +3392,15 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
       <button type="button" id="dmStart">START</button>
     </div>
   </div>
-  <div class="gmPad">
-    <span></span><button type="button" data-d="up" aria-label="Up">▲</button><span></span>
-    <button type="button" data-d="left" aria-label="Left">◀</button><button type="button" data-d="wait" style="font-size:14px">WAIT</button><button type="button" data-d="right" aria-label="Right">▶</button>
-    <span></span><button type="button" data-d="down" aria-label="Down">▼</button><span></span>
+  <div class="gmCtl mineCtl">
+    <div class="dpad">
+      <span></span><button type="button" data-d="up" aria-label="Up">▲</button><span></span>
+      <button type="button" data-d="left" aria-label="Left">◀</button><button type="button" class="c" data-d="wait">WAIT</button><button type="button" data-d="right" aria-label="Right">▶</button>
+      <span></span><button type="button" data-d="down" aria-label="Down">▼</button><span></span>
+    </div>
   </div>
-  <div class="gmHint">Hold a button to keep walking · push a rock sideways if the space behind it is empty</div>
 </div>
+
 <script>
 const BJ_LEVELS = [["##############################################", "#............................................#", "#............................................#", "#............................................#", "#............................................#", "#............................................#", "#............................................#", "#......................*..........*..........#", "#......*.............#####.......##..........#", "#.S.........^^..*.C.............###....^.*.E.#", "############################..################", "############################..################"], ["########################################################", "#......................................................#", "#......................................................#", "#......................................................#", "#......................................................#", "#.............*.*......................................#", "#..........########...........................*........#", "#........*..................*........*........#........#", "#.......##..................##......###......##........#", "#.S....###..^^^^^^..C.......##......^^^..C..###..^^..E.#", "#######################...######..######################", "#######################...######..######################"], ["####################################################################", "#.......#########..................................................#", "#.......#########..................................................#", "#.......#########..................................................#", "#.......#########..................................................#", "#.......#########.............*..........................*.........#", "#.......#########.......*....##....*....................####.......#", "#.......................##...##...##.........*..........##.........#", "#.......................##...##...##.......#####......####.........#", "#.S........^..*....C....##...##...##....C..^^^^^......####....*..E.#", "######################..##...##...##..############..################", "######################..##...##...##..############..################"]];
 const DM_LEVELS = [["WWWWWWWWWWWWWWWWWWWW", "WP...o....*....o...W", "W....*.........*...W", "W..o.....o.....o...W", "W....o..*.....*....W", "W.*......o.........W", "W....o....*...o....W", "W..*.....o.....*...W", "W.....o...*.....o..W", "W.o.*.......o....*.W", "W.........*.......XW", "WWWWWWWWWWWWWWWWWWWW"], ["WWWWWWWWWWWWWWWWWWWWWWWWWW", "WP..o.o.o...*..o..o.*....W", "W...*.*.*.......o........W", "W.......   ....*o*...o...W", "W..o....   .......o...*..W", "W..*..o.....WWWW.........W", "W.....*.........o..o..*..W", "WWWWWW....o.....*..*.....W", "W.*..o....*...WWWWWW..o..W", "W...o*o.........o........W", "W.......o..*..o.*.o..*...W", "W..*.......o.........o...W", "W.......*......*........XW", "WWWWWWWWWWWWWWWWWWWWWWWWWW"], ["WWWWWWWWWWWWWWWWWWWWWWWWWWWW", "WP.....o*o.........o*o.....W", "W......ooo....*....ooo.....W", "W..*.........WWW.......*...W", "W.....    ..........    ...W", "W..o..  * ...o.o.o... *  ..W", "W..*..    ...*.*.*...    ..W", "W.........WWWW.WWWW.......*W", "W*..o...o.......o....o..o..W", "W...*...*...o...*...o*.....W", "WWW.....WWW.....WWW.....WWWW", "W....o.....*........o....*.W", "W..*...o.......o..*....o...W", "W.......*...o*o.........*.XW", "WWWWWWWWWWWWWWWWWWWWWWWWWWWW"]];
@@ -3391,26 +3423,52 @@ const DM_LEVELS = [["WWWWWWWWWWWWWWWWWWWW", "WP...o....*....o...W", "W....*.....
   if (ob) { ob.textContent = "🎮 Play Games"; ob.replaceWith(ob.cloneNode(true)); document.querySelector("#offlineBanner .snkOfflineBtn").addEventListener("click", open); }
 })();
 
-/* ===== Ball Jump: roll and jump platformer (original levels) ===== */
+/* ===== shared: full screen + canvas sizing for the big games ===== */
+window.__gmFS = {
+  enter() {
+    try {
+      const el = document.documentElement;
+      if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI: "hide" }).then(() => {
+        try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("portrait").catch(() => {}); } catch (e) {}
+      }).catch(() => {});
+    } catch (e) {}
+  },
+  exit() { try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {} },
+  fit(cv) {   // canvas pixels = CSS size x device pixel ratio; returns CSS size
+    const r = cv.parentElement.getBoundingClientRect(), dpr = Math.min(3, window.devicePixelRatio || 1);
+    const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    return { w: r.width, h: r.height, dpr };
+  }
+};
+
+/* ===== Ball Jump: roll and jump platformer (original levels), full screen ===== */
 (function ballJump() {
   const ov = document.getElementById("ballOverlay"), cv = document.getElementById("ballCanvas"); if (!ov || !cv) return;
   const g = cv.getContext("2d"), $ = id => document.getElementById(id);
-  const TS = 32, VIEW_W = cv.width, VIEW_H = cv.height, R = 12;
+  const TS = 32, R = 12, STEP = 1000 / 60;
   const ls = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
   let unlocked = Math.min(BJ_LEVELS.length, Math.max(1, parseInt(ls.get("bjUnlocked", "1"), 10) || 1));
-  let lvl = 0, map, W, H, ball, stars, got, lives, spawn, camX = 0, state = "menu", raf = null, last = 0, acc = 0, deadT = 0;
+  let lvl = 0, map, W, H, ball, stars, got, lives, spawn, camX = 0, state = "menu", raf = null, last = 0, acc = 0, deadT = 0, time = 0;
+  let view = { w: 384, h: 384, dpr: 1, scale: 1, offY: 0, vw: 12 }, parts = [], coyote = 0, jumpBuf = 0, wasJump = false, squash = 0;
   const keys = { left: false, right: false, jump: false };
   const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
 
+  function resize() {
+    const f = window.__gmFS.fit(cv);
+    const scale = Math.min(f.h / (12 * TS), f.w / (8 * TS));
+    view = { w: f.w, h: f.h, dpr: f.dpr, scale, offY: Math.max(0, (f.h - 12 * TS * scale) / 2), vw: f.w / scale };
+    if (map) draw();
+  }
   function load(i) {
-    lvl = i; map = BJ_LEVELS[i].map(r => r.split("")); H = map.length; W = map[0].length; stars = 0; got = 0;
+    lvl = i; map = BJ_LEVELS[i].map(r => r.split("")); H = map.length; W = map[0].length; stars = 0; got = 0; parts = [];
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       if (map[y][x] === "S") { spawn = { x: x * TS + TS / 2, y: y * TS + TS - R }; map[y][x] = "."; }
       if (map[y][x] === "*") stars++;
     }
-    lives = 3; respawn(); hud();
+    lives = 3; respawn(); camX = Math.max(0, ball.x - view.vw / 2); hud();
   }
-  function respawn() { ball = { x: spawn.x, y: spawn.y, vx: 0, vy: 0, ground: false, rot: 0 }; deadT = 0; }
+  function respawn() { ball = { x: spawn.x, y: spawn.y, vx: 0, vy: 0, ground: false, rot: 0 }; deadT = 0; coyote = 0; jumpBuf = 0; }
   function hud() {
     $("bjLevel").textContent = "LEVEL " + (lvl + 1);
     $("bjStars").textContent = "★ " + got + "/" + stars;
@@ -3418,21 +3476,33 @@ const DM_LEVELS = [["WWWWWWWWWWWWWWWWWWWW", "WP...o....*....o...W", "W....*.....
   }
   const tile = (x, y) => (x < 0 || x >= W || y < 0 || y >= H) ? (y >= H ? "." : "#") : map[y][x];
   const solid = (x, y) => tile(x, y) === "#";
-  function collide(axis) {   // ball as a box of size 2R
+  function collide(axis) {
     const x0 = Math.floor((ball.x - R) / TS), x1 = Math.floor((ball.x + R - 0.01) / TS);
     const y0 = Math.floor((ball.y - R) / TS), y1 = Math.floor((ball.y + R - 0.01) / TS);
     for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
       if (!solid(tx, ty)) continue;
       if (axis === "x") { if (ball.vx > 0) ball.x = tx * TS - R; else if (ball.vx < 0) ball.x = (tx + 1) * TS + R; ball.vx = 0; }
-      else { if (ball.vy > 0) { ball.y = ty * TS - R; ball.ground = true; } else if (ball.vy < 0) ball.y = (ty + 1) * TS + R; ball.vy = 0; }
+      else {
+        if (ball.vy > 0) { if (ball.vy > 4) { squash = Math.min(1, ball.vy / 10); dust(ball.x, ball.y + R, 5); } ball.y = ty * TS - R; ball.ground = true; }
+        else if (ball.vy < 0) ball.y = (ty + 1) * TS + R;
+        ball.vy = 0;
+      }
       return;
     }
   }
+  function burst(x, y, n, col, sp) {
+    for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, s = (sp || 3) * (0.4 + Math.random());
+      parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1, life: 30 + Math.random() * 20, col, r: 2 + Math.random() * 2 }); }
+  }
+  function dust(x, y, n) { for (let i = 0; i < n; i++) parts.push({ x: x + (Math.random() - 0.5) * 16, y, vx: (Math.random() - 0.5) * 2, vy: -Math.random() * 1.2, life: 18, col: "rgba(230,230,230,.7)", r: 2 }); }
   function die() {
     if (deadT) return;
-    deadT = 45; lives--; buzz([60, 40, 60]); hud();
+    deadT = 50; lives--; buzz([60, 40, 60]); burst(ball.x, ball.y, 26, "#ff8f1f", 4); hud();
   }
   function step() {
+    time++;
+    parts.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life--; }); parts = parts.filter(p => p.life > 0);
+    if (squash > 0) squash = Math.max(0, squash - 0.08);
     if (deadT) {
       if (--deadT === 0) {
         if (lives <= 0) { state = "over"; msg("GAME OVER", "Try this level again", "RETRY"); }
@@ -3441,23 +3511,29 @@ const DM_LEVELS = [["WWWWWWWWWWWWWWWWWWWW", "WP...o....*....o...W", "W....*.....
       return;
     }
     const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
-    if (dir) ball.vx = Math.max(-4.2, Math.min(4.2, ball.vx + dir * 0.55));
-    else ball.vx *= ball.ground ? 0.82 : 0.96;
+    if (dir) ball.vx = Math.max(-4.4, Math.min(4.4, ball.vx + dir * (ball.ground ? 0.6 : 0.45)));
+    else ball.vx *= ball.ground ? 0.84 : 0.97;
     if (Math.abs(ball.vx) < 0.05) ball.vx = 0;
-    if (keys.jump && ball.ground) { ball.vy = -11; ball.ground = false; }
+    // forgiving jump: press shortly before landing (buffer) or just after leaving an edge (coyote)
+    if (keys.jump && !wasJump) jumpBuf = 7;
+    wasJump = keys.jump;
+    if (keys.jump && ball.ground) jumpBuf = Math.max(jumpBuf, 1);   // holding = keep bouncing
+    coyote = ball.ground ? 6 : Math.max(0, coyote - 1);
+    if (jumpBuf > 0 && coyote > 0) { ball.vy = -11; ball.ground = false; coyote = 0; jumpBuf = 0; squash = -0.6; }
+    jumpBuf = Math.max(0, jumpBuf - 1);
+    if (!keys.jump && ball.vy < -4) ball.vy = -4;                      // short tap = small jump
     ball.vy = Math.min(10, ball.vy + 0.55);
     ball.x += ball.vx; collide("x");
     ball.ground = false; ball.y += ball.vy; collide("y");
     ball.rot += ball.vx / R;
     if (ball.y - R > H * TS) return die();
-    // tiles touched
     const x0 = Math.floor((ball.x - R) / TS), x1 = Math.floor((ball.x + R - 0.01) / TS);
     const y0 = Math.floor((ball.y - R) / TS), y1 = Math.floor((ball.y + R - 0.01) / TS);
     for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
       const t = tile(tx, ty);
       if (t === "^" && ball.y + R > ty * TS + TS * 0.45 && Math.abs(ball.x - (tx * TS + TS / 2)) < TS / 2 + R - 6) return die();
-      if (t === "*") { map[ty][tx] = "."; got++; buzz(15); hud(); }
-      if (t === "C") { spawn = { x: tx * TS + TS / 2, y: ty * TS + TS - R }; map[ty][tx] = "c"; buzz(25); }
+      if (t === "*") { map[ty][tx] = "."; got++; buzz(15); burst(tx * TS + 16, ty * TS + 16, 16, "#ffd54a", 3); hud(); }
+      if (t === "C") { spawn = { x: tx * TS + TS / 2, y: ty * TS + TS - R }; map[ty][tx] = "c"; buzz(25); burst(tx * TS + 22, ty * TS + 8, 10, "#7CFC9A", 2); }
       if (t === "E" && got >= stars) return win();
     }
   }
@@ -3467,78 +3543,139 @@ const DM_LEVELS = [["WWWWWWWWWWWWWWWWWWWW", "WP...o....*....o...W", "W....*.....
     if (lvl + 1 < BJ_LEVELS.length) msg("LEVEL " + (lvl + 1) + " DONE", "Well played!", "NEXT LEVEL");
     else msg("YOU WIN!", "All levels finished 🎉", "PLAY AGAIN");
   }
+  // ---------- drawing ----------
+  function hills(par, base, amp, col, seed) {
+    const s = view.scale, off = camX * par;
+    g.fillStyle = col; g.beginPath(); g.moveTo(0, view.h);
+    for (let x = 0; x <= view.w + 8; x += 8) {
+      const wx = (x / s + off) / 60 + seed;
+      g.lineTo(x, view.offY + (base + Math.sin(wx) * amp + Math.sin(wx * 2.3 + seed) * amp * 0.4) * s);
+    }
+    g.lineTo(view.w, view.h); g.closePath(); g.fill();
+  }
+  function star(cx, cy, r, rot) {
+    g.beginPath();
+    for (let i = 0; i < 10; i++) { const a = rot - Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
+    g.closePath(); g.fill();
+  }
   function draw() {
-    camX = Math.max(0, Math.min(W * TS - VIEW_W, ball.x - VIEW_W / 2));
-    const sky = g.createLinearGradient(0, 0, 0, VIEW_H); sky.addColorStop(0, "#1e3a5f"); sky.addColorStop(1, "#3d6e8f");
-    g.fillStyle = sky; g.fillRect(0, 0, VIEW_W, VIEW_H);
-    const tx0 = Math.floor(camX / TS), tx1 = Math.min(W - 1, tx0 + Math.ceil(VIEW_W / TS) + 1);
+    const s = view.scale;
+    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+    // sky + sun + clouds + 2 hill layers (parallax)
+    const sky = g.createLinearGradient(0, 0, 0, view.h); sky.addColorStop(0, "#0f2a4a"); sky.addColorStop(0.55, "#2a6f97"); sky.addColorStop(1, "#8fd3e8");
+    g.fillStyle = sky; g.fillRect(0, 0, view.w, view.h);
+    g.fillStyle = "rgba(255,240,180,.9)"; g.beginPath(); g.arc(view.w * 0.78, view.offY + 2.4 * TS * s, 1.1 * TS * s, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "rgba(255,255,255,.75)";
+    for (let i = 0; i < 6; i++) {
+      const cx = ((i * 260 - camX * 0.15 + time * 0.2) % (view.vw + 300) + view.vw + 300) % (view.vw + 300) - 150, cy = 40 + (i % 3) * 38;
+      [[0, 0, 22], [20, -8, 18], [38, 0, 20], [18, 6, 20]].forEach(([dx, dy, r]) => { g.beginPath(); g.arc((cx + dx) * s, view.offY + (cy + dy) * s, r * s, 0, Math.PI * 2); g.fill(); });
+    }
+    hills(0.2, 250, 26, "#3f7f6b", 1.3);
+    hills(0.45, 290, 20, "#2f6a4f", 4.1);
+    g.setTransform(view.dpr * s, 0, 0, view.dpr * s, -camX * s * view.dpr, view.offY * view.dpr);
+    const tx0 = Math.max(0, Math.floor(camX / TS) - 1), tx1 = Math.min(W - 1, Math.floor((camX + view.vw) / TS) + 1);
+    // rock above the ceiling and below the floor (portrait screens are taller than the level)
+    if (view.offY > 0) {
+      g.fillStyle = "#2b3238"; g.fillRect(camX - 2, -view.offY / s - 2, view.vw + 4, view.offY / s + 2); g.fillRect(camX - 2, H * TS, view.vw + 4, view.offY / s + 2);
+    }
     for (let y = 0; y < H; y++) for (let x = tx0; x <= tx1; x++) {
-      const t = map[y][x], px = x * TS - camX, py = y * TS;
+      const t = map[y][x], px = x * TS, py = y * TS;
       if (t === "#") {
-        g.fillStyle = "#5b6770"; g.fillRect(px, py, TS, TS);
-        g.fillStyle = "#6f7c86"; g.fillRect(px + 2, py + 2, TS - 4, 6);
-        g.strokeStyle = "#3e474e"; g.lineWidth = 1; g.strokeRect(px + 0.5, py + 0.5, TS - 1, TS - 1);
+        const top = !solid(x, y - 1) && y > 0;
+        const gr = g.createLinearGradient(0, py, 0, py + TS); gr.addColorStop(0, "#8a6a4f"); gr.addColorStop(1, "#5d4433");
+        g.fillStyle = gr; g.fillRect(px, py, TS, TS);
+        g.fillStyle = "rgba(0,0,0,.18)";   // brick lines
+        g.fillRect(px, py + 15, TS, 2); g.fillRect(px + ((y % 2) ? 8 : 22), py, 2, 15); g.fillRect(px + ((y % 2) ? 22 : 8), py + 17, 2, 15);
+        g.fillStyle = "rgba(255,255,255,.08)"; g.fillRect(px, py, TS, 2);
+        if (top) {
+          g.fillStyle = "#4caf50"; g.fillRect(px, py, TS, 7); g.fillStyle = "#7bd66f"; g.fillRect(px, py, TS, 3);
+          g.fillStyle = "#4caf50"; for (let k = 2; k < TS; k += 6) { g.beginPath(); g.moveTo(px + k, py + 7); g.lineTo(px + k + 2, py + 11); g.lineTo(px + k + 4, py + 7); g.fill(); }
+        }
       } else if (t === "^") {
-        g.fillStyle = "#d9dee2";
-        for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(px + k * 11, py + TS); g.lineTo(px + k * 11 + 5.5, py + TS * 0.45); g.lineTo(px + k * 11 + 11, py + TS); g.fill(); }
+        for (let k = 0; k < 3; k++) {
+          const sx = px + k * 10.6, gr = g.createLinearGradient(sx, 0, sx + 10.6, 0); gr.addColorStop(0, "#f5f7f9"); gr.addColorStop(1, "#7d8a94");
+          g.fillStyle = gr; g.beginPath(); g.moveTo(sx, py + TS); g.lineTo(sx + 5.3, py + TS * 0.42); g.lineTo(sx + 10.6, py + TS); g.fill();
+        }
       } else if (t === "*") {
-        star(px + TS / 2, py + TS / 2, 10, "#ffd54a");
+        const pulse = 1 + Math.sin(time / 8 + x) * 0.12, cy = py + 16 + Math.sin(time / 15 + x) * 2;
+        g.shadowColor = "#ffe066"; g.shadowBlur = 12; g.fillStyle = "#ffd23f"; star(px + 16, cy, 10 * pulse, Math.sin(time / 30 + x) * 0.3);
+        g.shadowBlur = 0; g.fillStyle = "#fff6c2"; star(px + 16, cy, 4.5 * pulse, 0);
       } else if (t === "C" || t === "c") {
-        g.fillStyle = "#cfd8dc"; g.fillRect(px + 14, py + 4, 3, TS - 4);
-        g.fillStyle = t === "c" ? "#4caf50" : "#9e9e9e"; g.beginPath(); g.moveTo(px + 17, py + 5); g.lineTo(px + 30, py + 10); g.lineTo(px + 17, py + 15); g.fill();
+        g.fillStyle = "#cfd8dc"; g.fillRect(px + 13, py + 3, 3, TS - 3);
+        const wave = Math.sin(time / 6) * 2;
+        g.fillStyle = t === "c" ? "#43d17a" : "#e53935"; g.beginPath(); g.moveTo(px + 16, py + 4); g.quadraticCurveTo(px + 23, py + 6 + wave, px + 30, py + 9); g.lineTo(px + 16, py + 15); g.fill();
       } else if (t === "E") {
         const open = got >= stars;
-        g.fillStyle = open ? "#2e7d32" : "#4e342e"; g.fillRect(px + 4, py + 2, TS - 8, TS - 2);
-        g.fillStyle = open ? "#a5d6a7" : "#8d6e63"; g.fillRect(px + 8, py + 6, TS - 16, TS - 8);
-        if (!open) { g.fillStyle = "#ffd54a"; g.fillRect(px + 14, py + 16, 4, 6); }
+        if (open) { g.shadowColor = "#7CFC9A"; g.shadowBlur = 14 + Math.sin(time / 6) * 6; }
+        g.fillStyle = open ? "#1b5e20" : "#3e2723"; g.beginPath(); g.moveTo(px + 4, py + TS); g.lineTo(px + 4, py + 10); g.arc(px + 16, py + 10, 12, Math.PI, 0); g.lineTo(px + 28, py + TS); g.fill();
+        g.shadowBlur = 0;
+        g.fillStyle = open ? "#a5f2b5" : "#6d4c41"; g.beginPath(); g.moveTo(px + 8, py + TS); g.lineTo(px + 8, py + 11); g.arc(px + 16, py + 11, 8, Math.PI, 0); g.lineTo(px + 24, py + TS); g.fill();
+        if (!open) { g.fillStyle = "#ffd54a"; g.fillRect(px + 14, py + 18, 4, 5); g.beginPath(); g.arc(px + 16, py + 18, 3, Math.PI, 0); g.strokeStyle = "#ffd54a"; g.lineWidth = 1.5; g.stroke(); }
       }
     }
-    // ball
-    const bx = ball.x - camX, by = ball.y;
-    if (!deadT || deadT % 6 < 3) {
-      g.fillStyle = "#ff8f1f"; g.beginPath(); g.arc(bx, by, R, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = "#b85c00"; g.lineWidth = 2; g.beginPath(); g.arc(bx, by, R - 1, 0, Math.PI * 2); g.stroke();
-      g.beginPath(); g.moveTo(bx + Math.cos(ball.rot) * (R - 2), by + Math.sin(ball.rot) * (R - 2)); g.lineTo(bx - Math.cos(ball.rot) * (R - 2), by - Math.sin(ball.rot) * (R - 2)); g.stroke();
-      g.fillStyle = "rgba(255,255,255,.55)"; g.beginPath(); g.arc(bx - 4, by - 4, 3, 0, Math.PI * 2); g.fill();
+    // ball shadow on the ground below
+    if (!deadT) {
+      let gy = Math.floor(ball.y / TS) + 1; while (gy < H && !solid(Math.floor(ball.x / TS), gy)) gy++;
+      if (gy < H) { const d = gy * TS - (ball.y + R), a = Math.max(0, 0.35 - d / 300);
+        g.fillStyle = `rgba(0,0,0,${a})`; g.beginPath(); g.ellipse(ball.x, gy * TS, R * (1 - d / 400), 3, 0, 0, Math.PI * 2); g.fill(); }
+      // ball with squash & stretch
+      const sq = squash > 0 ? squash * 0.3 : squash * 0.2, sx = 1 + sq, sy = 1 - sq;
+      g.save(); g.translate(ball.x, ball.y + R * (1 - sy)); g.scale(sx, sy);
+      const gr = g.createRadialGradient(-4, -5, 2, 0, 0, R); gr.addColorStop(0, "#ffd09a"); gr.addColorStop(0.45, "#ff8a1a"); gr.addColorStop(1, "#b54a00");
+      g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill();
+      g.rotate(ball.rot); g.strokeStyle = "rgba(120,40,0,.55)"; g.lineWidth = 2;
+      g.beginPath(); g.arc(0, 0, R - 4, -0.6, 0.6); g.stroke(); g.beginPath(); g.arc(0, 0, R - 4, Math.PI - 0.6, Math.PI + 0.6); g.stroke();
+      g.restore();
+      g.fillStyle = "rgba(255,255,255,.6)"; g.beginPath(); g.arc(ball.x - 4, ball.y - 5, 2.6, 0, Math.PI * 2); g.fill();
     }
-  }
-  function star(cx, cy, r, col) {
-    g.fillStyle = col; g.beginPath();
-    for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
-    g.closePath(); g.fill();
+    parts.forEach(p => { g.globalAlpha = Math.min(1, p.life / 20); g.fillStyle = p.col; g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.fill(); });
+    g.globalAlpha = 1;
   }
   function loop(t) {
     raf = null;
-    if (state !== "run" || ov.classList.contains("hidden")) return;
-    acc += Math.min(100, t - (last || t)); last = t;
-    while (acc >= 1000 / 60) { step(); acc -= 1000 / 60; if (state !== "run") break; }
+    if (ov.classList.contains("hidden")) return;
+    if (state === "run") {
+      acc += Math.min(100, t - (last || t)); last = t;
+      while (acc >= STEP) { step(); acc -= STEP; if (state !== "run") break; }
+      const target = Math.max(0, Math.min(W * TS - view.vw, ball.x - view.vw * 0.42));
+      camX += (target - camX) * 0.12;
+    } else { last = t; time++; }
     draw();
-    if (state === "run") raf = requestAnimationFrame(loop);
+    raf = requestAnimationFrame(loop);
   }
-  function run() { state = "run"; $("bjMsg").classList.add("hidden"); last = 0; acc = 0; if (!raf) raf = requestAnimationFrame(loop); }
+  function kick() { if (!raf) raf = requestAnimationFrame(loop); }
+  function run() { state = "run"; $("bjMsg").classList.add("hidden"); last = 0; acc = 0; kick(); }
   function msg(title, text, btn) {
     $("bjMsgTitle").textContent = title; $("bjMsgText").textContent = text; $("bjStart").textContent = btn;
     $("bjLvBtns").innerHTML = BJ_LEVELS.map((_, i) => `<button type="button" data-l="${i}"${i < unlocked ? "" : " disabled"}>${i + 1}</button>`).join("");
-    $("bjLvBtns").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { load(+b.dataset.l); draw(); run(); }));
+    $("bjLvBtns").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { load(+b.dataset.l); run(); }));
     $("bjMsg").classList.remove("hidden");
+    $("bjPauseBtn").textContent = state === "pause" ? "▶" : "II";
   }
   function pause() { if (state === "run") { state = "pause"; msg("PAUSED", "Level " + (lvl + 1), "CONTINUE"); } }
+  function close() { pause(); ov.classList.add("hidden"); window.__gmFS.exit(); }
   window.openBallJump = () => {
-    ov.classList.remove("hidden");
-    if (!map) { load(Math.min(unlocked, BJ_LEVELS.length) - 1); draw(); msg("BALL JUMP", "Collect all ★ - then the door opens. Flags save your place.", "START"); }
-    else { draw(); if (state === "run") pause(); }
+    ov.classList.remove("hidden"); window.__gmFS.enter();
+    requestAnimationFrame(() => {
+      resize();
+      if (!map) { load(Math.min(unlocked, BJ_LEVELS.length) - 1); msg("BALL JUMP", "Collect all ★ - then the door opens. Flags save your place. Hold JUMP to keep bouncing.", "START"); }
+      else if (state === "run") pause();
+      kick();
+    });
   };
-  $("ballClose").addEventListener("click", () => { pause(); ov.classList.add("hidden"); });
+  $("ballClose").addEventListener("click", close);
+  $("bjPauseBtn").addEventListener("click", () => { if (state === "run") pause(); else if (state === "pause") run(); });
   $("bjStart").addEventListener("click", () => {
     if (state === "pause") return run();
     if (state === "won") load(lvl + 1 < BJ_LEVELS.length ? lvl + 1 : 0);
     else if (state === "over") load(lvl);
-    draw(); run();
+    run();
   });
-  ov.querySelectorAll(".gmPad button[data-k]").forEach(b => {
+  ov.querySelectorAll(".gmCtl button[data-k]").forEach(b => {
     const k = b.dataset.k, on = e => { e.preventDefault(); keys[k] = true; b.classList.add("on"); try { b.setPointerCapture(e.pointerId); } catch (x) {} },
       off = () => { keys[k] = false; b.classList.remove("on"); };
     b.addEventListener("pointerdown", on); ["pointerup", "pointercancel", "lostpointercapture"].forEach(t => b.addEventListener(t, off));
+    b.addEventListener("contextmenu", e => e.preventDefault());
   });
   const KEYMAP = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "jump", " ": "jump", a: "left", d: "right", w: "jump", "4": "left", "6": "right", "2": "jump", "5": "jump" };
   document.addEventListener("keydown", e => {
@@ -3546,43 +3683,79 @@ const DM_LEVELS = [["WWWWWWWWWWWWWWWWWWWW", "WP...o....*....o...W", "W....*.....
     const k = KEYMAP[e.key] || KEYMAP[String(e.key).toLowerCase()];
     if (k) { e.preventDefault(); keys[k] = true; }
     else if (String(e.key).toLowerCase() === "p") { state === "run" ? pause() : state === "pause" && run(); }
-    else if (e.key === "Escape") { pause(); ov.classList.add("hidden"); }
+    else if (e.key === "Escape") close();
   });
   document.addEventListener("keyup", e => { const k = KEYMAP[e.key] || KEYMAP[String(e.key).toLowerCase()]; if (k) keys[k] = false; });
   document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
-  window.__bjTest = { keys, get ball() { return ball; }, get state() { return state; }, get got() { return got; }, load: i => { load(i); draw(); } };
+  window.addEventListener("resize", () => { if (!ov.classList.contains("hidden")) resize(); });
+  document.addEventListener("fullscreenchange", () => { if (!ov.classList.contains("hidden")) setTimeout(resize, 50); });
+  window.__bjTest = { keys, get ball() { return ball; }, get state() { return state; }, get got() { return got; }, load: i => { load(i); } };
 })();
 
-/* ===== Diamond Mine: dig, collect diamonds, mind the falling rocks (original levels) ===== */
+/* ===== Diamond Mine: dig, collect diamonds, mind the falling rocks (original levels), full screen + smooth moves ===== */
 (function diamondMine() {
   const ov = document.getElementById("mineOverlay"), cv = document.getElementById("mineCanvas"); if (!ov || !cv) return;
   const g = cv.getContext("2d"), $ = id => document.getElementById(id);
-  const TS = 32, VW = cv.width / TS, VH = cv.height / TS;
+  const TICK = 135;
   const ls = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
   let unlocked = Math.min(DM_LEVELS.length, Math.max(1, parseInt(ls.get("dmUnlocked", "1"), 10) || 1));
-  let lvl = 0, m, fall, W, H, px, py, need, got, state = "menu", timer = null, held = null, pending = null, deadT = 0, frame = 0;
+  let lvl = 0, m, fall, W, H, px, py, ppx, ppy, need, got, state = "menu", held = null, pending = null, deadT = 0, frame = 0;
+  let from = {}, lastTick = 0, raf = null, acc = 0, lastT = 0, view = { w: 384, h: 384, dpr: 1, ts: 40 }, cam = { x: 0, y: 0 }, parts = [], shake = 0, face = 1, walk = 0;
   const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
   const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
 
+  // pre-drawn 64 px textures (dirt x3, wall), scaled when drawn
+  const tex = {};
+  (function makeTex() {
+    const mk = (fn) => { const c = document.createElement("canvas"); c.width = c.height = 64; fn(c.getContext("2d")); return c; };
+    let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    tex.dirt = [0, 1, 2].map(v => mk(t => {
+      const gr = t.createLinearGradient(0, 0, 0, 64); gr.addColorStop(0, "#8b5a2b"); gr.addColorStop(1, "#6e4420"); t.fillStyle = gr; t.fillRect(0, 0, 64, 64);
+      for (let i = 0; i < 22; i++) { t.fillStyle = rnd() < 0.5 ? "rgba(60,35,15,.55)" : "rgba(170,120,70,.45)"; t.beginPath(); t.arc(rnd() * 64, rnd() * 64, 1 + rnd() * 3, 0, Math.PI * 2); t.fill(); }
+      if (v === 1) { t.fillStyle = "#9e9e9e"; t.beginPath(); t.ellipse(40, 22, 5, 3.5, 0.4, 0, Math.PI * 2); t.fill(); }
+      if (v === 2) { t.strokeStyle = "rgba(255,230,180,.25)"; t.lineWidth = 2; t.beginPath(); t.moveTo(6, 50); t.quadraticCurveTo(30, 40, 58, 52); t.stroke(); }
+    }));
+    tex.wall = mk(t => {
+      t.fillStyle = "#3d4a55"; t.fillRect(0, 0, 64, 64);
+      [[0, 0, 30, 30], [32, 0, 32, 30], [0, 32, 18, 32], [20, 32, 30, 32], [52, 32, 12, 32]].forEach(([x, y, w, h]) => {
+        const gr = t.createLinearGradient(x, y, x, y + h); gr.addColorStop(0, "#7d8c99"); gr.addColorStop(1, "#56636e");
+        t.fillStyle = gr; t.fillRect(x + 1, y + 1, w - 2, h - 2); t.fillStyle = "rgba(255,255,255,.18)"; t.fillRect(x + 1, y + 1, w - 2, 3);
+        t.fillStyle = "rgba(0,0,0,.25)"; t.fillRect(x + 1, y + h - 4, w - 2, 3);
+      });
+    });
+  })();
+
+  function resize() {
+    const f = window.__gmFS.fit(cv);
+    const ts = Math.max(30, Math.min(64, Math.floor(f.w / 10)));
+    view = { w: f.w, h: f.h, dpr: f.dpr, ts };
+    if (m) { snapCam(); draw(); }
+  }
   function load(i) {
     lvl = i; m = DM_LEVELS[i].map(r => r.split("")); H = m.length; W = m[0].length;
-    fall = m.map(r => r.map(() => false)); need = 0; got = 0; deadT = 0; held = null; pending = null;
+    fall = m.map(r => r.map(() => false)); need = 0; got = 0; deadT = 0; held = null; pending = null; from = {}; parts = []; shake = 0;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (m[y][x] === "P") { px = x; py = y; } if (m[y][x] === "*") need++; }
-    hud();
+    ppx = px; ppy = py; hud(); snapCam();
   }
   function hud() { $("dmLevel").textContent = "MINE " + (lvl + 1); $("dmGems").textContent = "💎 " + got + "/" + need; }
   const isObj = c => c === "o" || c === "*";
+  function sparkle(x, y, n, col) {
+    for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, s = 0.02 + Math.random() * 0.05;
+      parts.push({ x: x + 0.5, y: y + 0.5, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 22 + Math.random() * 14, col, r: 0.05 + Math.random() * 0.05 }); }
+  }
   function movePlayer(d) {
     const [dx, dy] = DIRS[d] || [0, 0]; if (!dx && !dy) return;
+    if (dx) face = dx;
     const nx = px + dx, ny = py + dy, c = m[ny][nx];
     if (c === "." || c === " " || c === "*" || (c === "X" && got >= need)) {
-      if (c === "*") { got++; buzz(12); hud(); }
-      m[py][px] = " "; fall[py][px] = false;
+      if (c === "*") { got++; buzz(12); hud(); sparkle(nx, ny, 14, "#7ff3ff"); }
+      if (c === ".") sparkle(nx, ny, 6, "#a8743f");
+      m[py][px] = " "; fall[py][px] = false; walk++;
       if (c === "X") { m[ny][nx] = "P"; px = nx; py = ny; return win(); }
       m[ny][nx] = "P"; fall[ny][nx] = false; px = nx; py = ny;
-    } else if (c === "o" && dy === 0 && m[ny][nx + dx] === " " && !fall[ny][nx]) {   // push a rock sideways
-      m[ny][nx + dx] = "o"; fall[ny][nx + dx] = false;
-      m[ny][nx] = "P"; m[py][px] = " "; px = nx; py = ny;
+    } else if (c === "o" && dy === 0 && m[ny][nx + dx] === " " && !fall[ny][nx]) {
+      m[ny][nx + dx] = "o"; fall[ny][nx + dx] = false; from[(nx + dx) + "," + ny] = [nx, ny];
+      m[ny][nx] = "P"; m[py][px] = " "; px = nx; py = ny; walk++;
     }
   }
   function physics() {
@@ -3590,84 +3763,155 @@ const DM_LEVELS = [["WWWWWWWWWWWWWWWWWWWW", "WP...o....*....o...W", "W....*.....
     for (let y = H - 2; y >= 1; y--) for (let x = 1; x < W - 1; x++) {
       const c = m[y][x]; if (!isObj(c) || moved[y][x]) continue;
       const below = m[y + 1][x];
-      const put = (nx, ny) => { m[ny][nx] = c; fall[ny][nx] = true; moved[ny][nx] = true; m[y][x] = " "; fall[y][x] = false; };
+      const put = (nx, ny) => { m[ny][nx] = c; fall[ny][nx] = true; moved[ny][nx] = true; m[y][x] = " "; fall[y][x] = false; from[nx + "," + ny] = [x, y]; };
       if (below === " ") put(x, y + 1);
       else if (below === "P" && fall[y][x]) { die(); return; }
       else if (isObj(below)) {
         if (m[y][x - 1] === " " && m[y + 1][x - 1] === " ") put(x - 1, y);
         else if (m[y][x + 1] === " " && m[y + 1][x + 1] === " ") put(x + 1, y);
-        else fall[y][x] = false;
-      } else fall[y][x] = false;
+        else { if (fall[y][x]) buzz(6); fall[y][x] = false; }
+      } else { if (fall[y][x] && c === "o") shake = Math.max(shake, 4); fall[y][x] = false; }
     }
   }
-  function die() { if (deadT) return; deadT = 12; state = "dying"; buzz([80, 40, 120]); }
+  function die() { if (deadT) return; deadT = 14; state = "dying"; shake = 12; buzz([80, 40, 120]); sparkle(px, py, 30, "#ff6b6b"); }
   function win() {
-    state = "won"; clearInterval(timer); timer = null; buzz([30, 40, 30, 40, 80]);
+    state = "won"; buzz([30, 40, 30, 40, 80]); sparkle(px, py, 30, "#7CFC9A");
     if (lvl + 2 > unlocked && lvl + 1 < DM_LEVELS.length) { unlocked = lvl + 2; ls.set("dmUnlocked", unlocked); }
-    draw();
-    if (lvl + 1 < DM_LEVELS.length) msg("MINE " + (lvl + 1) + " CLEARED", "All diamonds collected!", "NEXT MINE");
-    else msg("YOU WIN!", "All mines cleared 🎉", "PLAY AGAIN");
+    setTimeout(() => {
+      if (lvl + 1 < DM_LEVELS.length) msg("MINE " + (lvl + 1) + " CLEARED", "All diamonds collected!", "NEXT MINE");
+      else msg("YOU WIN!", "All mines cleared 🎉", "PLAY AGAIN");
+    }, 500);
   }
   function tick() {
     frame++;
     if (state === "dying") {
-      draw();
-      if (--deadT <= 0) { clearInterval(timer); timer = null; state = "over"; msg("CRUSHED!", "A falling rock hit you. Try again.", "RETRY"); }
+      if (--deadT <= 0) { state = "over"; msg("CRUSHED!", "A falling rock hit you. Try again.", "RETRY"); }
       return;
     }
     if (state !== "run") return;
+    from = {}; ppx = px; ppy = py;
     const d = pending || held; pending = null;
     if (d && d !== "wait") movePlayer(d);
     if (state === "run") physics();
-    draw();
+  }
+  const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  function playerPos(t) { const e = ease(t); return [ppx + (px - ppx) * e, ppy + (py - ppy) * e]; }
+  function camTarget(t) {
+    const ts = view.ts, [fx, fy] = playerPos(t), vwc = view.w / ts, vhc = view.h / ts;
+    return { x: W <= vwc ? (W - vwc) / 2 : Math.max(0, Math.min(W - vwc, fx + 0.5 - vwc / 2)), y: H <= vhc ? (H - vhc) / 2 : Math.max(0, Math.min(H - vhc, fy + 0.5 - vhc / 2)) };
+  }
+  function snapCam() { const c = camTarget(1); cam.x = c.x; cam.y = c.y; }
+  function drawBoulder(X, Y, s) {
+    const r = s / 2 - s * 0.06, cx = X + s / 2, cy = Y + s / 2;
+    g.fillStyle = "rgba(0,0,0,.35)"; g.beginPath(); g.ellipse(cx, Y + s - s * 0.06, r * 0.8, s * 0.08, 0, 0, Math.PI * 2); g.fill();
+    const gr = g.createRadialGradient(cx - r * 0.35, cy - r * 0.4, r * 0.1, cx, cy, r); gr.addColorStop(0, "#d9dee2"); gr.addColorStop(0.5, "#98a3ab"); gr.addColorStop(1, "#5a646b");
+    g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = "rgba(40,45,50,.45)"; g.lineWidth = Math.max(1, s * 0.04);
+    g.beginPath(); g.moveTo(cx - r * 0.2, cy - r * 0.1); g.lineTo(cx + r * 0.15, cy + r * 0.2); g.lineTo(cx + r * 0.05, cy + r * 0.5); g.stroke();
+  }
+  function drawGem(X, Y, s, x, y) {
+    const cx = X + s / 2, cy = Y + s / 2 + Math.sin(frame / 3 + x + y) * s * 0.02, w = s * 0.38, h = s * 0.42;
+    g.shadowColor = "#5ff2ff"; g.shadowBlur = s * 0.25;
+    g.fillStyle = "#29b6f6"; g.beginPath(); g.moveTo(cx, cy - h); g.lineTo(cx + w, cy - h * 0.25); g.lineTo(cx, cy + h); g.lineTo(cx - w, cy - h * 0.25); g.closePath(); g.fill();
+    g.shadowBlur = 0;
+    g.fillStyle = "#81e6ff"; g.beginPath(); g.moveTo(cx, cy - h); g.lineTo(cx + w, cy - h * 0.25); g.lineTo(cx, cy - h * 0.05); g.lineTo(cx - w, cy - h * 0.25); g.closePath(); g.fill();
+    g.fillStyle = "#0288d1"; g.beginPath(); g.moveTo(cx, cy - h * 0.05); g.lineTo(cx + w, cy - h * 0.25); g.lineTo(cx, cy + h); g.closePath(); g.fill();
+    const tw = (frame + x * 3 + y * 5) % 24;
+    if (tw < 6) { const a = 1 - Math.abs(tw - 3) / 3, sx = cx - w * 0.3, sy = cy - h * 0.55, L = s * 0.18 * a;
+      g.strokeStyle = `rgba(255,255,255,${a})`; g.lineWidth = Math.max(1, s * 0.03);
+      g.beginPath(); g.moveTo(sx - L, sy); g.lineTo(sx + L, sy); g.moveTo(sx, sy - L); g.lineTo(sx, sy + L); g.stroke(); }
+  }
+  function drawMiner(X, Y, s) {
+    const cx = X + s / 2, step = walk % 2, hit = state === "dying";
+    g.save(); g.translate(cx, Y); if (face < 0) g.scale(-1, 1);
+    g.fillStyle = "rgba(0,0,0,.35)"; g.beginPath(); g.ellipse(0, s * 0.95, s * 0.28, s * 0.06, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#3e2723"; g.fillRect(-s * 0.2, s * 0.78, s * 0.14, s * 0.16 - (step ? s * 0.04 : 0)); g.fillRect(s * 0.06, s * 0.78, s * 0.14, s * 0.16 - (step ? 0 : s * 0.04));   // boots
+    g.fillStyle = "#1e5aa8"; g.fillRect(-s * 0.22, s * 0.5, s * 0.44, s * 0.32);                                                         // overalls
+    g.fillStyle = "#f9a825"; g.fillRect(-s * 0.22, s * 0.5, s * 0.44, s * 0.06);
+    g.fillStyle = hit ? "#ff5252" : "#ffcc99"; g.beginPath(); g.arc(0, s * 0.38, s * 0.17, 0, Math.PI * 2); g.fill();               // face
+    g.fillStyle = "#222"; g.fillRect(s * 0.04, s * 0.34, s * 0.05, s * 0.05);
+    g.fillStyle = "#fbc02d"; g.beginPath(); g.arc(0, s * 0.3, s * 0.2, Math.PI, 0); g.fill(); g.fillRect(-s * 0.24, s * 0.28, s * 0.48, s * 0.05);   // helmet
+    g.fillStyle = "#fffde7"; g.beginPath(); g.arc(s * 0.12, s * 0.2, s * 0.05, 0, Math.PI * 2); g.fill();                         // lamp
+    g.restore();
+    // lamp light cone
+    const lg = g.createRadialGradient(cx + face * s * 0.6, Y + s * 0.3, 0, cx + face * s * 0.6, Y + s * 0.3, s * 1.2);
+    lg.addColorStop(0, "rgba(255,250,200,.18)"); lg.addColorStop(1, "rgba(255,250,200,0)"); g.fillStyle = lg; g.fillRect(cx - s * 1.2, Y - s, s * 3.6, s * 3);
   }
   function draw() {
-    const cx = Math.max(0, Math.min(W - VW, px - Math.floor(VW / 2))), cy = Math.max(0, Math.min(H - VH, py - Math.floor(VH / 2)));
-    g.fillStyle = "#0d0d0d"; g.fillRect(0, 0, cv.width, cv.height);
-    for (let y = cy; y < Math.min(H, cy + VH); y++) for (let x = cx; x < Math.min(W, cx + VW); x++) {
-      const c = m[y][x], X = (x - cx) * TS, Y = (y - cy) * TS;
-      if (c === "W") {
-        g.fillStyle = "#6d4c41"; g.fillRect(X, Y, TS, TS); g.fillStyle = "#8d6e63";
-        g.fillRect(X + 1, Y + 1, TS / 2 - 2, TS / 2 - 2); g.fillRect(X + TS / 2 + 1, Y + TS / 2 + 1, TS / 2 - 2, TS / 2 - 2);
-      } else if (c === ".") {
-        g.fillStyle = "#7a5230"; g.fillRect(X, Y, TS, TS); g.fillStyle = "#5e3d22";
-        for (let k = 0; k < 5; k++) g.fillRect(X + ((x * 7 + k * 11) % 26) + 2, Y + ((y * 5 + k * 13) % 26) + 2, 3, 3);
-      } else if (c === "o") {
-        g.fillStyle = "#8f9aa3"; g.beginPath(); g.arc(X + TS / 2, Y + TS / 2, TS / 2 - 2, 0, Math.PI * 2); g.fill();
-        g.fillStyle = "#b8c2c9"; g.beginPath(); g.arc(X + TS / 2 - 5, Y + TS / 2 - 5, 5, 0, Math.PI * 2); g.fill();
-        g.strokeStyle = "#5c666d"; g.lineWidth = 2; g.beginPath(); g.arc(X + TS / 2, Y + TS / 2, TS / 2 - 2, 0, Math.PI * 2); g.stroke();
-      } else if (c === "*") {
-        const s = (frame + x + y) % 8 < 4;
-        g.fillStyle = s ? "#4dd0e1" : "#80deea"; g.beginPath();
-        g.moveTo(X + TS / 2, Y + 3); g.lineTo(X + TS - 4, Y + TS / 2); g.lineTo(X + TS / 2, Y + TS - 3); g.lineTo(X + 4, Y + TS / 2); g.closePath(); g.fill();
-        g.fillStyle = "rgba(255,255,255,.7)"; g.fillRect(X + TS / 2 - 2, Y + 9, 4, 4);
-      } else if (c === "X") {
+    const ts = view.ts, t = Math.min(1, (performance.now() - lastTick) / TICK);
+    const ct = camTarget(t); cam.x += (ct.x - cam.x) * 0.25; cam.y += (ct.y - cam.y) * 0.25;
+    const sx = shake ? (Math.random() - 0.5) * shake : 0, sy = shake ? (Math.random() - 0.5) * shake : 0;
+    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+    g.fillStyle = "#120d09"; g.fillRect(0, 0, view.w, view.h);
+    g.setTransform(view.dpr, 0, 0, view.dpr, Math.round((-cam.x * ts + sx) * view.dpr), Math.round((-cam.y * ts + sy) * view.dpr));
+    const x0 = Math.max(0, Math.floor(cam.x) - 1), x1 = Math.min(W - 1, Math.ceil(cam.x + view.w / ts) + 1);
+    const y0 = Math.max(0, Math.floor(cam.y) - 1), y1 = Math.min(H - 1, Math.ceil(cam.y + view.h / ts) + 1);
+    // background: empty tunnels get a dark rocky tone
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const c = m[y][x], X = x * ts, Y = y * ts;
+      if (c === "W") g.drawImage(tex.wall, X, Y, ts + 0.5, ts + 0.5);
+      else if (c === ".") g.drawImage(tex.dirt[(x * 7 + y * 13) % 3], X, Y, ts + 0.5, ts + 0.5);
+      else { g.fillStyle = (x + y) % 2 ? "#1d1610" : "#1a130e"; g.fillRect(X, Y, ts + 0.5, ts + 0.5); }
+    }
+    // soft edge where dirt meets tunnel
+    g.fillStyle = "rgba(0,0,0,.28)";
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (m[y][x] !== "." && m[y][x] !== "W" && y > 0 && m[y - 1][x] === ".") g.fillRect(x * ts, y * ts, ts, ts * 0.12);
+    const e = ease(t);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const c = m[y][x]; if (!isObj(c) && c !== "X") continue;
+      let X = x * ts, Y = y * ts; const f = from[x + "," + y];
+      if (f && isObj(c)) { X = (f[0] + (x - f[0]) * e) * ts; Y = (f[1] + (y - f[1]) * e) * ts; }
+      if (c === "o") drawBoulder(X, Y, ts);
+      else if (c === "*") drawGem(X, Y, ts, x, y);
+      else if (c === "X") {
         const open = got >= need;
-        g.fillStyle = open ? (frame % 6 < 3 ? "#43a047" : "#66bb6a") : "#455a64"; g.fillRect(X + 3, Y + 2, TS - 6, TS - 2);
-        g.fillStyle = "#1b1b1b"; g.fillRect(X + 9, Y + 8, TS - 18, TS - 8);
-      } else if (c === "P") {
-        const hit = state === "dying" && deadT % 4 < 2;
-        g.fillStyle = hit ? "#ff5252" : "#ffcc80"; g.beginPath(); g.arc(X + TS / 2, Y + 13, 7, 0, Math.PI * 2); g.fill();   // face
-        g.fillStyle = "#fbc02d"; g.fillRect(X + 8, Y + 4, 16, 5); g.fillRect(X + 14, Y + 2, 4, 3);                       // helmet
-        g.fillStyle = "#1565c0"; g.fillRect(X + 9, Y + 20, 14, 10);                                                       // body
-        g.fillStyle = "#222"; g.fillRect(X + 13, Y + 12, 2, 2); g.fillRect(X + 18, Y + 12, 2, 2);
+        if (open) { g.shadowColor = "#7CFC9A"; g.shadowBlur = ts * (0.3 + 0.15 * Math.sin(frame / 2)); }
+        g.fillStyle = open ? "#2e7d32" : "#37474f"; g.fillRect(X + ts * 0.1, Y + ts * 0.06, ts * 0.8, ts * 0.94); g.shadowBlur = 0;
+        g.fillStyle = open ? "#b9f6ca" : "#1c262b"; g.fillRect(X + ts * 0.22, Y + ts * 0.2, ts * 0.56, ts * 0.8);
+        if (!open) { g.fillStyle = "#ffd54a"; g.font = `bold ${ts * 0.3}px sans-serif`; g.textAlign = "center"; g.fillText(need - got, X + ts / 2, Y + ts * 0.66); }
       }
     }
+    if (state !== "won" || frame % 2) { const [fx, fy] = playerPos(t); drawMiner(fx * ts, fy * ts, ts); }
+    parts.forEach(p => { g.globalAlpha = Math.min(1, p.life / 15); g.fillStyle = p.col; g.beginPath(); g.arc(p.x * ts, p.y * ts, p.r * ts, 0, Math.PI * 2); g.fill(); });
+    g.globalAlpha = 1;
+    // vignette
+    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+    const vg = g.createRadialGradient(view.w / 2, view.h / 2, Math.min(view.w, view.h) * 0.35, view.w / 2, view.h / 2, Math.max(view.w, view.h) * 0.75);
+    vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.55)"); g.fillStyle = vg; g.fillRect(0, 0, view.w, view.h);
+    if (state === "dying") { g.fillStyle = `rgba(255,0,0,${deadT / 40})`; g.fillRect(0, 0, view.w, view.h); }
   }
+  function loop(now) {
+    raf = null;
+    if (ov.classList.contains("hidden")) return;
+    acc += Math.min(250, now - (lastT || now)); lastT = now;
+    while (acc >= TICK) { acc -= TICK; tick(); lastTick = now - acc; }
+    parts.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.004; p.life--; }); parts = parts.filter(p => p.life > 0);
+    if (shake) shake = Math.max(0, shake - 0.6);
+    draw();
+    raf = requestAnimationFrame(loop);
+  }
+  function kick() { if (!raf) { lastT = 0; raf = requestAnimationFrame(loop); } }
   function msg(title, text, btn) {
     $("dmMsgTitle").textContent = title; $("dmMsgText").textContent = text; $("dmStart").textContent = btn;
     $("dmLvBtns").innerHTML = DM_LEVELS.map((_, i) => `<button type="button" data-l="${i}"${i < unlocked ? "" : " disabled"}>${i + 1}</button>`).join("");
     $("dmLvBtns").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { load(+b.dataset.l); run(); }));
     $("dmMsg").classList.remove("hidden");
+    $("dmPauseBtn").textContent = state === "pause" ? "▶" : "II";
   }
-  function run() { state = "run"; $("dmMsg").classList.add("hidden"); draw(); clearInterval(timer); timer = setInterval(tick, 140); }
-  function pause() { if (state === "run") { state = "pause"; clearInterval(timer); timer = null; msg("PAUSED", "Mine " + (lvl + 1), "CONTINUE"); } }
+  function run() { state = "run"; $("dmMsg").classList.add("hidden"); $("dmPauseBtn").textContent = "II"; acc = 0; kick(); }
+  function pause() { if (state === "run") { state = "pause"; msg("PAUSED", "Mine " + (lvl + 1), "CONTINUE"); } }
+  function close() { pause(); ov.classList.add("hidden"); window.__gmFS.exit(); }
   window.openDiamondMine = () => {
-    ov.classList.remove("hidden");
-    if (!m) { load(Math.min(unlocked, DM_LEVELS.length) - 1); draw(); msg("DIAMOND MINE", "Dig through the earth, take every 💎, then go to the door. Rocks fall when nothing holds them!", "START"); }
-    else { draw(); if (state === "run") pause(); }
+    ov.classList.remove("hidden"); window.__gmFS.enter();
+    requestAnimationFrame(() => {
+      resize();
+      if (!m) { load(Math.min(unlocked, DM_LEVELS.length) - 1); msg("DIAMOND MINE", "Dig through the earth, take every 💎, then go to the door. Rocks fall when nothing holds them!", "START"); }
+      else if (state === "run") pause();
+      kick();
+    });
   };
-  $("mineClose").addEventListener("click", () => { pause(); ov.classList.add("hidden"); });
+  $("mineClose").addEventListener("click", close);
+  $("dmPauseBtn").addEventListener("click", () => { if (state === "run") pause(); else if (state === "pause") run(); });
   $("dmRestart").addEventListener("click", () => { load(lvl); run(); });
   $("dmStart").addEventListener("click", () => {
     if (state === "pause") return run();
@@ -3675,12 +3919,12 @@ const DM_LEVELS = [["WWWWWWWWWWWWWWWWWWWW", "WP...o....*....o...W", "W....*.....
     else if (state === "over") load(lvl);
     run();
   });
-  ov.querySelectorAll(".gmPad button[data-d]").forEach(b => {
+  ov.querySelectorAll(".gmCtl button[data-d]").forEach(b => {
     const d = b.dataset.d;
     b.addEventListener("pointerdown", e => { e.preventDefault(); pending = d; held = d; b.classList.add("on"); try { b.setPointerCapture(e.pointerId); } catch (x) {} });
     ["pointerup", "pointercancel", "lostpointercapture"].forEach(t => b.addEventListener(t, () => { if (held === d) held = null; b.classList.remove("on"); }));
+    b.addEventListener("contextmenu", e => e.preventDefault());
   });
-  // swipe on the mine screen = one step
   let sw = null;
   cv.addEventListener("pointerdown", e => { sw = { x: e.clientX, y: e.clientY }; });
   cv.addEventListener("pointerup", e => {
@@ -3692,13 +3936,17 @@ const DM_LEVELS = [["WWWWWWWWWWWWWWWWWWWW", "WP...o....*....o...W", "W....*.....
   document.addEventListener("keydown", e => {
     if (ov.classList.contains("hidden")) return;
     const k = KEYMAP[e.key] || KEYMAP[String(e.key).toLowerCase()];
-    if (k) { e.preventDefault(); pending = k; held = k; }
-    else if (e.key === "Escape") { pause(); ov.classList.add("hidden"); }
+    if (k) { e.preventDefault(); if (!e.repeat) pending = k; held = k; }
+    else if (e.key === "Escape") close();
     else if (String(e.key).toLowerCase() === "r") { load(lvl); run(); }
+    else if (String(e.key).toLowerCase() === "p") { state === "run" ? pause() : state === "pause" && run(); }
   });
   document.addEventListener("keyup", e => { const k = KEYMAP[e.key] || KEYMAP[String(e.key).toLowerCase()]; if (k && held === k) held = null; });
   document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
-  window.__dmTest = { get m() { return m; }, get state() { return state; }, get got() { return got; }, get need() { return need; }, get pos() { return [px, py]; }, step: d => { pending = d; tick(); }, load: i => { load(i); state = "run"; clearInterval(timer); timer = null; $("dmMsg").classList.add("hidden"); } };
+  window.addEventListener("resize", () => { if (!ov.classList.contains("hidden")) resize(); });
+  document.addEventListener("fullscreenchange", () => { if (!ov.classList.contains("hidden")) setTimeout(resize, 50); });
+  window.__dmTest = { get m() { return m; }, get state() { return state; }, get got() { return got; }, get need() { return need; }, get pos() { return [px, py]; },
+    step: d => { pending = d; tick(); }, load: i => { load(i); state = "run"; $("dmMsg").classList.add("hidden"); } };
 })();
 </script>
 
@@ -5966,9 +6214,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.30.4";
+const APP_VERSION = "2026.10.30.5";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🎮 Ball Jump & Diamond Mine: full screen, new graphics (sky, hills, grass, glowing stars/diamonds, miner with lamp), smooth movement and easier jumps",
   "🎮 Menu → Games: Snake + 2 new offline games - Ball Jump (roll & jump, 3 levels) and Diamond Mine (dig for diamonds, falling rocks, 3 mines)",
   "🐍 Snake game (old Nokia style) - Menu → Snake Game, or the 🐍 button on the red offline bar; works with no internet / flight mode",
   "📂 SOP / WI tab now shows only the groups (Steel, Sponge iron, Coal ...) - tap a group to see its SOP / WI; search opens the matching groups. WI numbers readable on light themes",
