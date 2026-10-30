@@ -1889,6 +1889,8 @@
   .hidden{display:none !important;}
   /* ===== View-only (team) accounts ===== */
   body.userMode .ownerOnly, body.userMode #askFab, body.userMode #askFabBubble, body.userMode #kashviPanel{ display:none !important; }
+  body.userMode.mktAllowed .navItem[data-section="marketdash"]{ display:flex !important; }   /* Market for chosen granted users */
+  body.userMode.mktAllowed #section-marketdash:not(.hidden){ display:block !important; }
   body.viewerMode .ownerOnly,
   body.viewerMode .vmBlocked,
   body.viewerMode #mainSidebar > .navItem[data-section="whatsapp"],
@@ -6328,9 +6330,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.30.11";
+const APP_VERSION = "2026.10.30.12";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📈 Market tile can now be opened by chosen granted users too (Babbu)",
   "🐍 Snake made from your photo: the real snake head, its scale skin and the same stony ground",
   "🐍 Snake looks like the top-view photo: smooth curves, bright green with a light spine line, dark outline, pointed head and tail; stony soil with weeds",
   "🐍 Snake: full screen, a real-looking green snake (fine scales, yellow belly, golden eyes, forked tongue) that slides smoothly on dirt ground, apples to eat and a golden bonus egg",
@@ -8272,6 +8275,25 @@ function accountRole(acc) {
 const ACCESS_URL = "https://script.google.com/macros/s/AKfycbwme6XZoDPZAMSd3cg44CI6AnPDTx3hes0EPL3rcyHIaZPtUlpl6TSPb0LCkGjunW94/exec";   // the SMS Access Apps Script web-app URL (…/exec)
 function accessUrl() { try { return ACCESS_URL || localStorage.getItem("accessUrl") || ""; } catch (e) { return ACCESS_URL; } }
 function isUserMode() { try { return !!account && accountRole(account) === "user"; } catch (e) { return false; } }
+// Granted (non-owner) accounts that may also open the Market tile. Only SHA-256 hashes of their sign-in e-mails are kept here.
+// (babbu - both his sign-in e-mail and the outlook_… ID Microsoft uses for him)
+const MKT_USER_HASHES = ["93a333a4cc6f96390e4736c11b080032d30b1de45f7a94a64ffef9d70323553b", "1d8a54be2896dbde83f4b3e62df8c3174a037ea0187a54717b394c5f22efba9c"];
+let _mktOk = false;
+function canMarket() { try { return !!account && (accountRole(account) === "owner" || _mktOk); } catch (e) { return false; } }
+async function refreshMarketAccess() {
+  _mktOk = false;
+  try {
+    if (account && crypto.subtle) {
+      const c = account.idTokenClaims || {};
+      const ids = [...new Set([account.username, c.preferred_username, c.email, c.upn].filter(Boolean).map(v => String(v).trim().toLowerCase()))];
+      for (const id of ids) {
+        const h = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(id)))).map(b => b.toString(16).padStart(2, "0")).join("");
+        if (MKT_USER_HASHES.includes(h)) { _mktOk = true; break; }
+      }
+    }
+  } catch (e) {}
+  document.body.classList.toggle("mktAllowed", canMarket());
+}
 let _authTok = null;
 async function authToken(a) {   // a Microsoft token for "User.Read" ONLY (just enough for the server to ask "who is this?")
   if (_authTok && _authTok.id === a.homeAccountId && _authTok.exp - Date.now() > 300000) return _authTok.t;
@@ -9333,6 +9355,7 @@ function showSignedIn() {
   if (isViewer() && !inViewerApp() && !isAppleMobile()) { blockAccount("viewerApp"); return; }
   applyViewerMode(isViewer());
   document.body.classList.toggle("userMode", isUserMode());
+  refreshMarketAccess();
   companyLoadLocal();   // company details for the reports (Get Started > Company details)
   if (!isViewer()) setTimeout(() => { companyLoadCloud(); }, 1500);
   if (isUserMode()) {
@@ -25482,7 +25505,7 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
   let loaded = false, loadedUrl = "";
   function load(force) {
     const u = getUrl(), f = $("mdFrame");
-    if (!isOwner()) { f.removeAttribute("src"); $("mdEmpty").textContent = "Owner only."; $("mdEmpty").classList.remove("hidden"); return; }
+    if (!(typeof canMarket === "function" ? canMarket() : isOwner())) { f.removeAttribute("src"); $("mdEmpty").textContent = "Owner only."; $("mdEmpty").classList.remove("hidden"); return; }
     if (!u) { f.classList.add("hidden"); f.removeAttribute("src"); loaded = false; loadedUrl = ""; $("mdLoading").classList.add("hidden"); $("mdReload").classList.remove("spin");
       $("mdSub").textContent = "No link yet"; $("mdEmpty").textContent = "No link saved on this device yet — tap ⚙️ and paste the " + (cur === "us" ? "USA" : cur === "intra" ? "Intraday" : "India") + " dashboard link."; $("mdEmpty").classList.remove("hidden"); return; }
     $("mdEmpty").classList.add("hidden"); f.classList.remove("hidden");
