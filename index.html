@@ -3054,237 +3054,337 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
 <div id="themeWipe"></div>
 <div id="offlineBanner" class="offlineBanner hidden">⚠️ You're offline - changes won't save until your connection is back.</div>
 <style>
-  /* ===== Snake (feature-phone style) - works fully offline ===== */
-  #snakeOverlay{ position:fixed; inset:0; z-index:99990; background:#1b2416; display:flex; flex-direction:column; align-items:center;
-    padding:calc(10px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom)); box-sizing:border-box;
-    touch-action:none; overscroll-behavior:contain; user-select:none; -webkit-user-select:none; font-family:"Courier New", monospace; }
-  #snakeOverlay.hidden{ display:none; }
-  body:has(#snakeOverlay:not(.hidden)) #askFab, body:has(#snakeOverlay:not(.hidden)) #askFabBubble{ display:none !important; }
-  .snkTop{ width:100%; max-width:440px; display:flex; align-items:center; justify-content:space-between; gap:8px; color:#c7f0d8; }
-  .snkTop b{ font-size:18px; letter-spacing:1px; }
-  .snkTop button{ width:auto; padding:6px 12px; border-radius:8px; border:1px solid #c7f0d8; background:transparent; color:#c7f0d8; font-size:15px; font-weight:700; cursor:pointer; }
-  .snkPhone{ width:100%; max-width:440px; margin-top:8px; background:#2c3a26; border-radius:18px; padding:10px; box-sizing:border-box; box-shadow:inset 0 0 0 2px #445a3a; }
-  .snkLcd{ position:relative; background:#c7f0d8; border-radius:8px; padding:6px; box-shadow:inset 0 0 12px rgba(67,82,61,.45); }
-  .snkBar{ display:flex; justify-content:space-between; color:#43523d; font-weight:700; font-size:15px; padding:0 2px 4px; }
-  #snakeCanvas{ display:block; width:100%; height:auto; image-rendering:pixelated; touch-action:none; }
-  .snkMsg{ position:absolute; inset:30px 6px 6px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#43523d;
-    text-align:center; font-weight:700; background:rgba(199,240,216,.86); border-radius:6px; }
-  .snkMsg.hidden{ display:none; }
-  .snkMsg .big{ font-size:26px; letter-spacing:2px; }
-  .snkMsg button{ width:auto; padding:8px 18px; border-radius:8px; border:2px solid #43523d; background:#43523d; color:#c7f0d8; font-family:inherit; font-size:16px; font-weight:700; cursor:pointer; }
-  .snkOpts{ display:flex; gap:6px; flex-wrap:wrap; justify-content:center; font-size:14px; }
-  .snkOpts button{ background:transparent; color:#43523d; padding:5px 10px; font-size:14px; }
-  .snkPad{ width:100%; max-width:300px; margin:12px auto 0; display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
-  .snkPad button{ height:58px; border-radius:14px; border:none; background:#445a3a; color:#c7f0d8; font-size:26px; cursor:pointer; touch-action:manipulation; }
-  .snkPad button:active{ background:#5d7a50; }
-  .snkPad .mid{ font-size:15px; font-weight:700; font-family:inherit; }
-  .snkHint{ color:#8fa886; font-size:12px; margin-top:8px; text-align:center; }
+  /* ===== Snake (full screen, realistic snake) - works fully offline ===== */
   .offlineBanner .snkOfflineBtn{ width:auto; margin-left:8px; padding:3px 10px; border-radius:12px; border:1px solid #fff; background:rgba(255,255,255,.15); color:#fff; font-size:12px; font-weight:700; cursor:pointer; }
+  .snkOpts{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; }
+  .snkOpts button{ background:#2c3640 !important; color:#e8eef2 !important; padding:7px 12px !important; font-size:14px !important; }
 </style>
-<div id="snakeOverlay" class="hidden" role="dialog" aria-label="Snake game">
-  <div class="snkTop"><b>🐍 SNAKE</b><button type="button" id="snakeClose" aria-label="Close">✕</button></div>
-  <div class="snkPhone">
-    <div class="snkLcd">
-      <div class="snkBar"><span id="snakeScore">0000</span><span id="snakeLvl">L5</span><span id="snakeHi">HI 0000</span></div>
-      <canvas id="snakeCanvas" width="400" height="440"></canvas>
-      <div class="snkMsg" id="snakeMsg">
-        <div class="big" id="snakeMsgTitle">SNAKE</div>
-        <div id="snakeMsgText">Swipe or use the arrows</div>
-        <div class="snkOpts">
-          <button type="button" id="snakeLvlDown">◀</button><span id="snakeLvlTxt" style="align-self:center">Level 5</span><button type="button" id="snakeLvlUp">▶</button>
-        </div>
-        <div class="snkOpts">
-          <button type="button" id="snakeWallsBtn">Walls: OFF</button>
-          <button type="button" id="snakeSoundBtn">Sound: OFF</button>
-        </div>
-        <button type="button" id="snakeStart">START</button>
-      </div>
+<div id="snakeOverlay" class="gmOv gmFull hidden" role="dialog" aria-label="Snake game">
+  <div class="gmHud">
+    <button type="button" id="snakeClose" aria-label="Close">✕</button>
+    <span class="pill" id="snakeScore">0</span><span class="pill" id="snakeLvl">L5</span><span class="pill" id="snakeHi">HI 0</span>
+    <span class="sp"></span><button type="button" id="snakePause" aria-label="Pause">II</button>
+  </div>
+  <div class="gmStage" id="snakeStage">
+    <canvas id="snakeCanvas"></canvas>
+    <div class="gmMsg" id="snakeMsg">
+      <div class="big" id="snakeMsgTitle">🐍 SNAKE</div>
+      <div id="snakeMsgText">Swipe or use the arrows</div>
+      <div class="snkOpts"><button type="button" id="snakeLvlDown">◀</button><span id="snakeLvlTxt">Level 5</span><button type="button" id="snakeLvlUp">▶</button></div>
+      <div class="snkOpts"><button type="button" id="snakeWallsBtn">Walls: OFF</button><button type="button" id="snakeSoundBtn">Sound: OFF</button></div>
+      <button type="button" id="snakeStart">START</button>
     </div>
   </div>
-  <div class="snkPad">
-    <span></span><button type="button" data-d="up" aria-label="Up">▲</button><span></span>
-    <button type="button" data-d="left" aria-label="Left">◀</button><button type="button" class="mid" id="snakePause">II</button><button type="button" data-d="right" aria-label="Right">▶</button>
-    <span></span><button type="button" data-d="down" aria-label="Down">▼</button><span></span>
+  <div class="gmCtl mineCtl">
+    <div class="dpad">
+      <span></span><button type="button" data-d="up" aria-label="Up">▲</button><span></span>
+      <button type="button" data-d="left" aria-label="Left">◀</button><button type="button" class="c" id="snakePause2">II</button><button type="button" data-d="right" aria-label="Right">▶</button>
+      <span></span><button type="button" data-d="down" aria-label="Down">▼</button><span></span>
+    </div>
   </div>
-  <div class="snkHint">Works without internet · keys: arrows / WASD / 2 4 6 8, Space = pause</div>
 </div>
 <script>
-/* ===== Snake: classic feature-phone game, all inside this page (no network needed) ===== */
+/* ===== Snake: classic game with a realistic, smoothly sliding snake (no network needed) ===== */
 (function snakeGame() {
   const ov = document.getElementById("snakeOverlay"), cv = document.getElementById("snakeCanvas");
   if (!ov || !cv) return;
-  const g = cv.getContext("2d");
-  const COLS = 20, ROWS = 22, CELL = 20;                       // canvas 400 x 440
-  const INK = "#43523d", BG = "#c7f0d8";
-  const $ = id => document.getElementById(id);
+  const g = cv.getContext("2d"), $ = id => document.getElementById(id);
   const ls = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
                set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
   let level = Math.min(9, Math.max(1, parseInt(ls.get("snakeLevel", "5"), 10) || 5));
   let walls = ls.get("snakeWalls", "0") === "1", sound = ls.get("snakeSound", "0") === "1";
-  let snake, dir, queue, food, bonus, eaten, score, timer = null, state = "menu";   // menu | run | pause | over
+  let COLS = 15, ROWS = 22, cell = 20, offX = 0, offY = 0, view = { w: 360, h: 520, dpr: 1 };
+  let snake, prev, dir, queue, food, bonus, eaten, score, state = "menu", raf = null, acc = 0, lastT = 0, lastTick = 0, frame = 0, parts = [], grow = 0, deadT = 0;
   const hiKey = () => "snakeHi" + (walls ? "W" : "") + level;
-  const pad4 = n => String(n).padStart(4, "0");
   const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+  const speed = () => 250 - level * 21;   // L1 229 ms ... L9 61 ms per step
 
   let actx = null;
   function beep(f, ms) {
     if (!sound) return;
-    try {
-      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-      const o = actx.createOscillator(), v = actx.createGain();
-      o.type = "square"; o.frequency.value = f; v.gain.value = 0.05;
-      o.connect(v); v.connect(actx.destination); o.start(); o.stop(actx.currentTime + ms / 1000);
-    } catch (e) {}
+    try { actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator(), v = actx.createGain(); o.type = "square"; o.frequency.value = f; v.gain.value = 0.05;
+      o.connect(v); v.connect(actx.destination); o.start(); o.stop(actx.currentTime + ms / 1000); } catch (e) {}
   }
   const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
 
+  function resize(regrid) {
+    const f = window.__gmFS.fit(cv);
+    view = { w: f.w, h: f.h, dpr: f.dpr };
+    if (regrid) { COLS = 15; cell = f.w / COLS; ROWS = Math.max(12, Math.floor(f.h / cell)); }
+    cell = Math.min(f.w / COLS, f.h / ROWS);
+    offX = (f.w - COLS * cell) / 2; offY = (f.h - ROWS * cell) / 2;
+  }
   function freeCell() {
     const busy = new Set(snake.map(p => p[0] + "," + p[1]));
-    if (bonus) busy.add(bonus.x + "," + bonus.y), busy.add((bonus.x + 1) + "," + bonus.y);
+    if (bonus) busy.add(bonus.x + "," + bonus.y);
     if (food) busy.add(food[0] + "," + food[1]);
-    for (let i = 0; i < 500; i++) {
-      const x = Math.floor(Math.random() * COLS), y = Math.floor(Math.random() * ROWS);
-      if (!busy.has(x + "," + y)) return [x, y];
-    }
+    for (let i = 0; i < 800; i++) { const x = Math.floor(Math.random() * COLS), y = Math.floor(Math.random() * ROWS); if (!busy.has(x + "," + y)) return [x, y]; }
     return null;
   }
   function labels() {
-    $("snakeScore").textContent = pad4(score || 0);
+    $("snakeScore").textContent = "★ " + (score || 0);
     $("snakeLvl").textContent = "L" + level;
-    $("snakeHi").textContent = "HI " + pad4(parseInt(ls.get(hiKey(), "0"), 10) || 0);
+    $("snakeHi").textContent = "HI " + (parseInt(ls.get(hiKey(), "0"), 10) || 0);
     $("snakeLvlTxt").textContent = "Level " + level;
     $("snakeWallsBtn").textContent = "Walls: " + (walls ? "ON" : "OFF");
     $("snakeSoundBtn").textContent = "Sound: " + (sound ? "ON" : "OFF");
-    $("snakePause").textContent = state === "pause" ? "▶" : "II";
+    $("snakePause").textContent = $("snakePause2").textContent = state === "pause" ? "▶" : "II";
   }
-  function block(x, y, s) {   // a pixel block with a small gap, like the old LCD
-    const p = s || 2;
-    g.fillRect(x * CELL + p, y * CELL + p, CELL - 2 * p, CELL - 2 * p);
-  }
-  function draw() {
-    g.fillStyle = BG; g.fillRect(0, 0, cv.width, cv.height);
-    g.fillStyle = INK;
-    if (walls) { g.lineWidth = 3; g.strokeStyle = INK; g.strokeRect(1.5, 1.5, cv.width - 3, cv.height - 3); }
-    if (food) {   // diamond
-      const cx = food[0] * CELL + CELL / 2, cy = food[1] * CELL + CELL / 2, r = CELL / 2 - 3;
-      g.beginPath(); g.moveTo(cx, cy - r); g.lineTo(cx + r, cy); g.lineTo(cx, cy + r); g.lineTo(cx - r, cy); g.closePath(); g.fill();
-    }
-    if (bonus) {   // two-cell "bug"
-      g.globalAlpha = bonus.t % 4 < 2 ? 1 : 0.55;
-      block(bonus.x, bonus.y, 4); block(bonus.x + 1, bonus.y, 4);
-      g.fillRect(bonus.x * CELL + 6, bonus.y * CELL + 2, CELL * 2 - 12, 3);
-      g.globalAlpha = 1;
-    }
-    (snake || []).forEach((p, i) => {
-      block(p[0], p[1], i === 0 ? 1 : 2);
-      if (i === 0) {   // eye
-        g.fillStyle = BG; g.fillRect(p[0] * CELL + CELL / 2 - 2 + dir[0] * 4, p[1] * CELL + CELL / 2 - 2 + dir[1] * 4, 4, 4); g.fillStyle = INK;
-      }
-    });
+  function reset() {
+    resize(true);
+    const y = Math.floor(ROWS / 2);
+    snake = [[6, y], [5, y], [4, y], [3, y], [2, y]]; prev = snake.map(p => p.slice());
+    dir = DIRS.right; queue = []; bonus = null; eaten = 0; score = 0; food = null; grow = 0; parts = []; deadT = 0;
+    food = freeCell();
   }
   function msg(title, text, btn) {
     $("snakeMsgTitle").textContent = title; $("snakeMsgText").textContent = text; $("snakeStart").textContent = btn;
-    $("snakeMsg").classList.remove("hidden");
+    $("snakeMsg").classList.remove("hidden"); labels();
   }
-  function reset() {
-    const y = Math.floor(ROWS / 2);
-    snake = [[6, y], [5, y], [4, y], [3, y]]; dir = DIRS.right; queue = []; bonus = null; eaten = 0; score = 0; food = null;
-    food = freeCell();
-  }
-  function speed() { return 250 - level * 21; }   // L1 229 ms ... L9 61 ms
-  function start() {
-    reset(); state = "run"; $("snakeMsg").classList.add("hidden"); labels(); draw();
-    clearTimeout(timer); timer = setTimeout(tick, speed());
-  }
+  function start() { reset(); state = "run"; $("snakeMsg").classList.add("hidden"); labels(); acc = 0; lastTick = performance.now(); kick(); }
   function over() {
-    state = "over"; clearTimeout(timer); buzz([90, 50, 90]); beep(160, 300);
+    state = "dying"; deadT = 28; buzz([90, 50, 90]); beep(160, 300);
     const hk = hiKey(), hi = parseInt(ls.get(hk, "0"), 10) || 0, best = score > hi;
     if (best) ls.set(hk, String(score));
-    labels(); draw();
-    msg("GAME OVER", (best ? "New high score! " : "") + "Score " + score, "PLAY AGAIN");
+    setTimeout(() => { state = "over"; labels(); msg("GAME OVER", (best ? "New high score! " : "") + "Score " + score, "PLAY AGAIN"); }, 700);
+  }
+  function burst(x, y, n, col) {
+    for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, s = 0.03 + Math.random() * 0.06;
+      parts.push({ x: x + 0.5, y: y + 0.5, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 20 + Math.random() * 15, col, r: 0.06 + Math.random() * 0.06 }); }
   }
   function tick() {
     if (state !== "run") return;
+    prev = snake.map(p => p.slice());
     if (queue.length) dir = queue.shift();
     let nx = snake[0][0] + dir[0], ny = snake[0][1] + dir[1];
     if (walls) { if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) return over(); }
     else { nx = (nx + COLS) % COLS; ny = (ny + ROWS) % ROWS; }
-    const grow = food && nx === food[0] && ny === food[1];
-    const body = grow ? snake : snake.slice(0, -1);
+    const eat = food && nx === food[0] && ny === food[1];
+    const body = (eat || grow > 0) ? snake : snake.slice(0, -1);
+    if (grow > 0 && !eat) grow--;
     if (body.some(p => p[0] === nx && p[1] === ny)) return over();
     snake = [[nx, ny]].concat(body);
-    if (grow) {
-      score += level; eaten++; buzz(15); beep(880, 40);
+    if (snake.length > prev.length) prev.push(prev[prev.length - 1].slice());   // new tail piece starts where the old tail was
+    if (eat) {
+      score += level; eaten++; buzz(15); beep(880, 40); burst(nx, ny, 12, "#ff5a4f");
       food = freeCell();
-      if (eaten % 5 === 0 && !bonus) {
-        let c = null; for (let i = 0; i < 50 && !c; i++) { const f = freeCell(); if (f && f[0] < COLS - 1 && !snake.some(p => p[0] === f[0] + 1 && p[1] === f[1])) c = f; }
-        if (c) bonus = { x: c[0], y: c[1], t: 40 };
-      }
+      if (eaten % 5 === 0 && !bonus) { const c = freeCell(); if (c) bonus = { x: c[0], y: c[1], t: 45 }; }
     }
     if (bonus) {
-      if (ny === bonus.y && (nx === bonus.x || nx === bonus.x + 1)) { score += bonus.t * level / 4 | 0 || level; bonus = null; buzz([20, 30, 20]); beep(1200, 80); }
+      if (nx === bonus.x && ny === bonus.y) { score += Math.max(level, (bonus.t * level / 4) | 0); grow += 2; bonus = null; buzz([20, 30, 20]); beep(1200, 80); burst(nx, ny, 18, "#ffd23f"); }
       else if (--bonus.t <= 0) bonus = null;
     }
-    if (!food) return over();   // board full
-    labels(); draw();
-    timer = setTimeout(tick, speed());
+    if (!food) return over();
+    labels();
   }
+  // ---------- drawing ----------
+  const P = (x, y) => [offX + (x + 0.5) * cell, offY + (y + 0.5) * cell];
+  // dirt ground like the photo: brown earth, mixed pebbles, a few leaves (pre-drawn once per size)
+  let groundCv = null, groundKey = "";
+  function drawGrass() {
+    const key = [view.w, view.h, view.dpr, COLS, ROWS, walls].join("|");
+    if (key !== groundKey) {
+      groundKey = key; groundCv = document.createElement("canvas");
+      groundCv.width = Math.round(view.w * view.dpr); groundCv.height = Math.round(view.h * view.dpr);
+      const t = groundCv.getContext("2d"); t.scale(view.dpr, view.dpr);
+      let seed = 11; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+      t.fillStyle = "#4a3624"; t.fillRect(0, 0, view.w, view.h);
+      const gw = COLS * cell, gh = ROWS * cell;
+      const base = t.createLinearGradient(0, offY, 0, offY + gh); base.addColorStop(0, "#8c6c4c"); base.addColorStop(1, "#7a5b3e");
+      t.fillStyle = base; t.fillRect(offX, offY, gw, gh);
+      for (let i = 0; i < gw * gh / 90; i++) {   // soil grain
+        t.fillStyle = rnd() < 0.5 ? "rgba(60,40,25,.25)" : "rgba(190,160,120,.22)";
+        t.fillRect(offX + rnd() * gw, offY + rnd() * gh, 1 + rnd() * 2, 1 + rnd() * 2);
+      }
+      for (let i = 0; i < COLS * ROWS * 0.9; i++) {   // pebbles
+        const x = offX + rnd() * gw, y = offY + rnd() * gh, r = cell * (0.05 + rnd() * 0.13), c = [[150, 135, 120], [120, 100, 85], [175, 150, 125], [95, 85, 80]][Math.floor(rnd() * 4)];
+        t.fillStyle = "rgba(0,0,0,.25)"; t.beginPath(); t.ellipse(x + r * 0.2, y + r * 0.3, r, r * 0.75, 0, 0, Math.PI * 2); t.fill();
+        const pg = t.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+        pg.addColorStop(0, `rgb(${c[0] + 40},${c[1] + 40},${c[2] + 40})`); pg.addColorStop(1, `rgb(${c[0]},${c[1]},${c[2]})`);
+        t.fillStyle = pg; t.beginPath(); t.ellipse(x, y, r, r * 0.75, rnd() * 3, 0, Math.PI * 2); t.fill();
+      }
+      for (let i = 0; i < COLS * ROWS * 0.04; i++) {   // small green leaves
+        const x = offX + rnd() * gw, y = offY + rnd() * gh, L = cell * (0.25 + rnd() * 0.25);
+        t.save(); t.translate(x, y); t.rotate(rnd() * 6.28); t.fillStyle = rnd() < 0.5 ? "rgba(90,140,60,.85)" : "rgba(130,110,60,.8)";
+        t.beginPath(); t.ellipse(0, 0, L, L * 0.42, 0, 0, Math.PI * 2); t.fill(); t.strokeStyle = "rgba(40,60,20,.5)"; t.lineWidth = 1;
+        t.beginPath(); t.moveTo(-L, 0); t.lineTo(L, 0); t.stroke(); t.restore();
+      }
+      t.fillStyle = "rgba(0,0,0,.035)";   // faint grid so the squares can still be judged
+      for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if ((x + y) % 2) t.fillRect(offX + x * cell, offY + y * cell, cell, cell);
+      if (walls) { t.strokeStyle = "#3e2a1a"; t.lineWidth = Math.max(4, cell * 0.25); t.strokeRect(offX, offY, gw, gh); }
+    }
+    g.drawImage(groundCv, 0, 0, view.w, view.h);
+  }
+  function drawApple(x, y) {
+    const [cx, cy] = P(x, y), r = cell * 0.36, bob = Math.sin(frame / 10) * cell * 0.03;
+    g.fillStyle = "rgba(0,0,0,.25)"; g.beginPath(); g.ellipse(cx, cy + r * 0.95, r * 0.8, r * 0.25, 0, 0, Math.PI * 2); g.fill();
+    const gr = g.createRadialGradient(cx - r * 0.35, cy - r * 0.35 + bob, r * 0.1, cx, cy + bob, r); gr.addColorStop(0, "#ff8a80"); gr.addColorStop(0.5, "#e53935"); gr.addColorStop(1, "#8e1414");
+    g.fillStyle = gr; g.beginPath(); g.arc(cx - r * 0.25, cy + bob, r * 0.8, 0, Math.PI * 2); g.arc(cx + r * 0.25, cy + bob, r * 0.8, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = "#5d4037"; g.lineWidth = Math.max(1.5, cell * 0.06); g.beginPath(); g.moveTo(cx, cy - r * 0.6 + bob); g.lineTo(cx + r * 0.1, cy - r * 1.05 + bob); g.stroke();
+    g.fillStyle = "#66bb6a"; g.beginPath(); g.ellipse(cx + r * 0.35, cy - r * 0.9 + bob, r * 0.32, r * 0.16, -0.5, 0, Math.PI * 2); g.fill();
+  }
+  function drawEgg(b) {
+    const [cx, cy] = P(b.x, b.y), r = cell * 0.4, blink = b.t < 12 && frame % 6 < 3;
+    if (blink) return;
+    g.shadowColor = "#ffe082"; g.shadowBlur = cell * 0.5;
+    const gr = g.createRadialGradient(cx - r * 0.3, cy - r * 0.4, r * 0.1, cx, cy, r * 1.1); gr.addColorStop(0, "#fffde7"); gr.addColorStop(0.6, "#ffd54f"); gr.addColorStop(1, "#c79100");
+    g.fillStyle = gr; g.beginPath(); g.ellipse(cx, cy, r * 0.75, r, 0, 0, Math.PI * 2); g.fill(); g.shadowBlur = 0;
+  }
+  function bodyPoints(t) {   // smooth positions of every piece between the last step and this one
+    const pts = [];
+    for (let i = 0; i < snake.length; i++) {
+      const a = prev[i] || snake[i], b = snake[i];
+      if (Math.abs(a[0] - b[0]) > 1 || Math.abs(a[1] - b[1]) > 1) pts.push({ x: b[0], y: b[1], jump: true });   // went through a side edge
+      else pts.push({ x: a[0] + (b[0] - a[0]) * t, y: a[1] + (b[1] - a[1]) * t });
+    }
+    return pts;
+  }
+  function drawSnake(t) {
+    const pts = bodyPoints(t), n = pts.length, dead = state === "dying";
+    const rad = i => cell * (0.44 - 0.3 * Math.pow(i / Math.max(1, n - 1), 1.5));
+    const C = dead ? { dark: "#6d5a4a", mid: "#8d7966", belly: "#b8a48f", shine: "#cbbcab", scale: "rgba(60,40,30,.35)" }
+                   : { dark: "#1c7a1e", mid: "#34a62c", belly: "#b8e04a", shine: "#8fe06a", scale: "rgba(10,70,15,.32)" };
+    g.lineCap = "round"; g.lineJoin = "round";
+    const ok = i => { const a = pts[i], b = pts[i + 1]; return b && !b.jump && !(a.jump && i > 0) && Math.abs(a.x - b.x) < 1.5 && Math.abs(a.y - b.y) < 1.5; };
+    const seg = (i, col, wmul, ox, oy) => {
+      if (!ok(i)) return; const [ax, ay] = P(pts[i].x, pts[i].y), [bx, by] = P(pts[i + 1].x, pts[i + 1].y);
+      g.strokeStyle = col; g.lineWidth = rad(i) * 2 * wmul; g.beginPath(); g.moveTo(ax + (ox || 0), ay + (oy || 0)); g.lineTo(bx + (ox || 0), by + (oy || 0)); g.stroke();
+    };
+    for (let i = n - 2; i >= 0; i--) seg(i, "rgba(0,0,0,.3)", 1.05, cell * 0.06, cell * 0.14);   // shadow on the ground
+    for (let i = n - 2; i >= 0; i--) seg(i, C.belly, 1, 0, cell * 0.07);                          // yellow-green underside showing at the lower edge
+    for (let i = n - 2; i >= 0; i--) seg(i, C.dark, 0.94, 0, -cell * 0.02);                       // body
+    for (let i = n - 2; i >= 0; i--) seg(i, C.mid, 0.66, 0, -cell * 0.04);
+    // small overlapping scales along the body
+    g.strokeStyle = C.scale; g.lineWidth = Math.max(0.8, cell * 0.035);
+    for (let i = 0; i < n - 1; i++) {
+      if (!ok(i)) continue;
+      const a = pts[i], b = pts[i + 1], ang = Math.atan2(b.y - a.y, b.x - a.x), r = rad(i);
+      for (const k of [0.2, 0.55, 0.9]) {
+        const [x, y] = P(a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k);
+        g.save(); g.translate(x, y - cell * 0.03); g.rotate(ang);
+        for (const o of [-0.55, 0, 0.55]) { g.beginPath(); g.arc(-r * 0.12, o * r, r * 0.24, -1.1, 1.1); g.stroke(); }
+        g.restore();
+      }
+    }
+    for (let i = n - 2; i >= 0; i--) seg(i, "rgba(220,255,200,.35)", 0.22, -cell * 0.03, -cell * 0.13);   // glossy shine
+    // head: long, bright green, yellow lips, big round eye with a golden ring, black forked tongue
+    const h = pts[0], [hx, hy] = P(h.x, h.y), ang = Math.atan2(dir[1], dir[0]), r = cell * 0.5;
+    g.save(); g.translate(hx, hy); g.rotate(ang);
+    if (!dead && frame % 45 < 12) {
+      g.strokeStyle = "#111"; g.lineWidth = Math.max(1.4, cell * 0.06); const L = r * (0.9 + 0.35 * Math.sin(frame * 0.9));
+      g.beginPath(); g.moveTo(r * 1.0, 0); g.lineTo(r * 1.0 + L, 0); g.lineTo(r * 1.0 + L + r * 0.3, -r * 0.2); g.moveTo(r * 1.0 + L, 0); g.lineTo(r * 1.0 + L + r * 0.3, r * 0.2); g.stroke();
+    }
+    g.fillStyle = "rgba(0,0,0,.3)"; g.beginPath(); g.ellipse(r * 0.2 + cell * 0.04, cell * 0.12, r * 1.0, r * 0.66, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = C.belly; g.beginPath(); g.ellipse(r * 0.2, r * 0.06, r * 1.0, r * 0.64, 0, 0, Math.PI * 2); g.fill();          // lips / jaw
+    const hg = g.createRadialGradient(r * 0.1, -r * 0.25, r * 0.1, r * 0.2, 0, r * 1.1); hg.addColorStop(0, dead ? "#bcaaa4" : "#7ee05a"); hg.addColorStop(1, C.dark);
+    g.fillStyle = hg; g.beginPath(); g.ellipse(r * 0.15, -r * 0.03, r * 0.95, r * 0.56, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "rgba(255,255,255,.28)"; g.beginPath(); g.ellipse(r * 0.05, -r * 0.18, r * 0.5, r * 0.14, 0, 0, Math.PI * 2); g.fill();
+    [-1, 1].forEach(sd => {
+      const ex = r * 0.5, ey = sd * r * 0.4, er = r * 0.22;
+      g.fillStyle = dead ? "#8d7966" : "#c9a227"; g.beginPath(); g.arc(ex, ey, er, 0, Math.PI * 2); g.fill();      // golden ring
+      if (dead) { g.strokeStyle = "#2b1d14"; g.lineWidth = 2; g.beginPath(); g.moveTo(ex - er * 0.7, ey - er * 0.7); g.lineTo(ex + er * 0.7, ey + er * 0.7); g.moveTo(ex + er * 0.7, ey - er * 0.7); g.lineTo(ex - er * 0.7, ey + er * 0.7); g.stroke(); }
+      else { g.fillStyle = "#0b0b0b"; g.beginPath(); g.arc(ex + er * 0.08, ey, er * 0.74, 0, Math.PI * 2); g.fill();
+             g.fillStyle = "rgba(255,255,255,.9)"; g.beginPath(); g.arc(ex - er * 0.2, ey - er * 0.3, er * 0.22, 0, Math.PI * 2); g.fill(); }
+    });
+    g.fillStyle = "rgba(0,0,0,.55)"; g.beginPath(); g.arc(r * 1.0, -r * 0.14, r * 0.045, 0, Math.PI * 2); g.arc(r * 1.0, r * 0.14, r * 0.045, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+  function draw() {
+    if (!snake) return;
+    const t = state === "run" ? Math.min(1, (performance.now() - lastTick) / speed()) : 1;
+    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+    drawGrass();
+    if (food) drawApple(food[0], food[1]);
+    if (bonus) drawEgg(bonus);
+    drawSnake(t);
+    parts.forEach(p => { g.globalAlpha = Math.min(1, p.life / 15); g.fillStyle = p.col; const [x, y] = [offX + p.x * cell, offY + p.y * cell]; g.beginPath(); g.arc(x, y, p.r * cell, 0, Math.PI * 2); g.fill(); });
+    g.globalAlpha = 1;
+    if (state === "dying" && deadT > 0) { g.fillStyle = `rgba(255,0,0,${deadT / 90})`; g.fillRect(0, 0, view.w, view.h); }
+  }
+  function loop(now) {
+    raf = null;
+    if (ov.classList.contains("hidden")) return;
+    frame++;
+    if (state === "run") {
+      acc += Math.min(250, now - (lastT || now));
+      const sp = speed();
+      while (acc >= sp) { acc -= sp; tick(); lastTick = now - acc; if (state !== "run") break; }
+    }
+    lastT = now;
+    if (deadT > 0) deadT--;
+    parts.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; }); parts = parts.filter(p => p.life > 0);
+    draw();
+    raf = requestAnimationFrame(loop);
+  }
+  function kick() { if (!raf) { lastT = 0; raf = requestAnimationFrame(loop); } }
   function turn(name) {
     const d = DIRS[name]; if (!d) return;
-    if (state === "menu" || state === "over") return;
+    if (state === "menu" || state === "over" || state === "dying") return;
     if (state === "pause") togglePause();
     const last = queue.length ? queue[queue.length - 1] : dir;
-    if ((d[0] === -last[0] && d[1] === -last[1]) || (d[0] === last[0] && d[1] === last[1])) return;   // no reversing into itself
+    if ((d[0] === -last[0] && d[1] === -last[1]) || (d[0] === last[0] && d[1] === last[1])) return;
     if (queue.length < 2) queue.push(d);
   }
   function togglePause() {
-    if (state === "run") { state = "pause"; clearTimeout(timer); msg("PAUSED", "Score " + score, "CONTINUE"); }
-    else if (state === "pause") { state = "run"; $("snakeMsg").classList.add("hidden"); timer = setTimeout(tick, speed()); }
+    if (state === "run") { state = "pause"; msg("PAUSED", "Score " + score, "CONTINUE"); }
+    else if (state === "pause") { state = "run"; $("snakeMsg").classList.add("hidden"); acc = 0; lastTick = performance.now(); kick(); }
     labels();
   }
   function open() {
-    ov.classList.remove("hidden");
-    if (state === "run") togglePause();
-    if (state === "menu" || !snake) { reset(); state = "menu"; msg("SNAKE", "Swipe or use the arrows", "START"); }
-    labels(); draw();
+    ov.classList.remove("hidden"); window.__gmFS.enter();
+    requestAnimationFrame(() => {
+      if (state === "run") togglePause();
+      if (!snake) { reset(); state = "menu"; msg("🐍 SNAKE", "Swipe or use the arrows. Eat 🍎 to grow, catch the golden egg for bonus.", "START"); }
+      else resize(false);
+      labels(); kick();
+    });
   }
-  function close() { if (state === "run") togglePause(); ov.classList.add("hidden"); }
+  function close() { if (state === "run") togglePause(); ov.classList.add("hidden"); window.__gmFS.exit(); }
   window.openSnakeGame = open;
 
   $("snakeClose").addEventListener("click", close);
   $("snakeStart").addEventListener("click", () => { if (state === "pause") togglePause(); else start(); });
-  $("snakePause").addEventListener("click", () => { if (state === "run" || state === "pause") togglePause(); else start(); });
+  const pz = () => { if (state === "run" || state === "pause") togglePause(); else if (state !== "dying") start(); };
+  $("snakePause").addEventListener("click", pz); $("snakePause2").addEventListener("click", pz);
   $("snakeLvlDown").addEventListener("click", () => { level = Math.max(1, level - 1); ls.set("snakeLevel", level); labels(); });
   $("snakeLvlUp").addEventListener("click", () => { level = Math.min(9, level + 1); ls.set("snakeLevel", level); labels(); });
-  $("snakeWallsBtn").addEventListener("click", () => { walls = !walls; ls.set("snakeWalls", walls ? "1" : "0"); labels(); draw(); });
+  $("snakeWallsBtn").addEventListener("click", () => { walls = !walls; ls.set("snakeWalls", walls ? "1" : "0"); labels(); });
   $("snakeSoundBtn").addEventListener("click", () => { sound = !sound; ls.set("snakeSound", sound ? "1" : "0"); labels(); if (sound) beep(660, 60); });
-  ov.querySelectorAll(".snkPad button[data-d]").forEach(b => b.addEventListener("pointerdown", e => { e.preventDefault(); turn(b.dataset.d); }));
-  // swipe anywhere on the screen of the phone
+  ov.querySelectorAll(".gmCtl button[data-d]").forEach(b => {
+    b.addEventListener("pointerdown", e => { e.preventDefault(); turn(b.dataset.d); b.classList.add("on"); });
+    ["pointerup", "pointercancel", "pointerleave"].forEach(t => b.addEventListener(t, () => b.classList.remove("on")));
+    b.addEventListener("contextmenu", e => e.preventDefault());
+  });
   let sw = null;
-  ov.addEventListener("pointerdown", e => { if (e.target.closest("button")) return; sw = { x: e.clientX, y: e.clientY }; });
-  ov.addEventListener("pointermove", e => {
+  const stage = $("snakeStage");
+  stage.addEventListener("pointerdown", e => { if (e.target.closest("button")) return; sw = { x: e.clientX, y: e.clientY }; });
+  stage.addEventListener("pointermove", e => {
     if (!sw) return;
     const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
     if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
     turn(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"));
     sw = { x: e.clientX, y: e.clientY };
   });
-  ["pointerup", "pointercancel", "pointerleave"].forEach(t => ov.addEventListener(t, () => { sw = null; }));
+  ["pointerup", "pointercancel", "pointerleave"].forEach(t => stage.addEventListener(t, () => { sw = null; }));
   document.addEventListener("keydown", e => {
     if (ov.classList.contains("hidden")) return;
     const k = e.key, map = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", w: "up", s: "down", a: "left", d: "right", "2": "up", "8": "down", "4": "left", "6": "right" };
     if (map[k] || map[String(k).toLowerCase()]) { e.preventDefault(); turn(map[k] || map[String(k).toLowerCase()]); }
-    else if (k === " " || k === "5" || k === "Enter") { e.preventDefault(); if (state === "run" || state === "pause") togglePause(); else start(); }
+    else if (k === " " || k === "5" || k === "Enter") { e.preventDefault(); pz(); }
     else if (k === "Escape") close();
   });
   document.addEventListener("visibilitychange", () => { if (document.hidden && state === "run") togglePause(); });
+  window.addEventListener("resize", () => { if (!ov.classList.contains("hidden") && snake) resize(false); });
+  document.addEventListener("fullscreenchange", () => { if (!ov.classList.contains("hidden") && snake) setTimeout(() => resize(state === "menu"), 60); });
 
-  // offline: the red banner offers the game
+  // offline: the red banner offers the games
   const ban = document.getElementById("offlineBanner");
   if (ban && !ban.querySelector(".snkOfflineBtn")) {
     const b = document.createElement("button"); b.type = "button"; b.className = "snkOfflineBtn"; b.textContent = "🐍 Play Snake";
     b.addEventListener("click", open); ban.appendChild(b);
   }
+  window.__snTest = { get state() { return state; }, get score() { return score; }, get snake() { return snake; }, get grid() { return [COLS, ROWS]; }, setFood: (x, y) => { food = [x, y]; } };
 })();
 </script>
 
@@ -6236,9 +6336,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.30.7";
+const APP_VERSION = "2026.10.30.9";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🐍 Snake: full screen, a real-looking green snake (fine scales, yellow belly, golden eyes, forked tongue) that slides smoothly on dirt ground, apples to eat and a golden bonus egg",
   "⛏️ Diamond Mine: miner a little shorter and stockier",
   "⛏️ Diamond Mine: the miner is now your miner boy picture (with lamp light, walking bob, faces left/right)",
   "🎮 Ball Jump & Diamond Mine: full screen, new graphics (sky, hills, grass, glowing stars/diamonds, miner with lamp), smooth movement and easier jumps",
