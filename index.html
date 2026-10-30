@@ -2709,6 +2709,15 @@
   .stdItem summary::before{ content:"▸"; color:var(--gold); }
   .stdItem[open] summary::before{ content:"▾"; }
   .stdNo{ font-weight:700; color:var(--gold); white-space:nowrap; }
+  body.theme-light .stdNo, body.theme-light .stdItem summary::before{ color:var(--ink); }   /* gold on light themes was unreadable */
+  /* SOP / WI: material groups (Steel, Sponge iron ...) - closed by default, tap to see their WIs */
+  .sopCat{ border:1px solid rgba(128,128,128,.35); border-radius:12px; margin:0 0 10px; background:rgba(128,128,128,.08); overflow:hidden; }
+  .sopCat > summary{ cursor:pointer; list-style:none; display:flex; align-items:center; gap:10px; padding:14px 14px; font-weight:700; font-size:16px; color:var(--ink); }
+  .sopCat > summary::-webkit-details-marker{ display:none; }
+  .sopCat > summary::after{ content:"▸"; margin-left:auto; color:var(--muted); transition:transform .2s; }
+  .sopCat[open] > summary::after{ transform:rotate(90deg); }
+  .sopCat > summary .sopCatN{ font-weight:400; font-size:12px; color:var(--muted); }
+  .sopCatBody{ padding:0 10px 4px; }
   .stdTitle{ font-size:13px; color:var(--ink); }
   .stdBody{ padding:2px 14px 12px; font-size:13px; color:var(--ink); }
   .stdBody h4{ margin:10px 0 4px; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
@@ -5307,9 +5316,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.30.1";
+const APP_VERSION = "2026.10.30.2";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📂 SOP / WI tab now shows only the groups (Steel, Sponge iron, Coal ...) - tap a group to see its SOP / WI; search opens the matching groups. WI numbers readable on light themes",
   "🧪 New DM/QA/WI/16 - SiO₂ in Sponge Iron, gravimetric (IS 1493 Part 1 : 2025, cl. 8), English + Hindi; WI numbers after it moved up by one (WI/17 to WI/62)",
   "🐞 Kashvi sticker stays where you put it - it no longer jumps to another place after opening and closing Kashvi (moves only when you drag it)",
   "📚 DM/QA/WI/12 (Fe(M) HgCl₂): reference added - A Text Book of Metallurgical Analysis, B. C. Aggarwal & S. P. Jain (Khanna Publishers)",
@@ -14638,11 +14648,17 @@ function renderSopList() {
   const list = SOP_LIST.filter(x => !q || (x.no + " " + sopPlainText(x)).toLowerCase().includes(q));
   if (!list.length) { box.innerHTML = `<div style="color:var(--muted);font-size:13px;">${SOP_LIST.length ? `No SOP / WI matches "${_escH(q)}".` : "No SOP added yet."}</div>`; return; }
   const cats = [...new Set(list.map(x => x.cat))];
-  box.innerHTML = cats.map(c => `<h3 style="margin:14px 0 6px;font-size:15px;">${_escH(c)} <span style="font-weight:400;font-size:12px;opacity:.7">(${list.filter(x => x.cat === c).length})</span></h3>` + list.filter(x => x.cat === c).map(x => `
+  const openCats = window.__sopOpenCats || (window.__sopOpenCats = new Set());
+  // only the material groups show; tap one to see its SOP / WI. While searching, groups with a match open by themselves.
+  box.innerHTML = cats.map(c => `<details class="sopCat" data-cat="${_escH(c)}"${q || openCats.has(c) ? " open" : ""}>
+    <summary>${_escH(c)} <span class="sopCatN">(${list.filter(x => x.cat === c).length})</span></summary><div class="sopCatBody">` + list.filter(x => x.cat === c).map(x => `
     <details class="stdItem sopItem" data-id="${x.id}">
       <summary><span class="stdNo">${_escH(x.no)}</span><span class="stdTitle" lang="${lang}">${sopMk(sopDocOf(x, lang).title)}</span></summary>
       <div class="stdBody"></div>
-    </details>`).join("")).join("");
+    </details>`).join("") + `</div></details>`).join("");
+  if (!q) box.querySelectorAll(".sopCat").forEach(d => d.addEventListener("toggle", () => {
+    if (d.open) openCats.add(d.dataset.cat); else openCats.delete(d.dataset.cat);
+  }));
   box.querySelectorAll(".sopItem").forEach(d => d.addEventListener("toggle", () => {
     const body = d.querySelector(".stdBody");
     if (d.open && !body.dataset.done) { body.innerHTML = sopDetailHtml(d.dataset.id); body.dataset.done = "1"; }
