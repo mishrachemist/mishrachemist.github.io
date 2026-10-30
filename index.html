@@ -3845,7 +3845,7 @@ window.__gmFS = {
     lg.addColorStop(0, "rgba(255,250,200,.18)"); lg.addColorStop(1, "rgba(255,250,200,0)"); g.fillStyle = lg; g.fillRect(cx - s * 1.2, Y - s, s * 3.6, s * 3);
   }
   function drawMinerImg(X, Y, s) {
-    const cx = X + s / 2, hgt = s * 1.18, wid = hgt * minerImg.width / minerImg.height;
+    const cx = X + s / 2, hgt = s * 1.02, wid = hgt * minerImg.width / minerImg.height * 1.3;   // a bit shorter and wider (stockier) than the picture
     const moving = (px !== ppx || py !== ppy) && (performance.now() - lastTick) < TICK;
     const bob = moving ? Math.abs(Math.sin((performance.now() - lastTick) / TICK * Math.PI)) * s * 0.06 : 0;
     // lamp light ahead
@@ -6236,9 +6236,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.30.6";
+const APP_VERSION = "2026.10.30.7";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "⛏️ Diamond Mine: miner a little shorter and stockier",
   "⛏️ Diamond Mine: the miner is now your miner boy picture (with lamp light, walking bob, faces left/right)",
   "🎮 Ball Jump & Diamond Mine: full screen, new graphics (sky, hills, grass, glowing stars/diamonds, miner with lamp), smooth movement and easier jumps",
   "🎮 Menu → Games: Snake + 2 new offline games - Ball Jump (roll & jump, 3 levels) and Diamond Mine (dig for diamonds, falling rocks, 3 mines)",
