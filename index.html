@@ -3449,6 +3449,10 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
   .mineCtl .dpad{ display:grid; grid-template-columns:repeat(3, 68px); grid-template-rows:repeat(3, 62px); gap:6px; }
   .mineCtl .dpad button{ width:100%; height:100%; border-radius:16px; font-size:24px; }
   .mineCtl .dpad .c{ font-size:12px; border-radius:50%; }
+  .mineCtl .bombBtn{ width:74px; height:74px; margin-left:16px; font-size:26px; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1; }
+  .mineCtl .bombBtn span{ font-size:13px; margin-top:2px; }
+  .mineCtl .bombBtn:disabled{ opacity:.35; }
+  .gmHud .pill{ padding:4px 8px; font-size:13px; }
 </style>
 <div id="ballOverlay" class="gmOv gmFull hidden" role="dialog" aria-label="Ball Jump">
   <div class="gmHud">
@@ -3474,7 +3478,7 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
 <div id="mineOverlay" class="gmOv gmFull hidden" role="dialog" aria-label="Diamond Mine">
   <div class="gmHud">
     <button type="button" id="mineClose" aria-label="Close">✕</button>
-    <span class="pill" id="dmLevel">MINE 1</span><span class="pill" id="dmGems">💎 0/0</span>
+    <span class="pill" id="dmLevel">MINE 1</span><span class="pill" id="dmGems">💎 0/0</span><span class="pill" id="dmTime">⏱ 0:00</span><span class="pill" id="dmPow" style="display:none"></span>
     <span class="sp"></span><button type="button" id="dmRestart" aria-label="Restart">↻</button><button type="button" id="dmPauseBtn" aria-label="Pause">II</button>
   </div>
   <div class="gmStage" id="dmStage">
@@ -3493,6 +3497,7 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
       <button type="button" data-d="left" aria-label="Left">◀</button><button type="button" class="c" data-d="wait">WAIT</button><button type="button" data-d="right" aria-label="Right">▶</button>
       <span></span><button type="button" data-d="down" aria-label="Down">▼</button><span></span>
     </div>
+    <button type="button" id="dmBombBtn" class="bombBtn" aria-label="Drop bomb" disabled>💣<span id="dmBombN">0</span></button>
   </div>
 </div>
 
@@ -3787,13 +3792,16 @@ window.__gmFS = {
   window.__bjTest = { keys, get ball() { return ball; }, get state() { return state; }, get got() { return got; }, load: i => { load(i); } };
 })();
 
-/* ===== Diamond Mine: dig, collect diamonds, mind the falling rocks (original levels), full screen + smooth moves ===== */
+/* ===== Diamond Mine: 100 mines (3 hand-made + 97 generated), ghosts, power-ups, bombs, time limit; full screen + smooth moves ===== */
 (function diamondMine() {
   const ov = document.getElementById("mineOverlay"), cv = document.getElementById("mineCanvas"); if (!ov || !cv) return;
   const g = cv.getContext("2d"), $ = id => document.getElementById(id);
   const TICK = 135;
   const ls = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
-  let unlocked = Math.min(DM_LEVELS.length, Math.max(1, parseInt(ls.get("dmUnlocked", "1"), 10) || 1));
+  const TOTAL = 100;
+  let unlocked = Math.min(TOTAL, Math.max(1, parseInt(ls.get("dmUnlocked", "1"), 10) || 1));
+  let pick = 1;   // mine chosen on the menu
+  let ghosts = [], bombs = [], power = { star: 0, freeze: 0 }, bombCount = 0, timeLeft = 0, ghostEvery = 3, chase = 0.4, deathWhy = "", gStep = 0, pushT = 0, walkDir = 0;
   let lvl = 0, m, fall, W, H, px, py, ppx, ppy, need, got, state = "menu", held = null, pending = null, deadT = 0, frame = 0;
   let from = {}, lastTick = 0, raf = null, acc = 0, lastT = 0, view = { w: 384, h: 384, dpr: 1, ts: 40 }, cam = { x: 0, y: 0 }, parts = [], shake = 0, face = 1, walk = 0;
   const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
@@ -3825,6 +3833,80 @@ window.__gmFS = {
     });
   })();
 
+  // ---------- generated mines (same mine number always gives the same layout) ----------
+  function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function settle(mm) {   // let loose rocks / diamonds fall before play starts
+    const Hh = mm.length, Ww = mm[0].length, obj = c => c === "o" || c === "*";
+    for (let it = 0; it < 80; it++) {
+      let movedAny = false; const moved = mm.map(r => r.map(() => false));
+      for (let y = Hh - 2; y >= 1; y--) for (let x = 1; x < Ww - 1; x++) {
+        const c = mm[y][x]; if (!obj(c) || moved[y][x]) continue;
+        const b = mm[y + 1][x], put = (nx, ny) => { mm[ny][nx] = c; mm[y][x] = " "; moved[ny][nx] = true; movedAny = true; };
+        if (b === " ") put(x, y + 1);
+        else if (obj(b)) { if (mm[y][x - 1] === " " && mm[y + 1][x - 1] === " ") put(x - 1, y); else if (mm[y][x + 1] === " " && mm[y + 1][x + 1] === " ") put(x + 1, y); }
+      }
+      if (!movedAny) break;
+    }
+  }
+  function genLevel(n) {
+    for (let attempt = 0; attempt < 60; attempt++) {
+      const r = rng(n * 7919 + attempt * 104729 + 17), ri = (a, b) => a + Math.floor(r() * (b - a + 1));
+      const Ww = Math.min(40, 20 + Math.floor(n / 4)), Hh = Math.min(26, 12 + Math.floor(n / 6));
+      const mm = []; for (let y = 0; y < Hh; y++) { mm.push([]); for (let x = 0; x < Ww; x++) mm[y].push(x === 0 || y === 0 || x === Ww - 1 || y === Hh - 1 ? "W" : "."); }
+      const inside = (x, y) => x > 0 && y > 0 && x < Ww - 1 && y < Hh - 1;
+      for (let i = 0; i < Math.floor(n / 7); i++) {   // steel wall pieces
+        const hor = r() < 0.6, L = ri(3, Math.max(4, Math.floor((hor ? Ww : Hh) / 3))), x0 = ri(2, Ww - 3), y0 = ri(3, Hh - 3);
+        for (let k = 0; k < L; k++) { const x = hor ? x0 + k : x0, y = hor ? y0 : y0 + k; if (inside(x, y) && x < Ww - 2 && y < Hh - 2) mm[y][x] = "W"; }
+      }
+      const caves = [];
+      for (let i = 0; i < 1 + Math.floor(n / 10); i++) {   // empty caves (where ghosts live)
+        const w = ri(3, 6), h = ri(2, 3), x0 = ri(2, Ww - w - 2), y0 = ri(4, Hh - h - 2);
+        for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) mm[y][x] = " ";
+        caves.push([x0, y0, w, h]);
+      }
+      const bd = Math.min(0.17, 0.07 + n * 0.0011);
+      for (let y = 1; y < Hh - 1; y++) for (let x = 1; x < Ww - 1; x++) if (mm[y][x] === "." && r() < bd) mm[y][x] = "o";
+      const nd = Math.min(45, 10 + Math.floor(n * 0.35)); let placed = 0, guard = 0;
+      while (placed < nd && guard++ < 5000) { const x = ri(1, Ww - 2), y = ri(1, Hh - 2); if (mm[y][x] === ".") { mm[y][x] = "*"; placed++; } }
+      // player top-left, exit bottom-right
+      const px0 = ri(1, 3), py0 = ri(1, 2);
+      for (let y = py0 - 1; y <= py0 + 1; y++) for (let x = px0 - 1; x <= px0 + 1; x++) if (inside(x, y)) mm[y][x] = ".";
+      mm[py0][px0] = "P";
+      const ex = ri(Math.floor(Ww * 0.6), Ww - 2), ey = ri(Math.floor(Hh * 0.6), Hh - 2); mm[ey][ex] = "X";
+      settle(mm);
+      if (mm[py0 - 1] && (mm[py0 - 1][px0] === "o" || mm[py0 - 1][px0] === "*")) mm[py0 - 1][px0] = ".";
+      // power-ups: S star, F freeze, B bomb, T time
+      const items = [];
+      if (n % 2 === 0 || n > 30) items.push("S");
+      if (n >= 6) items.push("F");
+      items.push("B"); if (n >= 20) items.push("B");
+      if (n >= 10) items.push("T");
+      items.forEach(c => { let g2 = 0; while (g2++ < 500) { const x = ri(1, Ww - 2), y = ri(1, Hh - 2); if (mm[y][x] === "." && Math.abs(x - px0) + Math.abs(y - py0) > 5) { mm[y][x] = c; break; } } });
+      // ghosts in caves, far from the player
+      const ng = n < 4 ? 0 : Math.min(7, 1 + Math.floor((n - 4) / 10));
+      let gp = 0;
+      for (let k = 0; k < 400 && gp < ng; k++) {
+        const cv2 = caves[k % caves.length]; if (!cv2) break;
+        const x = cv2[0] + ri(0, cv2[2] - 1), y = cv2[1] + ri(0, cv2[3] - 1);
+        if (mm[y][x] === " " && Math.abs(x - px0) + Math.abs(y - py0) >= 9) { mm[y][x] = "g"; gp++; }
+      }
+      // check: exit and enough diamonds can be reached by digging
+      let count = 0; mm.forEach(row => row.forEach(c => { if (c === "*") count++; }));
+      const need2 = Math.max(1, Math.floor(count * 0.85));
+      const seen = new Set([px0 + "," + py0]), q = [[px0, py0]]; let reachD = 0, reachX = false;
+      while (q.length) { const [x, y] = q.shift(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, k2 = nx + "," + ny;
+        if (!inside(nx, ny) || seen.has(k2) || mm[ny][nx] === "W") continue; seen.add(k2); q.push([nx, ny]); if (mm[ny][nx] === "*") reachD++; if (mm[ny][nx] === "X") reachX = true; } }
+      if (!reachX || reachD < need2 || gp < ng) continue;
+      const time = Math.round(70 + count * 3.5 + Ww * Hh / 9);
+      return { rows: mm.map(r2 => r2.join("")), need: need2, time };
+    }
+    return { rows: DM_LEVELS[(n - 1) % DM_LEVELS.length], need: 0, time: 200 };
+  }
+  function getLevel(i) {   // i = 0 based
+    if (i < DM_LEVELS.length) { let c = 0; DM_LEVELS[i].forEach(r => { for (const ch of r) if (ch === "*") c++; }); return { rows: DM_LEVELS[i], need: c, time: [150, 220, 260][i] || 200 }; }
+    return genLevel(i + 1);
+  }
+
   function resize() {
     const f = window.__gmFS.fit(cv);
     const ts = Math.max(30, Math.min(64, Math.floor(f.w / 10)));
@@ -3832,31 +3914,63 @@ window.__gmFS = {
     if (m) { snapCam(); draw(); }
   }
   function load(i) {
-    lvl = i; m = DM_LEVELS[i].map(r => r.split("")); H = m.length; W = m[0].length;
-    fall = m.map(r => r.map(() => false)); need = 0; got = 0; deadT = 0; held = null; pending = null; from = {}; parts = []; shake = 0;
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (m[y][x] === "P") { px = x; py = y; } if (m[y][x] === "*") need++; }
+    const L = getLevel(i);
+    lvl = i; pick = i + 1; m = L.rows.map(r => r.split("")); H = m.length; W = m[0].length;
+    fall = m.map(r => r.map(() => false)); got = 0; deadT = 0; held = null; pending = null; from = {}; parts = []; shake = 0;
+    ghosts = []; bombs = []; power = { star: 0, freeze: 0 }; bombCount = 0; deathWhy = "";
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (m[y][x] === "P") { px = x; py = y; }
+      if (m[y][x] === "g") { m[y][x] = " "; ghosts.push({ x, y, fx: x, fy: y, d: [1, 0], c: ghosts.length % 3 }); }
+    }
+    need = L.need; timeLeft = L.time; gStep = 0;
+    const n = i + 1;
+    ghostEvery = n < 15 ? 3 : n < 40 ? 2 : n < 75 ? 1.5 : 1;
+    chase = Math.min(0.85, 0.35 + n * 0.006);
     ppx = px; ppy = py; hud(); snapCam();
   }
-  function hud() { $("dmLevel").textContent = "MINE " + (lvl + 1); $("dmGems").textContent = "💎 " + got + "/" + need; }
+  function hud() {
+    $("dmLevel").textContent = "MINE " + (lvl + 1); $("dmGems").textContent = "💎 " + got + "/" + need;
+    const tl = Math.max(0, Math.ceil(timeLeft)); $("dmTime").textContent = "⏱ " + Math.floor(tl / 60) + ":" + String(tl % 60).padStart(2, "0");
+    $("dmTime").style.color = tl <= 15 ? "#ff6b6b" : "";
+    const pw = []; if (power.star > 0) pw.push("⭐ " + Math.ceil(power.star * TICK / 1000)); if (power.freeze > 0) pw.push("❄ " + Math.ceil(power.freeze * TICK / 1000));
+    $("dmPow").textContent = pw.join("  "); $("dmPow").style.display = pw.length ? "" : "none";
+    $("dmBombN").textContent = bombCount; $("dmBombBtn").disabled = !bombCount;
+  }
+  const ghostAt = (x, y) => ghosts.find(gh => gh.x === x && gh.y === y);
+  function killGhost(gh, why) {
+    ghosts = ghosts.filter(o => o !== gh); sparkle(gh.x, gh.y, 22, why === "eat" ? "#ffd54a" : "#b388ff"); buzz([20, 30, 40]);
+    // a crushed or blown-up ghost leaves a diamond behind (in its cell or next to it)
+    for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, -1], [0, 1]]) { const x = gh.x + dx, y = gh.y + dy; if (m[y] && m[y][x] === " ") { m[y][x] = "*"; fall[y][x] = false; break; } }
+  }
+  function hitCheck() {
+    const gh = ghostAt(px, py); if (!gh) return;
+    if (power.star > 0) killGhost(gh, "eat"); else die("ghost");
+  }
   const isObj = c => c === "o" || c === "*";
+  const ITEM = { S: 1, F: 1, B: 1, T: 1 };
   function sparkle(x, y, n, col) {
     for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, s = 0.02 + Math.random() * 0.05;
       parts.push({ x: x + 0.5, y: y + 0.5, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 22 + Math.random() * 14, col, r: 0.05 + Math.random() * 0.05 }); }
   }
   function movePlayer(d) {
     const [dx, dy] = DIRS[d] || [0, 0]; if (!dx && !dy) return;
-    if (dx) face = dx;
+    if (dx) face = dx; walkDir = dx;
     const nx = px + dx, ny = py + dy, c = m[ny][nx];
-    if (c === "." || c === " " || c === "*" || (c === "X" && got >= need)) {
+    if (c === "." || c === " " || c === "*" || ITEM[c] || (c === "X" && got >= need)) {
       if (c === "*") { got++; buzz(12); hud(); sparkle(nx, ny, 14, "#7ff3ff"); }
+      if (c === "S") { power.star = Math.round(10000 / TICK); sparkle(nx, ny, 20, "#ffd54a"); buzz([15, 20, 15]); }
+      if (c === "F") { power.freeze = Math.round(7000 / TICK); sparkle(nx, ny, 20, "#80deea"); buzz([15, 20, 15]); }
+      if (c === "B") { bombCount++; sparkle(nx, ny, 14, "#ffab40"); buzz(15); }
+      if (c === "T") { timeLeft += 30; sparkle(nx, ny, 16, "#b9f6ca"); buzz(15); }
       if (c === ".") sparkle(nx, ny, 6, "#a8743f");
       m[py][px] = " "; fall[py][px] = false; walk++;
       if (c === "X") { m[ny][nx] = "P"; px = nx; py = ny; return win(); }
       m[ny][nx] = "P"; fall[ny][nx] = false; px = nx; py = ny;
+      hitCheck();
     } else if (c === "o" && dy === 0 && m[ny][nx + dx] === " " && !fall[ny][nx]) {
       m[ny][nx + dx] = "o"; fall[ny][nx + dx] = false; from[(nx + dx) + "," + ny] = [nx, ny];
-      m[ny][nx] = "P"; m[py][px] = " "; px = nx; py = ny; walk++;
-    }
+      m[ny][nx] = "P"; m[py][px] = " "; px = nx; py = ny; walk++; pushT = 3;
+    } else if (c === "o" && dy === 0) { pushT = 2; }   // pushing against a rock that cannot move: show the effort
   }
   function physics() {
     const moved = m.map(r => r.map(() => false));
@@ -3865,34 +3979,83 @@ window.__gmFS = {
       const below = m[y + 1][x];
       const put = (nx, ny) => { m[ny][nx] = c; fall[ny][nx] = true; moved[ny][nx] = true; m[y][x] = " "; fall[y][x] = false; from[nx + "," + ny] = [x, y]; };
       if (below === " ") put(x, y + 1);
-      else if (below === "P" && fall[y][x]) { die(); return; }
+      else if (below === "P" && fall[y][x]) { if (power.star > 0) { fall[y][x] = false; shake = Math.max(shake, 5); } else { die("rock"); return; } }
       else if (isObj(below)) {
         if (m[y][x - 1] === " " && m[y + 1][x - 1] === " ") put(x - 1, y);
         else if (m[y][x + 1] === " " && m[y + 1][x + 1] === " ") put(x + 1, y);
         else { if (fall[y][x]) buzz(6); fall[y][x] = false; }
       } else { if (fall[y][x] && c === "o") shake = Math.max(shake, 4); fall[y][x] = false; }
     }
+    ghosts.slice().forEach(gh => { if (isObj(m[gh.y][gh.x])) { const keep = m[gh.y][gh.x]; killGhost(gh, "rock"); m[gh.y][gh.x] = keep; } });
   }
-  function die() { if (deadT) return; deadT = 14; state = "dying"; shake = 12; buzz([80, 40, 120]); sparkle(px, py, 30, "#ff6b6b"); }
+  // ---------- ghosts: move only through empty tunnels; chase the miner, run away when he has the star ----------
+  function moveGhosts() {
+    if (power.freeze > 0 || !ghosts.length) return;
+    gStep += 1 / ghostEvery; if (gStep < 1) return; gStep -= 1;
+    ghosts.forEach(gh => {
+      gh.fx = gh.x; gh.fy = gh.y;
+      const opts = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => { const x = gh.x + dx, y = gh.y + dy, c = m[y][x]; return (c === " " || c === "P") && !ghostAt(x, y); });
+      if (!opts.length) return;
+      const dist = ([dx, dy]) => Math.abs(gh.x + dx - px) + Math.abs(gh.y + dy - py);
+      let d;
+      if (r0() < chase) { opts.sort((a, b) => power.star > 0 ? dist(b) - dist(a) : dist(a) - dist(b)); d = opts[0]; }
+      else { const same = opts.find(o => o[0] === gh.d[0] && o[1] === gh.d[1]); d = same && r0() < 0.75 ? same : opts[Math.floor(r0() * opts.length)]; }
+      gh.d = d; gh.x += d[0]; gh.y += d[1];
+    });
+    // a ghost and the miner swapping places also meet
+    const sw2 = ghosts.find(gh => gh.fx === px && gh.fy === py && gh.x === ppx && gh.y === ppy && (ppx !== px || ppy !== py));
+    if (sw2) { if (power.star > 0) killGhost(sw2, "eat"); else die("ghost"); return; }
+    hitCheck();
+  }
+  const r0 = Math.random;
+  // ---------- bombs ----------
+  function dropBomb() {
+    if (state !== "run" || !bombCount || bombs.some(b => b.x === px && b.y === py)) return;
+    bombCount--; bombs.push({ x: px, y: py, t: 15 }); buzz(20); hud();
+  }
+  function explode(b) {
+    shake = 14; buzz([60, 30, 90]);
+    for (let y = b.y - 1; y <= b.y + 1; y++) for (let x = b.x - 1; x <= b.x + 1; x++) {
+      if (x < 1 || y < 1 || x > W - 2 || y > H - 2) continue;
+      const c = m[y][x];
+      if (c === "." || c === "o" || c === "W") { m[y][x] = " "; fall[y][x] = false; }
+      sparkle(x, y, 6, Math.random() < 0.5 ? "#ff7043" : "#ffd54a");
+      const gh = ghostAt(x, y); if (gh) killGhost(gh, "bomb");
+    }
+    if (Math.abs(px - b.x) <= 1 && Math.abs(py - b.y) <= 1 && !(power.star > 0)) die("bomb");
+  }
+  function die(why) { if (deadT) return; deathWhy = why || "rock"; deadT = 14; state = "dying"; shake = 12; buzz([80, 40, 120]); sparkle(px, py, 30, "#ff6b6b"); }
   function win() {
     state = "won"; buzz([30, 40, 30, 40, 80]); sparkle(px, py, 30, "#7CFC9A");
-    if (lvl + 2 > unlocked && lvl + 1 < DM_LEVELS.length) { unlocked = lvl + 2; ls.set("dmUnlocked", unlocked); }
+    if (lvl + 2 > unlocked && lvl + 1 < TOTAL) { unlocked = lvl + 2; ls.set("dmUnlocked", unlocked); }
+    pick = Math.min(TOTAL, lvl + 2);
     setTimeout(() => {
-      if (lvl + 1 < DM_LEVELS.length) msg("MINE " + (lvl + 1) + " CLEARED", "All diamonds collected!", "NEXT MINE");
-      else msg("YOU WIN!", "All mines cleared 🎉", "PLAY AGAIN");
+      if (lvl + 1 < TOTAL) msg("MINE " + (lvl + 1) + " CLEARED", "Time left " + Math.ceil(timeLeft) + " s. Next: mine " + (lvl + 2) + " of " + TOTAL, "NEXT MINE");
+      else msg("YOU WIN!", "All 100 mines cleared 🎉", "PLAY AGAIN");
     }, 500);
   }
   function tick() {
     frame++;
     if (state === "dying") {
-      if (--deadT <= 0) { state = "over"; msg("CRUSHED!", "A falling rock hit you. Try again.", "RETRY"); }
+      if (--deadT <= 0) {
+        state = "over"; pick = lvl + 1;
+        const T = { rock: ["CRUSHED!", "A falling rock hit you."], ghost: ["CAUGHT!", "A ghost got you. Use ⭐ or ❄, or drop a 💣."], bomb: ["BOOM!", "You were too close to your bomb."], time: ["TIME UP!", "Be quicker - ⏱ gives +30 s."] }[deathWhy] || ["OOPS!", ""];
+        msg(T[0], T[1] + " Try again.", "RETRY");
+      }
       return;
     }
     if (state !== "run") return;
-    from = {}; ppx = px; ppy = py;
+    from = {}; ppx = px; ppy = py; if (pushT > 0) pushT--; walkDir = 0;
+    ghosts.forEach(gh => { gh.fx = gh.x; gh.fy = gh.y; });
     const d = pending || held; pending = null;
     if (d && d !== "wait") movePlayer(d);
     if (state === "run") physics();
+    if (state === "run") moveGhosts();
+    if (state === "run") hitCheck();
+    bombs.forEach(b => b.t--); bombs.filter(b => b.t <= 0).forEach(b => { if (state === "run") explode(b); }); bombs = bombs.filter(b => b.t > 0);
+    if (power.star > 0) power.star--; if (power.freeze > 0) power.freeze--;
+    if (state === "run") { timeLeft -= TICK / 1000; if (timeLeft <= 0) { timeLeft = 0; die("time"); } }
+    hud();
   }
   const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   function playerPos(t) { const e = ease(t); return [ppx + (px - ppx) * e, ppy + (py - ppy) * e]; }
@@ -3940,17 +4103,69 @@ window.__gmFS = {
   }
   function drawMinerImg(X, Y, s) {
     const cx = X + s / 2, hgt = s * 1.02, wid = hgt * minerImg.width / minerImg.height * 1.3;   // a bit shorter and wider (stockier) than the picture
-    const moving = (px !== ppx || py !== ppy) && (performance.now() - lastTick) < TICK;
-    const bob = moving ? Math.abs(Math.sin((performance.now() - lastTick) / TICK * Math.PI)) * s * 0.06 : 0;
-    // lamp light ahead
+    const ph = Math.min(1, (performance.now() - lastTick) / TICK);
+    const moving = (px !== ppx || py !== ppy) && ph < 1, sideways = moving && px !== ppx;
+    const pushing = pushT > 0 && state === "run";
+    const bob = moving ? Math.abs(Math.sin(ph * Math.PI)) * s * 0.07 : 0;
+    // lamp light in the direction he looks
     const lg = g.createRadialGradient(cx + face * s * 0.7, Y + s * 0.15, 0, cx + face * s * 0.7, Y + s * 0.15, s * 1.4);
     lg.addColorStop(0, "rgba(255,250,200,.22)"); lg.addColorStop(1, "rgba(255,250,200,0)"); g.fillStyle = lg; g.fillRect(cx - s * 1.6, Y - s * 1.2, s * 3.2, s * 3.2);
     g.fillStyle = "rgba(0,0,0,.4)"; g.beginPath(); g.ellipse(cx, Y + s * 0.97, s * 0.3, s * 0.07, 0, 0, Math.PI * 2); g.fill();
     if (state === "dying" && deadT % 4 < 2) return;   // blink when hit
     g.save(); g.translate(cx, Y + s - bob);
-    if (face < 0) g.scale(-1, 1);
-    if (moving) g.rotate(Math.sin((performance.now() - lastTick) / TICK * Math.PI * 2) * 0.05);
-    g.drawImage(minerImg, -wid / 2, -hgt, wid, hgt);
+    if (face < 0) g.scale(-1, 1);                       // the picture looks to the right; turn him to the side he walks
+    // lean into the walk; lean hard when pushing a rock, body shifted towards it
+    let lean = 0;
+    if (pushing) { lean = 0.26; g.translate(s * 0.1, 0); }
+    else if (sideways) lean = 0.1 + Math.sin(ph * Math.PI * 2) * 0.04;
+    else if (moving) lean = Math.sin(ph * Math.PI * 2) * 0.05;
+    g.rotate(lean);
+    const stepSq = sideways ? 1 + Math.sin(ph * Math.PI * 2) * 0.04 : 1;   // little stride squash
+    g.drawImage(minerImg, -wid / 2 * stepSq, -hgt, wid * stepSq, hgt);
+    if (pushing) {   // both arms stretched forward, gloves on the rock
+      const strain = Math.sin(performance.now() / 70) * s * 0.012;
+      [[-0.70, -0.50, "#3b3d42"], [-0.60, -0.42, "#2c2e33"]].forEach(([sy, hy, col]) => {
+        const sxp = wid * 0.12, syp = hgt * sy, hx = s * 0.46 + strain, hyp = hgt * hy;
+        g.strokeStyle = col; g.lineWidth = s * 0.11; g.lineCap = "round";
+        g.beginPath(); g.moveTo(sxp, syp); g.quadraticCurveTo((sxp + hx) / 2, syp + s * 0.04, hx - s * 0.05, hyp); g.stroke();
+        g.fillStyle = "#9a9a9a"; g.beginPath(); g.arc(hx, hyp, s * 0.07, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#c9a227"; g.fillRect(hx - s * 0.1, hyp - s * 0.05, s * 0.03, s * 0.1);   // yellow glove cuff
+      });
+    }
+    g.restore();
+    if (pushing && frame % 3 === 0) parts.push({ x: (cx + face * s * 0.5) / s, y: (Y + s * 0.95) / s, vx: -face * 0.02, vy: -0.01, life: 12, col: "rgba(200,170,120,.8)", r: 0.05 });   // dust at the feet
+  }
+  function drawItem(c, X, Y, s) {
+    const cx = X + s / 2, cy = Y + s / 2 + Math.sin(frame / 3 + X) * s * 0.03;
+    g.fillStyle = "rgba(0,0,0,.3)"; g.beginPath(); g.ellipse(cx, Y + s * 0.9, s * 0.25, s * 0.06, 0, 0, Math.PI * 2); g.fill();
+    if (c === "S") { g.shadowColor = "#ffe066"; g.shadowBlur = s * 0.4; g.fillStyle = "#ffd23f"; g.beginPath();
+      for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5 + frame * 0.05, r = i % 2 ? s * 0.16 : s * 0.36; g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); } g.closePath(); g.fill(); g.shadowBlur = 0; }
+    else if (c === "F") { g.strokeStyle = "#b2ebf2"; g.shadowColor = "#4dd0e1"; g.shadowBlur = s * 0.35; g.lineWidth = Math.max(2, s * 0.07); g.lineCap = "round";
+      for (let i = 0; i < 3; i++) { const a = i * Math.PI / 3 + frame * 0.02; g.beginPath(); g.moveTo(cx - Math.cos(a) * s * 0.34, cy - Math.sin(a) * s * 0.34); g.lineTo(cx + Math.cos(a) * s * 0.34, cy + Math.sin(a) * s * 0.34); g.stroke(); }
+      g.shadowBlur = 0; }
+    else if (c === "B") { const gr = g.createRadialGradient(cx - s * 0.1, cy - s * 0.05, s * 0.03, cx, cy + s * 0.05, s * 0.3); gr.addColorStop(0, "#666"); gr.addColorStop(1, "#111");
+      g.fillStyle = gr; g.beginPath(); g.arc(cx, cy + s * 0.06, s * 0.27, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = "#a1887f"; g.lineWidth = Math.max(1.5, s * 0.05); g.beginPath(); g.moveTo(cx + s * 0.12, cy - s * 0.16); g.quadraticCurveTo(cx + s * 0.25, cy - s * 0.35, cx + s * 0.32, cy - s * 0.3); g.stroke();
+      if (frame % 4 < 2) { g.fillStyle = "#ffeb3b"; g.beginPath(); g.arc(cx + s * 0.33, cy - s * 0.31, s * 0.06, 0, Math.PI * 2); g.fill(); } }
+    else if (c === "T") { g.fillStyle = "#e8f5e9"; g.shadowColor = "#69f0ae"; g.shadowBlur = s * 0.3; g.beginPath(); g.arc(cx, cy, s * 0.3, 0, Math.PI * 2); g.fill(); g.shadowBlur = 0;
+      g.strokeStyle = "#1b5e20"; g.lineWidth = Math.max(1.5, s * 0.05); g.beginPath(); g.arc(cx, cy, s * 0.3, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx, cy - s * 0.2); g.moveTo(cx, cy); g.lineTo(cx + s * 0.14, cy + s * 0.04); g.stroke(); }
+  }
+  function drawGhost(gh, X, Y, s) {
+    const scared = power.star > 0, frozen = power.freeze > 0;
+    const base = scared ? (power.star < 20 && frame % 4 < 2 ? "#e3f2fd" : "#1e40af") : frozen ? "#80deea" : ["#e53935", "#8e24aa", "#fb8c00"][gh.c];
+    const cx = X + s / 2, top = Y + s * 0.12, bot = Y + s * 0.92, r = s * 0.38, wob = frozen ? 0 : Math.sin(frame / 2 + gh.c) * s * 0.03;
+    g.save(); g.globalAlpha = frozen ? 0.85 : 0.95;
+    g.shadowColor = base; g.shadowBlur = s * 0.25;
+    g.fillStyle = base; g.beginPath(); g.moveTo(cx - r, bot); g.lineTo(cx - r, top + r); g.arc(cx, top + r, r, Math.PI, 0); g.lineTo(cx + r, bot);
+    for (let i = 3; i >= 0; i--) { const x = cx - r + (2 * r) * i / 3; g.lineTo(x, bot - (i % 2 ? s * 0.1 : 0) + wob); }
+    g.closePath(); g.fill(); g.shadowBlur = 0;
+    const lx = Math.sign(px - gh.x) * s * 0.05, ly = Math.sign(py - gh.y) * s * 0.05;
+    [-1, 1].forEach(sd => {
+      g.fillStyle = "#fff"; g.beginPath(); g.ellipse(cx + sd * r * 0.42, top + r * 0.95, r * 0.24, r * 0.3, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = scared ? "#ef5350" : "#1a237e"; g.beginPath(); g.arc(cx + sd * r * 0.42 + lx, top + r * 1.0 + ly, r * 0.12, 0, Math.PI * 2); g.fill();
+    });
+    if (scared) { g.strokeStyle = "#fff"; g.lineWidth = Math.max(1, s * 0.03); g.beginPath(); for (let i = 0; i <= 4; i++) g.lineTo(cx - r * 0.5 + i * r * 0.25, top + r * 1.55 + (i % 2 ? -s * 0.04 : s * 0.04)); g.stroke(); }
     g.restore();
   }
   function draw() {
@@ -3974,7 +4189,8 @@ window.__gmFS = {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (m[y][x] !== "." && m[y][x] !== "W" && y > 0 && m[y - 1][x] === ".") g.fillRect(x * ts, y * ts, ts, ts * 0.12);
     const e = ease(t);
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-      const c = m[y][x]; if (!isObj(c) && c !== "X") continue;
+      const c = m[y][x]; if (ITEM[c]) { drawItem(c, x * ts, y * ts, ts); continue; }
+      if (!isObj(c) && c !== "X") continue;
       let X = x * ts, Y = y * ts; const f = from[x + "," + y];
       if (f && isObj(c)) { X = (f[0] + (x - f[0]) * e) * ts; Y = (f[1] + (y - f[1]) * e) * ts; }
       if (c === "o") drawBoulder(X, Y, ts);
@@ -3987,13 +4203,26 @@ window.__gmFS = {
         if (!open) { g.fillStyle = "#ffd54a"; g.font = `bold ${ts * 0.3}px sans-serif`; g.textAlign = "center"; g.fillText(need - got, X + ts / 2, Y + ts * 0.66); }
       }
     }
-    if (state !== "won" || frame % 2) { const [fx, fy] = playerPos(t); drawMiner(fx * ts, fy * ts, ts); }
+    bombs.forEach(b => {   // ticking bombs
+      const X = b.x * ts, Y = b.y * ts, pul = 1 + (b.t < 6 && frame % 2 ? 0.15 : 0);
+      g.fillStyle = "#111"; g.beginPath(); g.arc(X + ts / 2, Y + ts * 0.58, ts * 0.26 * pul, 0, Math.PI * 2); g.fill();
+      g.fillStyle = frame % 2 ? "#ffeb3b" : "#ff5722"; g.beginPath(); g.arc(X + ts * 0.7, Y + ts * 0.28, ts * 0.08, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#fff"; g.font = `bold ${ts * 0.26}px sans-serif`; g.textAlign = "center"; g.fillText(Math.ceil(b.t * TICK / 1000), X + ts / 2, Y + ts * 0.66);
+    });
+    ghosts.forEach(gh => { const gx = gh.fx + (gh.x - gh.fx) * e, gy = gh.fy + (gh.y - gh.fy) * e; drawGhost(gh, gx * ts, gy * ts, ts); });
+    if (state !== "won" || frame % 2) {
+      const [fx, fy] = playerPos(t);
+      if (power.star > 0) { const a = power.star < 20 && frame % 4 < 2 ? 0.15 : 0.45; const gr = g.createRadialGradient(fx * ts + ts / 2, fy * ts + ts / 2, ts * 0.1, fx * ts + ts / 2, fy * ts + ts / 2, ts * 0.9);
+        gr.addColorStop(0, `rgba(255,230,90,${a})`); gr.addColorStop(1, "rgba(255,230,90,0)"); g.fillStyle = gr; g.fillRect(fx * ts - ts, fy * ts - ts, ts * 3, ts * 3); }
+      drawMiner(fx * ts, fy * ts, ts);
+    }
     parts.forEach(p => { g.globalAlpha = Math.min(1, p.life / 15); g.fillStyle = p.col; g.beginPath(); g.arc(p.x * ts, p.y * ts, p.r * ts, 0, Math.PI * 2); g.fill(); });
     g.globalAlpha = 1;
     // vignette
     g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     const vg = g.createRadialGradient(view.w / 2, view.h / 2, Math.min(view.w, view.h) * 0.35, view.w / 2, view.h / 2, Math.max(view.w, view.h) * 0.75);
     vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.55)"); g.fillStyle = vg; g.fillRect(0, 0, view.w, view.h);
+    if (power.freeze > 0) { g.fillStyle = "rgba(128,222,234,.10)"; g.fillRect(0, 0, view.w, view.h); }
     if (state === "dying") { g.fillStyle = `rgba(255,0,0,${deadT / 40})`; g.fillRect(0, 0, view.w, view.h); }
   }
   function loop(now) {
@@ -4008,11 +4237,22 @@ window.__gmFS = {
   }
   function kick() { if (!raf) { lastT = 0; raf = requestAnimationFrame(loop); } }
   function msg(title, text, btn) {
-    $("dmMsgTitle").textContent = title; $("dmMsgText").textContent = text; $("dmStart").textContent = btn;
-    $("dmLvBtns").innerHTML = DM_LEVELS.map((_, i) => `<button type="button" data-l="${i}"${i < unlocked ? "" : " disabled"}>${i + 1}</button>`).join("");
-    $("dmLvBtns").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { load(+b.dataset.l); run(); }));
+    $("dmMsgTitle").textContent = title; $("dmMsgText").textContent = text; $("dmStart").textContent = btn || ""; $("dmStart").style.display = btn ? "" : "none";
+    pickerUI();
     $("dmMsg").classList.remove("hidden");
     $("dmPauseBtn").textContent = state === "pause" ? "▶" : "II";
+  }
+  function pickerUI() {
+    pick = Math.max(1, Math.min(unlocked, pick));
+    $("dmLvBtns").innerHTML = `<button type="button" data-p="-10">«</button><button type="button" data-p="-1">◀</button>` +
+      `<span style="align-self:center;min-width:120px">Mine <b style="font-size:20px">${pick}</b> / ${TOTAL}<br><small style="font-weight:400;opacity:.8">opened up to ${unlocked}</small></span>` +
+      `<button type="button" data-p="1">▶</button><button type="button" data-p="10">»</button><button type="button" data-p="go" style="background:#f0b429;color:#1b1b1b">PLAY ${pick}</button>`;
+    $("dmLvBtns").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      if (b.dataset.p === "go") { load(pick - 1); run(); return; }
+      pick = Math.max(1, Math.min(unlocked, pick + (+b.dataset.p))); pickerUI();
+    }));
+    $("dmLvBtns").querySelectorAll('button[data-p="1"],button[data-p="10"]').forEach(b => { b.disabled = pick >= unlocked; });
+    $("dmLvBtns").querySelectorAll('button[data-p="-1"],button[data-p="-10"]').forEach(b => { b.disabled = pick <= 1; });
   }
   function run() { state = "run"; $("dmMsg").classList.add("hidden"); $("dmPauseBtn").textContent = "II"; acc = 0; kick(); }
   function pause() { if (state === "run") { state = "pause"; msg("PAUSED", "Mine " + (lvl + 1), "CONTINUE"); } }
@@ -4021,7 +4261,7 @@ window.__gmFS = {
     ov.classList.remove("hidden"); window.__gmFS.enter();
     requestAnimationFrame(() => {
       resize();
-      if (!m) { load(Math.min(unlocked, DM_LEVELS.length) - 1); msg("DIAMOND MINE", "Dig through the earth, take every 💎, then go to the door. Rocks fall when nothing holds them!", "START"); }
+      if (!m) { load(unlocked - 1); msg("DIAMOND MINE", "100 mines. Take the 💎 shown on the door, then walk out before ⏱ ends. Rocks fall, ghosts chase you. ⭐ = ghosts run & die, ❄ = freeze ghosts, 💣 = blast (button), ⏱ = +30 s.", ""); }
       else if (state === "run") pause();
       kick();
     });
@@ -4029,9 +4269,10 @@ window.__gmFS = {
   $("mineClose").addEventListener("click", close);
   $("dmPauseBtn").addEventListener("click", () => { if (state === "run") pause(); else if (state === "pause") run(); });
   $("dmRestart").addEventListener("click", () => { load(lvl); run(); });
+  $("dmBombBtn").addEventListener("pointerdown", e => { e.preventDefault(); dropBomb(); });
   $("dmStart").addEventListener("click", () => {
     if (state === "pause") return run();
-    if (state === "won") load(lvl + 1 < DM_LEVELS.length ? lvl + 1 : 0);
+    if (state === "won") load(lvl + 1 < TOTAL ? lvl + 1 : 0);
     else if (state === "over") load(lvl);
     run();
   });
@@ -4055,6 +4296,7 @@ window.__gmFS = {
     if (k) { e.preventDefault(); if (!e.repeat) pending = k; held = k; }
     else if (e.key === "Escape") close();
     else if (String(e.key).toLowerCase() === "r") { load(lvl); run(); }
+    else if (e.key === " " || String(e.key).toLowerCase() === "b" || e.key === "0") { e.preventDefault(); dropBomb(); }
     else if (String(e.key).toLowerCase() === "p") { state === "run" ? pause() : state === "pause" && run(); }
   });
   document.addEventListener("keyup", e => { const k = KEYMAP[e.key] || KEYMAP[String(e.key).toLowerCase()]; if (k && held === k) held = null; });
@@ -4062,7 +4304,8 @@ window.__gmFS = {
   window.addEventListener("resize", () => { if (!ov.classList.contains("hidden")) resize(); });
   document.addEventListener("fullscreenchange", () => { if (!ov.classList.contains("hidden")) setTimeout(resize, 50); });
   window.__dmTest = { get face() { return face; }, get m() { return m; }, get state() { return state; }, get got() { return got; }, get need() { return need; }, get pos() { return [px, py]; },
-    step: d => { pending = d; tick(); }, load: i => { load(i); state = "run"; $("dmMsg").classList.add("hidden"); } };
+    step: d => { pending = d; tick(); }, load: i => { load(i); state = "run"; $("dmMsg").classList.add("hidden"); },
+    get ghosts() { return ghosts; }, get power() { return power; }, get bombs() { return bombCount; }, get time() { return timeLeft; }, gen: genLevel, getLevel, bomb: dropBomb, unlockAll: () => { unlocked = TOTAL; } };
 })();
 </script>
 
@@ -6330,9 +6573,11 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.30.12";
+const APP_VERSION = "2026.10.31.2";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "⛏️ Diamond Mine: the miner faces and leans the way he walks, and pushes rocks with both hands",
+  "💎 Diamond Mine: 100 mines (harder as you go), ghosts that chase you, power-ups ⭐ star, ❄ freeze, 💣 bombs, ⏱ extra time, and a time limit; pick any opened mine",
   "📈 Market tile can now be opened by chosen granted users too (Babbu)",
   "🐍 Snake made from your photo: the real snake head, its scale skin and the same stony ground",
   "🐍 Snake looks like the top-view photo: smooth curves, bright green with a light spine line, dark outline, pointed head and tail; stony soil with weeds",
