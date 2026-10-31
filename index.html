@@ -6575,9 +6575,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.31.4";
+const APP_VERSION = "2026.10.31.5";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🗒️ Stock Difference report: sizes with 0 stock (manual and ERP both 0) are left out",
   "🟠 Ball Jump: 20 levels now (17 new: tunnels, pillars over pits, spike fields, floating platforms) - every level checked to be finishable",
   "🪞 The \"+ Smsqc\" chip shows only on the Home screen",
   "📈 Market: slogan sticker \"शेयर बाजार में सबसे जोरदार थप्पड़ उम्मीद मारती है\" above the IND / US / Intraday tiles",
@@ -22100,12 +22101,14 @@ function sdRecalc(rows) {
     if (r.isTotal) return;
     const info = sdSizeInfo(r.size);
     if (!info || r.mPcs == null) {         // unknown size: keep the sheet's own values
+      if (![r.mPcs, r.mWt, r.ePcs, r.eWt].some(v => v)) return;   // all zero / empty: leave the row out of the report
       out.push(r); if (r.mWt != null) tM += r.mWt; if (r.eWt != null) tE += r.eWt; return;
     }
     const pcs = Math.round(r.mPcs);
     const wt = info.len ? pcs * info.len * SD_WPM[info.sec] : pcs * SD_WPM[info.sec];
     const ePcs = r.ePcs == null ? 0 : r.ePcs, eWt = r.eWt == null ? 0 : r.eWt;
     const dP = pcs - Math.round(ePcs), dW = +(wt - eWt).toFixed(3);
+    if (!pcs && !Math.round(ePcs) && !+wt.toFixed(3) && !+eWt.toFixed(3)) return;   // nothing in stock (manual and ERP both 0): leave the row out
     tM += wt; tE += eWt; tD += dW; tMp += pcs; tEp += ePcs;
     out.push({ size: r.size, isTotal: false, mPcs: pcs, mWt: wt, ePcs, eWt, diffPcs: dP, diffWt: dW,
       cells: [String(pcs), f3(wt), String(Math.round(ePcs)), f3(eWt), String(dP), dW === 0 ? "" : f3(dW)] });
