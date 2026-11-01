@@ -4963,6 +4963,27 @@ window.__gmFS = {
               </div>
             </div>
           </div>
+
+          <div class="card" style="margin-top:16px;">
+            <h2>📅 Month-wise Consumption</h2>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 14px;">
+              Adds up every day's raw-material consumption for the selected
+              month (from the RM Report sheet) and shows each material's
+              total weight and its percentage of the month's total
+              consumption.
+            </p>
+            <label for="monthConsMonth">Select Month</label>
+            <input type="month" id="monthConsMonth">
+            <div class="btnRow">
+              <button class="primary" id="monthConsLoadBtn">Load Month-wise Consumption</button>
+            </div>
+            <div id="monthConsWrap" class="hidden" style="margin-top:20px;">
+              <div id="monthConsInfo" style="font-size:13px;color:var(--muted);margin-bottom:8px;"></div>
+              <div class="tableScroll">
+                <table class="matrixTable stockTable" id="monthConsTable"></table>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="sectionPanel hidden" id="section-erpprod">
@@ -6468,7 +6489,7 @@ function uiHiDict() {
     "Load Yearly Calendar": "वार्षिक कैलेंडर लोड करें", "Load Stock Report": "स्टॉक रिपोर्ट लोड करें",
     "Download PDF": "PDF डाउनलोड", "⬇️ Download PDF": "⬇️ PDF डाउनलोड", "Load R.M Description": "आर.एम विवरण लोड करें",
     "Load Dashboard": "डैशबोर्ड लोड करें", "Download Full List (PDF)": "पूरी लिस्ट डाउनलोड (PDF)",
-    "Show Report": "रिपोर्ट दिखाएँ", "Load Heat-wise Consumption": "हीट-वार खपत लोड करें",
+    "Show Report": "रिपोर्ट दिखाएँ", "Load Heat-wise Consumption": "हीट-वार खपत लोड करें", "Load Month-wise Consumption": "माह-वार खपत लोड करें", "📅 Month-wise Consumption": "📅 माह-वार खपत", "Select Month": "माह चुनें",
     "Load ERP Production": "ईआरपी उत्पादन लोड करें", "Load Debit Note Data": "डेबिट नोट डेटा लोड करें",
     "Download Full List (Excel)": "पूरी लिस्ट डाउनलोड (Excel)", "Download Party-wise PDF": "पार्टी-वार PDF डाउनलोड",
     "Load Trend": "ट्रेंड लोड करें", "Download Line Chart (PNG)": "लाइन चार्ट डाउनलोड (PNG)",
@@ -6575,9 +6596,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.10.31.5";
+const APP_VERSION = "2026.11.01.1";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📅 Month-wise Consumption (in Heat-wise Consumption): pick a month to see every raw material's total weight and its % of the month's total consumption",
   "🗒️ Stock Difference report: sizes with 0 stock (manual and ERP both 0) are left out",
   "🟠 Ball Jump: 20 levels now (17 new: tunnels, pillars over pits, spike fields, floating platforms) - every level checked to be finishable",
   "🪞 The \"+ Smsqc\" chip shows only on the Home screen",
@@ -19542,6 +19564,82 @@ async function loadHeatwiseConsumption() {
 }
 
 document.getElementById("heatConsLoadBtn").addEventListener("click", loadHeatwiseConsumption);
+
+/* ===================== MONTH-WISE CONSUMPTION ===================== */
+// Sums the daily 24-hour consumption row (RM Report, columns AI:AR - the same
+// cells Heat-wise Consumption uses) for every date of the chosen month, then
+// shows each material's month total and its share (%) of the month's total.
+// Like getConsumptionRowForDate, only the first row found for a date counts.
+async function loadMonthwiseConsumption() {
+  const statusEl = document.getElementById("status");
+  const monthVal = document.getElementById("monthConsMonth").value; // "YYYY-MM"
+  if (!monthVal) {
+    statusEl.className = "err";
+    statusEl.textContent = "Please select a month.";
+    return;
+  }
+  statusEl.className = "wait";
+  statusEl.textContent = "Loading month-wise consumption...";
+  try {
+    const [yy, mm] = monthVal.split("-").map(Number);
+    const first = `${monthVal}-01`;
+    const last = `${monthVal}-${String(new Date(yy, mm, 0).getDate()).padStart(2, "0")}`;
+    const token = await getToken();
+    const { results: wbList } = await getWorkbooksForRange(token, first, last);
+    if (wbList.length === 0) {
+      statusEl.className = "err";
+      statusEl.textContent = "Couldn't find the file for this month.";
+      return;
+    }
+    const wb = wbList[0].wb;
+    const sh = encodeURIComponent(String(CONSUMPTION_SHEET_NAME).replace(/'/g, "''"));
+    const [colA, data] = await Promise.all([
+      graphFetch(`${wb}/worksheets('${sh}')/range(address='A1:A2000')?$select=values`, token),
+      graphFetch(`${wb}/worksheets('${sh}')/range(address='AI1:AR2000')?$select=values`, token)
+    ]);
+    const totals = new Array(HEAT_CONSUMPTION_ITEMS.length).fill(0);
+    const seen = new Set();
+    for (let i = 0; i < colA.values.length; i++) {
+      const v = colA.values[i][0];
+      if (typeof v !== "number") continue;
+      const iso = excelSerialToISODate(v);
+      if (!iso || !iso.startsWith(monthVal + "-") || seen.has(iso)) continue;
+      const row = (data.values[i] || []);
+      if (!row.some(x => typeof x === "number" && x !== 0)) continue; // day with no entry
+      seen.add(iso);
+      HEAT_CONSUMPTION_ITEMS.forEach((_, k) => { if (typeof row[k] === "number") totals[k] += row[k]; });
+    }
+    if (seen.size === 0) {
+      statusEl.className = "err";
+      statusEl.textContent = `No consumption entries found for ${monthVal} in the "${CONSUMPTION_SHEET_NAME}" sheet.`;
+      return;
+    }
+    const grand = totals.reduce((s, v) => s + v, 0);
+    const pct = v => (grand > 0 ? (v / grand) * 100 : 0);
+    let html = "<tr><th>Raw Material</th><th>Weight (MT)</th><th>% of Total</th></tr>";
+    HEAT_CONSUMPTION_ITEMS.forEach((item, k) => {
+      const p = pct(totals[k]);
+      html += `<tr><td style="text-align:left">${htmlEsc(item.label)}</td><td>${totals[k].toFixed(3)}</td>` +
+        `<td style="min-width:110px"><div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">` +
+        `<span style="flex:1;height:6px;border-radius:3px;background:rgba(127,127,127,.25);overflow:hidden">` +
+        `<span style="display:block;height:100%;width:${p.toFixed(2)}%;background:var(--accent,#d4a72c)"></span></span>` +
+        `<span>${p.toFixed(2)}%</span></div></td></tr>`;
+    });
+    html += `<tr class="rowTotal"><td style="text-align:left">TOTAL</td><td>${grand.toFixed(3)}</td><td>${grand > 0 ? "100.00%" : "0.00%"}</td></tr>`;
+    document.getElementById("monthConsTable").innerHTML = html;
+    const [ly, lm] = [yy, mm - 1];
+    document.getElementById("monthConsInfo").textContent =
+      `${MONTH_ABBR[lm]} ${ly} · ${seen.size} day(s) with consumption entries`;
+    document.getElementById("monthConsWrap").classList.remove("hidden");
+    statusEl.className = "ok";
+    statusEl.textContent = `Loaded month-wise consumption for ${monthVal} (${seen.size} day(s)).`;
+  } catch (e) {
+    statusEl.className = "err";
+    statusEl.textContent = "Error: " + e.message;
+  }
+}
+document.getElementById("monthConsLoadBtn").addEventListener("click", loadMonthwiseConsumption);
+(() => { const el = document.getElementById("monthConsMonth"); if (el && !el.value) { const d = new Date(); el.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; } })();
 
 /* ===================== PARTY TEST REPORTS ===================== */
 // Reads Party_Wise_Test_Reports.xlsx (one sheet per party, one row per heat,
