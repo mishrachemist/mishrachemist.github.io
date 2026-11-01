@@ -4803,7 +4803,14 @@ window.__gmFS = {
           .psvSec{ margin:18px 0 6px; }
           .psvSecHead{ font-weight:800; font-size:15px; color:var(--gold,#d4a72c); border-bottom:2px solid var(--gold,#d4a72c); padding:4px 0; margin-bottom:8px; }
           .psvItem{ border:1px solid rgba(127,127,127,.35); border-radius:12px; padding:10px 12px; margin:8px 0; background:rgba(127,127,127,.07); }
-          .psvItemHead{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+          .psvItemHead{ display:flex; align-items:center; gap:4px 8px; flex-wrap:wrap; cursor:pointer; list-style:none; }
+          .psvItemHead::-webkit-details-marker{ display:none; }
+          .psvItem{ padding:8px 12px !important; margin:6px 0 !important; }
+          .psvItem[open] > .psvItemHead{ margin-bottom:8px; }
+          .psvChev{ display:inline-block; transition:transform .15s; color:var(--gold,#d4a72c); }
+          .psvItem[open] > .psvItemHead .psvChev{ transform:rotate(90deg); }
+          .psvSum{ flex-basis:100%; font-size:12px; color:var(--muted); padding-left:18px; }
+          .psvItem[open] > .psvItemHead .psvSum{ display:none; }
           .psvUom{ font-size:11px; padding:1px 7px; border-radius:10px; background:rgba(127,127,127,.2); }
           .psvBadge{ font-size:10.5px; padding:1px 7px; border-radius:10px; background:#1e6b3c; color:#fff; }
           .psvBadgeM{ background:#8a5d00; }
@@ -4817,6 +4824,14 @@ window.__gmFS = {
           .psvMini{ width:auto !important; padding:4px 12px !important; font-size:12px !important; min-height:0 !important; }
           .psvMore summary, .psvSign summary{ cursor:pointer; font-size:12.5px; color:var(--muted); margin-top:6px; }
           .psvSign{ margin-top:14px; }
+          .psvBanner{ border-radius:10px; padding:8px 12px; margin:10px 0 4px; font-size:13px; background:rgba(127,127,127,.12); }
+          .psvBanner.lock{ background:rgba(163,39,28,.18); } .psvBanner.edit{ background:rgba(30,107,60,.2); } .psvBanner.dirty{ background:rgba(212,167,44,.2); }
+          #substock-psv .psvViewOnly{ display:none; }
+          #substock-psv.psvRO .psvViewOnly{ display:flex; }
+          #substock-psv.psvRO .psvEditOnly, #substock-psv.psvRO .psvMini{ display:none !important; }
+          .psvHistRow{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; border:1px solid rgba(127,127,127,.35); border-radius:10px; padding:8px 10px; margin:6px 0; }
+          .psvHistRow .psvHistTxt{ flex:1 1 180px; font-size:13px; }
+          .psvHistRow button{ width:auto !important; padding:5px 10px !important; font-size:12.5px !important; min-height:0 !important; }
         </style>
         <div class="sectionPanel hidden" id="section-stock">
           <div class="sidebar subNav" id="stockSubNav">
@@ -4874,8 +4889,8 @@ window.__gmFS = {
               Same format and formulas as the "SMS" sheet of the Physical Stock
               Verification file. ERP Stock comes from the Raw Material Stock
               report (closing stock on the "ERP Stock as on" date; billets from
-              the Daily Stock sheet). You enter the physical stock. Entries are
-              kept on this phone until you clear them.
+              the Daily Stock sheet). You enter the physical stock. What you type is
+              kept on this phone; 💾 Save verification puts the month in your OneDrive.
             </p>
             <div class="psvGrid">
               <div><label for="psvPeriod">Period</label>
@@ -4887,7 +4902,8 @@ window.__gmFS = {
               <div><label for="psvErpDate">ERP Stock as on</label>
                 <input type="date" id="psvErpDate"></div>
             </div>
-            <div class="btnRow">
+            <div id="psvBanner" class="psvBanner"></div>
+            <div class="btnRow psvEditOnly">
               <button class="primary" id="psvFetchBtn" type="button">⬇️ Fetch ERP Stock</button>
               <button class="secondary" id="psvClearBtn" type="button">🧹 Clear entries</button>
             </div>
@@ -4902,9 +4918,23 @@ window.__gmFS = {
               </div>
             </details>
             <div class="btnRow" style="margin-top:14px;">
+              <button class="primary psvEditOnly" id="psvSaveBtn" type="button">💾 Save verification</button>
               <button class="primary" id="psvPdfBtn" type="button">📄 PDF</button>
               <button class="secondary" id="psvXlsxBtn" type="button">📊 Excel</button>
             </div>
+            <div class="btnRow psvViewOnly">
+              <button class="secondary" id="psvNewBtn" type="button">↩ Back to new entry</button>
+            </div>
+          </div>
+          <div class="card" style="margin-top:16px;">
+            <h2>📚 Saved verifications</h2>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 10px;">
+              Every month's verification is saved in your OneDrive (app folder). It can be
+              changed for 3 days after the date of verification, then it is locked - but its
+              PDF and Excel can be downloaded at any time.
+            </p>
+            <div class="btnRow"><button class="secondary" id="psvHistReload" type="button">🔄 Refresh list</button></div>
+            <div id="psvHistory" style="margin-top:10px;"></div>
           </div>
           </div>
           </div>
@@ -6669,9 +6699,11 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.01.3";
+const APP_VERSION = "2026.11.01.5";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📝 Physical Stock Verification: items are a compact list - tap a name to open its entry boxes (ERP, physical and gap show in one line when closed)",
+  "🔒 Physical Stock Verification: each month is saved in OneDrive, can be changed for 3 days after the verification date, then locked - its PDF / Excel can be downloaded any time from \"Saved verifications\"",
   "📊 Physical Stock Verification Excel now also has the 2nd sheet \"SMS - RM\" (opening, received, issue, closing for the month), pre-filled from the ERP stock",
   "📝 Stock tile now has two tiles: Raw Material Stock (as before) and Physical Stock Verification - ERP stock is filled automatically, you enter physical stock; gap and gap % worked out like the SMS sheet, with PDF and Excel (company logo)",
   "📅 Month-wise Consumption (in Heat-wise Consumption): pick a month to see every raw material's total weight and its % of the month's total consumption",
@@ -21349,7 +21381,9 @@ function psvLoad() {
   if (!Array.isArray(psvState.extraFg)) psvState.extraFg = [];
   if (!psvState.signs || typeof psvState.signs !== "object") psvState.signs = {};
 }
-function psvSave() { try { localStorage.setItem(PSV_KEY, JSON.stringify(psvState)); } catch (e) { /* storage blocked: still works for this session */ } }
+let psvReadOnly = false;   // a locked month opened from "Saved verifications": view + download only
+function psvSave() { if (psvReadOnly) return; try { localStorage.setItem(PSV_KEY, JSON.stringify(psvState)); } catch (e) { /* storage blocked: still works for this session */ } }
+function psvDirty() { if (!psvReadOnly) { psvState.dirty = true; psvSave(); psvBanner(); } }
 
 // One row's numbers, exactly as the sheet works them out.
 function psvCalc(sec, item, st) {
@@ -21387,6 +21421,7 @@ function psvTotals(sec) {
 const psvF3 = v => (v === null || v === undefined || !isFinite(v)) ? "" : v.toFixed(3);
 const psvPct = v => (v === null || v === undefined || !isFinite(v)) ? "" : (v * 100).toFixed(2) + "%";
 
+const psvOpenIds = new Set();   // which items are opened (kept when the list is drawn again)
 function psvRender() {
   const box = document.getElementById("psvBody");
   if (!box) return;
@@ -21397,9 +21432,10 @@ function psvRender() {
     psvSectionItems(sec).forEach(item => {
       const st = psvSt(sec, item), id = psvId(sec, item);
       const uom = item.uom || "MT";
-      h += `<div class="psvItem" data-id="${_escH(id)}">`;
-      h += `<div class="psvItemHead"><b>${_escH(item.name)}</b><span class="psvUom">${_escH(uom)}</span>` +
-        (st.src === "auto" ? `<span class="psvBadge">ERP auto</span>` : (item.erp === null ? `<span class="psvBadge psvBadgeM">ERP manual</span>` : "")) + `</div>`;
+      h += `<details class="psvItem" data-id="${_escH(id)}"${psvOpenIds.has(id) ? " open" : ""}>`;
+      h += `<summary class="psvItemHead"><span class="psvChev">▸</span><b>${_escH(item.name)}</b><span class="psvUom">${_escH(uom)}</span>` +
+        (st.src === "auto" ? `<span class="psvBadge">ERP auto</span>` : (item.erp === null ? `<span class="psvBadge psvBadgeM">ERP manual</span>` : "")) +
+        `<span class="psvSum" data-sum="1"></span></summary>`;
       h += `<div class="psvFields">`;
       h += `<label>ERP Stock (MT)${inp("erp", st.erp, "0.000")}</label>`;
       h += `<label>Receipt/Issue after ERP report ${sec.mode === "fg" ? (item.len ? "(pcs, ±)" : "(m, ±)") : "(MT, ±)"}${inp("e", st.e, "0", "text")}</label>`;
@@ -21419,12 +21455,17 @@ function psvRender() {
       h += `<details class="psvMore"><summary>Date of adjustment / Remarks</summary><div class="psvFields">` +
         `<label>Date of adjustment in Books<input type="text" data-f="adj" value="${_escH(st.adj)}" placeholder="dd-mm-yyyy"></label>` +
         `<label>Remarks<input type="text" data-f="rem" value="${_escH(st.rem)}"></label></div></details>`;
-      h += `</div>`;
+      h += `</details>`;
     });
     h += `<div class="psvSecTot" data-tot="${sec.key}"></div></div>`;
   });
   box.innerHTML = h;
+  box.querySelectorAll("details.psvItem").forEach(d => d.addEventListener("toggle", () => {
+    if (d.open) psvOpenIds.add(d.dataset.id); else psvOpenIds.delete(d.dataset.id);
+  }));
+  if (psvReadOnly) box.querySelectorAll("input,select,textarea").forEach(el => { el.disabled = true; });
   psvRefreshResults();
+  psvBanner();
 }
 function psvFindItem(id) {
   for (const sec of PSV_SECTIONS) for (const item of psvSectionItems(sec)) if (psvId(sec, item) === id) return { sec, item };
@@ -21434,9 +21475,15 @@ function psvRefreshResults() {
   document.querySelectorAll("#psvBody .psvItem").forEach(el => {
     const f = psvFindItem(el.dataset.id); if (!f) return;
     const r = psvCalc(f.sec, f.item, psvSt(f.sec, f.item));
-    const res = el.querySelector("[data-res]");
-    if (r.F === null) { res.innerHTML = `<span class="psvMuted">Physical stock not entered</span>`; return; }
+    const res = el.querySelector("[data-res]"), sum = el.querySelector("[data-sum]");
+    const erpTxt = r.D === null ? "ERP —" : "ERP " + psvF3(r.D);
+    if (r.F === null) {
+      res.innerHTML = `<span class="psvMuted">Physical stock not entered</span>`;
+      sum.innerHTML = `${erpTxt} · <span class="psvMuted">physical —</span>`;
+      return;
+    }
     const cls = r.G < -0.0005 ? "psvNeg" : (r.G > 0.0005 ? "psvPos" : "");
+    sum.innerHTML = `${erpTxt} · Phy ${psvF3(r.F)} · <span class="${cls}">Gap ${psvF3(r.G)}${r.H === null ? "" : " (" + psvPct(r.H) + ")"}</span>`;
     res.innerHTML = (f.sec.mode === "fg" ? `<span>E = ${psvF3(r.E)} MT</span>` : (f.item.lots ? `<span>Lots = ${psvF3(r.lotsSum)}</span>` : "")) +
       `<span>Physical F = <b>${psvF3(r.F)}</b></span><span class="${cls}">Gap G = <b>${psvF3(r.G)}</b></span><span class="${cls}">Gap % = <b>${r.H === null ? "—" : psvPct(r.H)}</b></span>`;
   });
@@ -21463,7 +21510,7 @@ function psvFillHeader() {
 }
 function psvInit() {
   if (!document.getElementById("psvBody")) return;
-  psvLoad(); psvFillHeader(); psvRender();
+  psvBackToDraft();   // the draft on this phone (a month that has since been locked starts a new entry)
   const body = document.getElementById("psvBody");
   body.addEventListener("input", ev => {
     const t = ev.target, wrap = t.closest(".psvItem"); if (!wrap || !t.dataset.f) return;
@@ -21472,7 +21519,7 @@ function psvInit() {
     if (t.dataset.f === "lot") st.lots[+t.dataset.li] = t.value;
     else st[t.dataset.f] = t.value;
     if (t.dataset.f === "erp") st.src = "manual";
-    psvSave(); psvRefreshResults();
+    psvDirty(); psvRefreshResults();
     if (t.dataset.f === "erp") { const b = wrap.querySelector(".psvBadge"); if (b && f.item.erp !== null) b.remove(); }
   });
   body.addEventListener("click", ev => {
@@ -21481,21 +21528,25 @@ function psvInit() {
     const st = psvSt(f.sec, f.item);
     if (b.dataset.act === "addlot") st.lots.push("");
     if (b.dataset.act === "dellot" && st.lots.length > 1) st.lots.pop();
-    psvSave(); psvRender();
+    psvDirty(); psvRender();
   });
   ["psvPeriod", "psvDivision", "psvDate", "psvErpDate", "psvSignQad", "psvSignFin", "psvSignHod", "psvSignPh"].forEach(id => {
-    document.getElementById(id).addEventListener("change", () => { psvSyncHeader(); psvSave(); });
-    document.getElementById(id).addEventListener("input", () => { psvSyncHeader(); psvSave(); });
+    document.getElementById(id).addEventListener("change", () => { if (psvReadOnly) return; psvSyncHeader(); psvDirty(); });
+    document.getElementById(id).addEventListener("input", () => { if (psvReadOnly) return; psvSyncHeader(); psvDirty(); });
   });
   document.getElementById("psvFetchBtn").addEventListener("click", psvFetchErp);
   document.getElementById("psvClearBtn").addEventListener("click", () => {
     if (!confirm("Clear all entered physical stock, ERP and remarks? (Names in the signature block are kept.)")) return;
     const keepSigns = psvState.signs;
-    psvState = { period: psvState.period, division: psvState.division, date: psvState.date, erpDate: psvState.erpDate, signs: keepSigns, items: {}, extraFg: [] };
-    psvSave(); psvRender();
+    psvState = { period: psvState.period, division: psvState.division, date: psvState.date, erpDate: psvState.erpDate, signs: keepSigns, items: {}, extraFg: [], recMonth: psvState.recMonth || null };
+    psvDirty(); psvRender();
   });
-  document.getElementById("psvPdfBtn").addEventListener("click", () => { psvSyncHeader(); psvSave(); psvPdf(); });
-  document.getElementById("psvXlsxBtn").addEventListener("click", () => { psvSyncHeader(); psvSave(); psvXlsx(); });
+  document.getElementById("psvSaveBtn").addEventListener("click", () => { psvSyncHeader(); psvSave(); psvSaveCloud(); });
+  document.getElementById("psvNewBtn").addEventListener("click", psvBackToDraft);
+  document.getElementById("psvHistReload").addEventListener("click", psvLoadHistory);
+  document.querySelector('[data-substock="psv"]').addEventListener("click", () => { if (!psvHistLoaded) psvLoadHistory(); });
+  document.getElementById("psvPdfBtn").addEventListener("click", () => { if (!psvReadOnly) { psvSyncHeader(); psvSave(); } psvPdf(); });
+  document.getElementById("psvXlsxBtn").addEventListener("click", () => { if (!psvReadOnly) { psvSyncHeader(); psvSave(); } psvXlsx(); });
 }
 
 async function psvFetchErp() {
@@ -21529,6 +21580,7 @@ async function psvFetchErp() {
       billet.o += o; billet.p += s.production; billet.c += o + s.production - s.latestQty; billet.cl += s.latestQty;
     });
     psvState.rmMonth = { month: asOn.slice(0, 7), asOn, rows: rmRows, billet };
+    psvState.dirty = true;
     let filled = 0;
     PSV_SECTIONS.forEach(sec => sec.items.forEach(it => {
       if (!it.erp || closing[it.erp] === undefined) return;
@@ -21562,6 +21614,147 @@ async function psvFetchErp() {
   } catch (e) {
     statusEl.className = "err"; statusEl.textContent = "Error: " + e.message;
   } finally { btn.disabled = false; }
+}
+
+
+// ---- saved verifications (OneDrive app folder: PhysicalStockVerification/PSV_YYYY-MM.json) ----
+// A month can be changed until 3 days after its date of verification (e.g. 01-11 -> till 04-11), then it is locked.
+const PSV_DIR = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/PhysicalStockVerification";
+const psvRecUrl = month => `${PSV_DIR}/PSV_${month}.json:/content`;
+let psvHistLoaded = false;
+function psvEditUntil(dateIso) { const d = new Date(dateIso + "T00:00:00"); d.setDate(d.getDate() + 3); return localDateToISO(d); }
+function psvIsLocked(dateIso) { return !!dateIso && localDateToISO(new Date()) > psvEditUntil(dateIso); }
+function psvMonthLabel(month) { const [y, m] = month.split("-"); return new Date(+y, +m - 1, 1).toLocaleString("en-GB", { month: "long", year: "numeric" }); }
+function psvBanner() {
+  const el = document.getElementById("psvBanner"); if (!el) return;
+  const panel = document.getElementById("substock-psv");
+  if (panel) panel.classList.toggle("psvRO", psvReadOnly);
+  ["psvPeriod", "psvDivision", "psvDate", "psvErpDate", "psvSignQad", "psvSignFin", "psvSignHod", "psvSignPh"].forEach(id => {
+    const x = document.getElementById(id); if (x) x.disabled = psvReadOnly || (id === "psvDate" && !!psvState.recMonth);
+  });
+  if (psvReadOnly) {
+    el.className = "psvBanner lock";
+    el.textContent = `🔒 ${psvMonthLabel(psvState.recMonth)} - verification of ${psvDateText(psvState.date)} is locked (could be changed till ${psvDateText(psvEditUntil(psvState.date))}). PDF / Excel can still be downloaded.`;
+  } else if (psvState.recMonth) {
+    el.className = "psvBanner " + (psvState.dirty ? "dirty" : "edit");
+    el.textContent = `✏️ ${psvMonthLabel(psvState.recMonth)} - saved verification, can be changed till ${psvDateText(psvEditUntil(psvState.date))}.` +
+      (psvState.dirty ? " Changes not saved yet - press 💾 Save verification." : "");
+  } else {
+    el.className = "psvBanner" + (psvState.dirty ? " dirty" : "");
+    el.textContent = "🆕 New verification (not saved to OneDrive yet). Press 💾 Save verification when done.";
+  }
+}
+async function psvGetRecord(token, month) {
+  const r = await fetch(psvRecUrl(month), { headers: { Authorization: "Bearer " + token } });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error("OneDrive read failed (" + r.status + ")");
+  return await r.json();
+}
+async function psvSaveCloud() {
+  const statusEl = document.getElementById("status");
+  if (psvReadOnly) return;
+  if (!psvState.date) { statusEl.className = "err"; statusEl.textContent = "Please select the Date of Verification."; return; }
+  const month = psvState.recMonth || psvState.date.slice(0, 7);
+  const btn = document.getElementById("psvSaveBtn"); btn.disabled = true;
+  statusEl.className = "wait"; statusEl.textContent = "Saving to OneDrive...";
+  try {
+    const token = await getToken(); if (!token) throw new Error("not signed in");
+    const old = await psvGetRecord(token, month);
+    if (old && psvIsLocked(old.date)) {
+      statusEl.className = "err";
+      statusEl.textContent = `${psvMonthLabel(month)} is already saved and locked (could be changed till ${psvDateText(psvEditUntil(old.date))}). Not changed.`;
+      return;
+    }
+    if (!old && psvIsLocked(psvState.date) &&
+      !confirm(`The date of verification (${psvDateText(psvState.date)}) is more than 3 days ago, so ${psvMonthLabel(month)} will be locked as soon as it is saved. Save it?`)) {
+      statusEl.className = ""; statusEl.textContent = ""; return;
+    }
+    if (old && !psvState.recMonth &&
+      !confirm(`${psvMonthLabel(month)} is already saved (verification of ${psvDateText(old.date)}). Replace it with what is on this screen?`)) {
+      statusEl.className = ""; statusEl.textContent = ""; return;
+    }
+    const now = new Date().toISOString();
+    const rec = Object.assign({}, psvState, { v: 1, month, recMonth: undefined, dirty: undefined, savedAt: now, firstSavedAt: (old && old.firstSavedAt) || now });
+    delete rec.recMonth; delete rec.dirty;
+    const r = await fetch(psvRecUrl(month), { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(rec) });
+    if (!r.ok) throw new Error("OneDrive save failed (" + r.status + ")");
+    psvState.recMonth = month; psvState.dirty = false; psvSave(); psvBanner();
+    statusEl.className = "ok";
+    statusEl.textContent = `Saved: ${psvMonthLabel(month)} verification. ` + (psvIsLocked(psvState.date) ? "It is now locked." : `It can be changed till ${psvDateText(psvEditUntil(psvState.date))}.`);
+    psvLoadHistory();
+  } catch (e) {
+    statusEl.className = "err"; statusEl.textContent = "Save error: " + e.message;
+  } finally { btn.disabled = false; }
+}
+function psvApplyRecord(rec, month) {
+  const st = Object.assign({ period: "Monthly", division: "SMS", date: "", erpDate: "", signs: {}, items: {}, extraFg: [] }, rec);
+  delete st.v; delete st.month; delete st.savedAt; delete st.firstSavedAt;
+  st.recMonth = month; st.dirty = false;
+  return st;
+}
+async function psvOpenRecord(month, then) {
+  const statusEl = document.getElementById("status");
+  statusEl.className = "wait"; statusEl.textContent = `Opening ${psvMonthLabel(month)}...`;
+  try {
+    const token = await getToken(); if (!token) throw new Error("not signed in");
+    const rec = await psvGetRecord(token, month);
+    if (!rec) throw new Error("not found in OneDrive");
+    const locked = psvIsLocked(rec.date);
+    let draft = null; try { draft = JSON.parse(localStorage.getItem(PSV_KEY) || "null"); } catch (e) { draft = null; }
+    if (!locked && draft && draft.dirty && draft.recMonth !== month &&
+      !confirm("Your current entry has changes that are not saved to OneDrive. Opening this month will replace it on this phone. Continue?")) {
+      statusEl.className = ""; statusEl.textContent = ""; return;
+    }
+    if (locked) {
+      psvReadOnly = true;                 // the draft in this phone's storage is left as it is
+      psvState = psvApplyRecord(rec, month);
+    } else {
+      psvReadOnly = false;
+      psvState = psvApplyRecord(rec, month);
+      psvSave();
+    }
+    psvFillHeader(); psvRender();
+    statusEl.className = "ok";
+    statusEl.textContent = `${psvMonthLabel(month)} opened` + (locked ? " (locked - view and download only)." : ` (can be changed till ${psvDateText(psvEditUntil(rec.date))}).`);
+    if (then === "pdf") psvPdf();
+    else if (then === "xlsx") psvXlsx();
+    else document.getElementById("psvBanner").scrollIntoView({ behavior: "smooth", block: "center" });
+  } catch (e) {
+    statusEl.className = "err"; statusEl.textContent = "Open error: " + e.message;
+  }
+}
+function psvBackToDraft() {
+  psvReadOnly = false; psvLoad();
+  if (psvState.recMonth && psvIsLocked(psvState.date)) psvState = { period: psvState.period, division: psvState.division, signs: psvState.signs, items: {}, extraFg: [], date: "", erpDate: "" };
+  psvFillHeader(); psvRender();
+}
+async function psvLoadHistory() {
+  const box = document.getElementById("psvHistory"); if (!box) return;
+  psvHistLoaded = true;
+  box.innerHTML = `<div class="skeletonBar" style="width:80%;"></div><div class="skeletonBar" style="width:60%;"></div>`;
+  try {
+    const token = await getToken(); if (!token) throw new Error("not signed in");
+    const h = { Authorization: "Bearer " + token };
+    const r = await fetch(`${PSV_DIR}:/children?$select=name&$top=500`, { headers: h });
+    if (r.status === 404) { box.innerHTML = `<p class="psvMuted">Nothing saved yet.</p>`; return; }
+    if (!r.ok) throw new Error("OneDrive list failed (" + r.status + ")");
+    const months = ((await r.json()).value || []).map(f => (/^PSV_(\d{4}-\d{2})\.json$/.exec(f.name) || [])[1]).filter(Boolean).sort().reverse().slice(0, 36);
+    if (!months.length) { box.innerHTML = `<p class="psvMuted">Nothing saved yet.</p>`; return; }
+    const recs = await Promise.all(months.map(m => psvGetRecord(token, m).catch(() => null)));
+    box.innerHTML = months.map((m, i) => {
+      const rec = recs[i], d = rec && rec.date;
+      const st = !rec ? "⚠️ could not be read" : (psvIsLocked(d) ? `🔒 locked` : `✏️ can be changed till ${psvDateText(psvEditUntil(d))}`);
+      return `<div class="psvHistRow"><div class="psvHistTxt"><b>${_escH(psvMonthLabel(m))}</b><br><span class="psvMuted" style="font-style:normal">` +
+        `Verified ${_escH(psvDateText(d || ""))} · ${st}</span></div>` +
+        `<button type="button" class="secondary" data-psvopen="${m}">${rec && !psvIsLocked(d) ? "✏️ Open" : "👁️ View"}</button>` +
+        `<button type="button" class="secondary" data-psvpdf="${m}">📄 PDF</button><button type="button" class="secondary" data-psvxlsx="${m}">📊 Excel</button></div>`;
+    }).join("");
+    box.querySelectorAll("[data-psvopen]").forEach(b => b.addEventListener("click", () => psvOpenRecord(b.dataset.psvopen)));
+    box.querySelectorAll("[data-psvpdf]").forEach(b => b.addEventListener("click", () => psvOpenRecord(b.dataset.psvpdf, "pdf")));
+    box.querySelectorAll("[data-psvxlsx]").forEach(b => b.addEventListener("click", () => psvOpenRecord(b.dataset.psvxlsx, "xlsx")));
+  } catch (e) {
+    box.innerHTML = `<p class="psvNeg">Could not load the list: ${_escH(e.message)}</p>`;
+  }
 }
 
 // Rows of one block, in the same order the sheet prints them.
