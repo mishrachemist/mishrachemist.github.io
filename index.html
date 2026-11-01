@@ -4797,7 +4797,37 @@ window.__gmFS = {
           </div>
         </div>
 
+        <style>
+          #substock-psv .psvGrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0 12px; }
+          #substock-psv select{ width:100%; }
+          .psvSec{ margin:18px 0 6px; }
+          .psvSecHead{ font-weight:800; font-size:15px; color:var(--gold,#d4a72c); border-bottom:2px solid var(--gold,#d4a72c); padding:4px 0; margin-bottom:8px; }
+          .psvItem{ border:1px solid rgba(127,127,127,.35); border-radius:12px; padding:10px 12px; margin:8px 0; background:rgba(127,127,127,.07); }
+          .psvItemHead{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+          .psvUom{ font-size:11px; padding:1px 7px; border-radius:10px; background:rgba(127,127,127,.2); }
+          .psvBadge{ font-size:10.5px; padding:1px 7px; border-radius:10px; background:#1e6b3c; color:#fff; }
+          .psvBadgeM{ background:#8a5d00; }
+          .psvFields{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:4px 10px; }
+          .psvFields label{ font-size:12px; margin:0; }
+          .psvFields input{ margin-top:3px; }
+          .psvRes, .psvSecTot{ display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12.5px; margin-top:6px; }
+          .psvSecTot{ padding:8px 12px; border-radius:10px; background:rgba(212,167,44,.16); }
+          .psvNeg{ color:#e05545; } .psvPos{ color:#3fae6a; } .psvMuted{ color:var(--muted); font-style:italic; }
+          .psvLotBtns{ display:flex; gap:8px; margin-top:6px; }
+          .psvMini{ width:auto !important; padding:4px 12px !important; font-size:12px !important; min-height:0 !important; }
+          .psvMore summary, .psvSign summary{ cursor:pointer; font-size:12.5px; color:var(--muted); margin-top:6px; }
+          .psvSign{ margin-top:14px; }
+        </style>
         <div class="sectionPanel hidden" id="section-stock">
+          <div class="sidebar subNav" id="stockSubNav">
+            <button class="navItem" data-substock="rm"><span class="navIcon">📦</span> Raw Material Stock</button>
+            <button class="navItem" data-substock="psv"><span class="navIcon">📝</span> Physical Stock Verification</button>
+          </div>
+          <div class="contentArea hidden" id="stockSubContent">
+          <div class="backBar">
+            <button class="backBtn" id="backToStockMenuBtn">← Back to Stock Menu</button>
+          </div>
+          <div class="sub-sectionPanel hidden" id="substock-rm">
           <div class="card">
             <h2>Raw Material Stock Report</h2>
             <p style="font-size:13px;color:var(--muted);margin:0 0 14px;">
@@ -4834,6 +4864,49 @@ window.__gmFS = {
                 <button class="secondary" id="stockReportPdfBtn">Download PDF</button>
               </div>
             </div>
+          </div>
+          </div>
+
+          <div class="sub-sectionPanel hidden" id="substock-psv">
+          <div class="card">
+            <h2>📝 Physical Stock Verification</h2>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 14px;">
+              Same format and formulas as the "SMS" sheet of the Physical Stock
+              Verification file. ERP Stock comes from the Raw Material Stock
+              report (closing stock on the "ERP Stock as on" date; billets from
+              the Daily Stock sheet). You enter the physical stock. Entries are
+              kept on this phone until you clear them.
+            </p>
+            <div class="psvGrid">
+              <div><label for="psvPeriod">Period</label>
+                <select id="psvPeriod"><option>Monthly</option><option>Quarterly</option><option>Yearly</option></select></div>
+              <div><label for="psvDivision">Division</label>
+                <input type="text" id="psvDivision" value="SMS"></div>
+              <div><label for="psvDate">Date of Verification</label>
+                <input type="date" id="psvDate"></div>
+              <div><label for="psvErpDate">ERP Stock as on</label>
+                <input type="date" id="psvErpDate"></div>
+            </div>
+            <div class="btnRow">
+              <button class="primary" id="psvFetchBtn" type="button">⬇️ Fetch ERP Stock</button>
+              <button class="secondary" id="psvClearBtn" type="button">🧹 Clear entries</button>
+            </div>
+            <div id="psvBody" style="margin-top:14px;"></div>
+            <details class="psvSign">
+              <summary>✍️ Names for the signature block</summary>
+              <div class="psvGrid">
+                <div><label for="psvSignQad">QAD-Team</label><input type="text" id="psvSignQad"></div>
+                <div><label for="psvSignFin">Finance Team</label><input type="text" id="psvSignFin"></div>
+                <div><label for="psvSignHod">Deptt. -HOD</label><input type="text" id="psvSignHod"></div>
+                <div><label for="psvSignPh">Plant Head</label><input type="text" id="psvSignPh"></div>
+              </div>
+            </details>
+            <div class="btnRow" style="margin-top:14px;">
+              <button class="primary" id="psvPdfBtn" type="button">📄 PDF</button>
+              <button class="secondary" id="psvXlsxBtn" type="button">📊 Excel</button>
+            </div>
+          </div>
+          </div>
           </div>
         </div>
 
@@ -6489,7 +6562,7 @@ function uiHiDict() {
     "Load Yearly Calendar": "वार्षिक कैलेंडर लोड करें", "Load Stock Report": "स्टॉक रिपोर्ट लोड करें",
     "Download PDF": "PDF डाउनलोड", "⬇️ Download PDF": "⬇️ PDF डाउनलोड", "Load R.M Description": "आर.एम विवरण लोड करें",
     "Load Dashboard": "डैशबोर्ड लोड करें", "Download Full List (PDF)": "पूरी लिस्ट डाउनलोड (PDF)",
-    "Show Report": "रिपोर्ट दिखाएँ", "Load Heat-wise Consumption": "हीट-वार खपत लोड करें", "Load Month-wise Consumption": "माह-वार खपत लोड करें", "📅 Month-wise Consumption": "📅 माह-वार खपत", "Select Month": "माह चुनें",
+    "Show Report": "रिपोर्ट दिखाएँ", "Load Heat-wise Consumption": "हीट-वार खपत लोड करें", "Load Month-wise Consumption": "माह-वार खपत लोड करें", "📅 Month-wise Consumption": "📅 माह-वार खपत", "Select Month": "माह चुनें", "📝 Physical Stock Verification": "📝 भौतिक स्टॉक सत्यापन", "⬇️ Fetch ERP Stock": "⬇️ ERP स्टॉक लाएँ",
     "Load ERP Production": "ईआरपी उत्पादन लोड करें", "Load Debit Note Data": "डेबिट नोट डेटा लोड करें",
     "Download Full List (Excel)": "पूरी लिस्ट डाउनलोड (Excel)", "Download Party-wise PDF": "पार्टी-वार PDF डाउनलोड",
     "Load Trend": "ट्रेंड लोड करें", "Download Line Chart (PNG)": "लाइन चार्ट डाउनलोड (PNG)",
@@ -6596,9 +6669,11 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.01.1";
+const APP_VERSION = "2026.11.01.3";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📊 Physical Stock Verification Excel now also has the 2nd sheet \"SMS - RM\" (opening, received, issue, closing for the month), pre-filled from the ERP stock",
+  "📝 Stock tile now has two tiles: Raw Material Stock (as before) and Physical Stock Verification - ERP stock is filled automatically, you enter physical stock; gap and gap % worked out like the SMS sheet, with PDF and Excel (company logo)",
   "📅 Month-wise Consumption (in Heat-wise Consumption): pick a month to see every raw material's total weight and its % of the month's total consumption",
   "🗒️ Stock Difference report: sizes with 0 stock (manual and ERP both 0) are left out",
   "🟠 Ball Jump: 20 levels now (17 new: tunnels, pillars over pits, spike fields, floating platforms) - every level checked to be finishable",
@@ -9012,7 +9087,8 @@ document.querySelectorAll("#mainSidebar > .navItem").forEach(btn => {
       whatsapp: ["whatsappSubNav", "whatsappSubContent"],
       iso9001: ["iso9001SubNav", "iso9001SubContent"],
       element: ["elementSubNav", "elementSubContent"],
-      marketdash: ["marketSubNav", "marketSubContent"]
+      marketdash: ["marketSubNav", "marketSubContent"],
+      stock: ["stockSubNav", "stockSubContent"]
     };
     const reset = subNavResets[btn.dataset.section];
     if (reset) {
@@ -9080,6 +9156,26 @@ document.querySelectorAll("#reportsSubNav .navItem").forEach(btn => {
 document.getElementById("backToReportsMenuBtn").addEventListener("click", () => {
   document.getElementById("reportsSubContent").classList.add("hidden");
   document.getElementById("reportsSubNav").classList.remove("hidden");
+  document.getElementById("mainBackBar").classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "instant" });
+});
+
+/* ===================== STOCK SUB-NAV (Raw Material Stock / Physical Stock Verification) ===================== */
+document.querySelectorAll("#stockSubNav .navItem").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#stockSubNav .navItem").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("#stockSubContent .sub-sectionPanel").forEach(p => p.classList.add("hidden"));
+    btn.classList.add("active");
+    document.getElementById("substock-" + btn.dataset.substock).classList.remove("hidden");
+    document.getElementById("stockSubNav").classList.add("hidden");
+    document.getElementById("mainBackBar").classList.add("hidden");
+    document.getElementById("stockSubContent").classList.remove("hidden");
+    window.scrollTo({ top: 0, behavior: "instant" });
+  });
+});
+document.getElementById("backToStockMenuBtn").addEventListener("click", () => {
+  document.getElementById("stockSubContent").classList.add("hidden");
+  document.getElementById("stockSubNav").classList.remove("hidden");
   document.getElementById("mainBackBar").classList.remove("hidden");
   window.scrollTo({ top: 0, behavior: "instant" });
 });
@@ -15534,7 +15630,7 @@ const KR_REPORTS = [
     run: async () => { await downloadMonthlyMisPDF(); } },
   { key: "mom", name: "Month-over-Month comparison", re: /month\s*over\s*month|\bmom\b|year\s*over\s*year/, kind: "month", go: "dashboard", sub: ["subdash", "mom"], month: "momMonth",
     run: async () => { await loadMonthOverMonth(); document.getElementById("momChartPdfBtn").click(); } },
-  { key: "rmstock", needsAsk: true, name: "Raw Material Stock Report", re: /(raw\s*material|\brm\b|material)\s*stock|stock\s*report/, kind: "range", go: "stock",
+  { key: "rmstock", needsAsk: true, name: "Raw Material Stock Report", re: /(raw\s*material|\brm\b|material)\s*stock|stock\s*report/, kind: "range", go: "stock", sub: ["substock", "rm"],
     from: "stockFromDateStock", to: "stockToDateStock", run: async () => { await loadStockReport(); if (!stockReportData) throw new Error("no stock data"); document.getElementById("stockReportPdfBtn").click(); } },
   { key: "rmdesc", name: "R.M Description", re: /r\.?\s*m\.?\s*desc|raw\s*material\s*desc/, kind: "range", go: "rmdesc",
     from: "rmDashFromDate", to: "rmDashToDate", run: async () => { await loadRawMaterialDashboard(); if (!rmDashData) throw new Error("no data"); document.getElementById("rmDashPdfBtn").click(); } },
@@ -21163,6 +21259,608 @@ document.getElementById("stockReportPdfBtn").addEventListener("click", () => {
   stampLogoOnAllPages(doc);
   showPdfPreview(doc, `Stock_Report_${stockReportData.fromDate}_to_${stockReportData.toDate}.pdf`, "Raw Material Stock Report");
 });
+
+/* ===================== PHYSICAL STOCK VERIFICATION ===================== */
+// Same 4 blocks and the same formulas as the "SMS" sheet of the monthly
+// Physical_Stock_Verification file:
+//   Raw Material (Scrap) / (Other than Scrap):  F = physical + E
+//   Finished Good:  C = pieces (or metres for RANDOM), F = C x length x density, E entered in pieces
+//   By Product:     F = physical
+//   every row:      G = (F - E) - D,  H = G / D        (D = ERP stock, E = receipt/issue after the ERP report)
+// ERP stock is the Raw Material Stock report's closing stock on the "ERP Stock as on" date
+// (billets: the Daily Stock sheet's ERP stock weight). Entries stay on this phone (localStorage).
+const PSV_DENS = { 110: 0.095, 130: 0.132335, 160: 0.198005 };   // MT per metre, as in the sheet
+const PSV_FG_DEFAULT = [
+  { name: "110 X 110 RANDOM", sec: 110, len: 0, uom: "MTR" },
+  { name: "130 X 130 X 6", sec: 130, len: 6, uom: "MT" }, { name: "130 X 130 X 5", sec: 130, len: 5, uom: "MT" },
+  { name: "130 X 130 X 4", sec: 130, len: 4, uom: "MT" }, { name: "130 X 130 X 3", sec: 130, len: 3, uom: "MT" },
+  { name: "160 X 160 X 5", sec: 160, len: 5, uom: "MT" }, { name: "160 X 160 X 4", sec: 160, len: 4, uom: "MT" },
+  { name: "160 X 160 X 3", sec: 160, len: 3, uom: "MT" }
+];
+const PSV_SECTIONS = [
+  { key: "scrap", nature: "Raw Material (Scrap)", mode: "rm",
+    head: ["Lot No", "UOM", "Lot Weight"],
+    items: [
+      { name: "STEEL MELTING SCRAP", erp: "Steel Melting Scrap", lots: 4 },
+      { name: "MS SCRAP-ROLLING", erp: "MS Scrap - Rolling Mill" },
+      { name: "MS SCRAP", erp: "MS Scrap" },
+      { name: "CI MIX SCRAP", erp: "CI Mix Scrap" }] },
+  { key: "other", nature: "Raw Material (Other than Scrap)", mode: "rm", measLabel: "Measurement (L × W × H)",
+    head: ["Name of item", "UOM", "Measurement by Length, Width and Height"],
+    items: [
+      { name: "SI LUMPS", erp: "Lumps" }, { name: "S I PELLETS", erp: "Pellets" }, { name: "SI FINES", erp: "Fines" },
+      { name: "PIG IRON", erp: "Pig Iron" }, { name: "SILICO MANGANESE", erp: "Silico Manganeese" }] },
+  { key: "fg", nature: "Finished Good", mode: "fg",
+    head: ["Size of Billet & Length of Billet", "UOM", "Measurement using by counting of No. of billets (i.e. No. of pieces X density)"],
+    items: [] },   // filled from PSV_FG_DEFAULT + extra Daily Stock sizes
+  { key: "bp", nature: "By Product", mode: "bp", measLabel: "Visual estimate",
+    head: ["Name of item", "UOM", "Visual Estimate"],
+    items: [
+      { name: "BAG FILTER DUST", erp: "Bag Filter Dust" }, { name: "MILL SCALE", erp: "Mill Scale-SMS" },
+      { name: "RAW SLAG", erp: "Raw Slag" }, { name: "SLAG METAL FINES", erp: "Slag Metal Fines, Size: 1mm to 3mm" },
+      { name: "SLAG WASTE", erp: "Slag Waste" }, { name: "OVER SIZE SPONGE", erp: "Over Size Sponge" },
+      { name: "SCRAP DUST (MIX)", erp: null }] }
+];
+// 2nd sheet "SMS - RM" (monthly stock & consumption): [particular, Raw Material Stock item, assumed yield]
+const PSV_RM_ROWS = [["SPONGE IRON LUMPS", "Lumps", 0.7832], ["SPONGE IRON FINES", "Fines", 0.734], ["SPONGE IRON PELLETS", "Pellets", 0.7893],
+  ["PIG IRON", "Pig Iron"], ["PIG IRON SPLASHES", null], ["SCRAP", "Steel Melting Scrap"], ["PIG IRON GRANULATED", null], ["CI MIX SCRAP", "CI Mix Scrap"],
+  ["MS SCRAP- ROLLING MILL", "MS Scrap - Rolling Mill"], ["PCM JAM/CI RUNNER", null], ["MS SCRAP", "MS Scrap"], ["MS SKULL", null], ["OVER SIZE MAG", null],
+  ["SLAG METAL (Mag Material)", "Mag Material"], ["Hot Roll Coil Random", null]];
+// rows 31-70 of that sheet (billet -> strip -> coil -> pipe balance): labels, norms and formulas only, no month figures
+const PSV_RM_SPEC = [["A31","f","+H31"],["H31","d",null],["A32","s","Billet received from SMS"],["D32","f","I33"],["H32","s","Opening"],["I32","s","Received"],["J32","s","Production"],["K32","s","M to M"],["L32","s","issue"],["M32","s","Coil build "],["N32","s","Coil slit"],["O32","s","Pipe"],["P32","s","Inter div"],["Q32","s","SMS (Ms scrap)"],["R32","s","Sale"],["S32","s","Closing"],["T32","s","ERP  stock"],["U32","s","Diff"],["V32","s","Closing Physical"],["W32","s","Diff"],["A33","s","Opening stock & closing of billet"],["B33","f","+H33"],["C33","f","+S33"],["D33","f","+D32+B33-C33"],["G33","s","Billet"],["I33","f","-'SMS - RM'!F28"],["K33","f","-I33"],["S33","f","SUM(H33:R33)"],["U33","f","+T33-S33"],["A34","s","Billet to strip"],["B34","f","+SUM(B36:B39)"],["C34","f","+SUM(C36:C39)"],["D34","f","-K33"],["A36","s","Hot Roll Coil"],["B36","f","100%-SUM(B37:B39)"],["C36","f","+IFERROR(D36/$D$34,0)"],["D36","f","+J36"],["G36","s","Hot Roll Coil "],["I36","f","-SUM(K33)"],["S36","f","SUM(J36:R36)+H36"],["U36","f","+T36-S36"],["W36","f","+S36+S44+S50-V36"],["A37","s","Mill Scale"],["B37","p",0.015],["C37","f","+IFERROR(D37/$D$34,0)"],["D37","f","+J37"],["G37","s","Mill Scale-Strip"],["S37","f","SUM(H37:R37)"],["U37","f","+T37-S37"],["W37","f","+S37-V37"],["A38","s","Miss roll"],["B38","p",0.01],["C38","f","+IFERROR(D38/$D$34,0)"],["D38","f","+J38"],["G38","s","Miss roll"],["S38","f","SUM(H38:R38)"],["U38","f","+T38-S38"],["W38","f","+S38-V38"],["A39","f","+G39"],["B39","p",0.0045],["C39","f","+IFERROR(D39/$D$34,0)"],["D39","f","+J39"],["G39","s","Roughing Shear End Cut"],["S39","f","SUM(H39:R39)"],["U39","f","+T39-S39"],["W39","f","+S39-V39"],["D40","f","SUM(D36:D39)"],["C41","s","Diff"],["D41","f","+D33-D40"],["A44","s","Hot Roll Coil build up"],["B44","f","100%-B45-B46"],["C44","f","+IFERROR(D44/$I$44,0)"],["D44","f","+J44"],["G44","s","Hot Roll Coil build up"],["I44","f","-M36"],["S44","f","+H44+I44-J45-J46+SUM(K44:R44)"],["U44","f","+T44-S44"],["A45","s","End cut Coil build up"],["B45","p",0.012],["C45","f","+IFERROR(D45/$I$44,0)"],["D45","f","+J45"],["G45","s","End cut Coil build up"],["S45","f","SUM(J45:R45)+H45"],["U45","f","+T45-S45"],["W45","f","+S45-V45"],["A46","s","Mill Scale- Coil Build up"],["B46","p",0.005],["C46","f","+IFERROR(D46/$I$44,0)"],["D46","f","+J46"],["G46","s","Mill Scale- Coil Build up"],["S46","f","SUM(J46:R46)+H46"],["U46","f","+T46-S46"],["W46","f","+S46-V46"],["D47","f","SUM(D44:D46)"],["C48","s","Diff"],["D48","f","+D47-I44"],["A50","s","Hot Roll Coil Slit"],["B50","f","100%-B51-B52"],["C50","f","+IFERROR(D50/$I$50,0)"],["D50","f","+J50"],["G50","s","Hot Roll Coil Slit"],["I50","f","-N44-N36"],["S50","f","+H50+I50-J51-J52+SUM(K50:R50)"],["U50","f","+T50-S50"],["A51","s","Slitting"],["B51","p",0.013],["C51","f","+IFERROR(D51/$D$36,0)"],["D51","f","+J51"],["G51","s","Slitting"],["S51","f","SUM(H51:R51)"],["U51","f","+T51-S51"],["W51","f","+S51-V51"],["A52","s","Mill Scale- Slitting"],["B52","p",0.002],["C52","f","+IFERROR(D52/$D$36,0)"],["D52","f","+J52"],["G52","s","Mill Scale- Slitting"],["S52","f","SUM(H52:R52)"],["U52","f","+T52-S52"],["W52","f","+S52-V52"],["D53","f","SUM(D50:D52)"],["C54","s","Diff"],["D54","f","+I50-D53"],["A56","s","Total strip"],["B56","f","100%-SUM(B37:B39)-B45-B51-B46-B52"],["C56","f","100%-SUM(C37:C39)-C45-C46-C51-C52"],["A59","s","Pipe"],["B59","f","100%-SUM(B61:B67)"],["C59","f","+IFERROR(D59/$I$59,0)"],["D59","f","+J59"],["G59","s","Pipe"],["I59","f","-O44-O50-O36"],["S59","f","+SUM(H59:I59)-SUM(J60:J67)+SUM(K59:R59)"],["U59","f","+T59-S59"],["W59","f","+S59+S60-V59-V60"],["A60","s","WIP -Pipe"],["B60","p",0],["C60","f","+IFERROR(D60/$I$59,0)"],["D60","f","+J60"],["G60","s","WIP Pipe"],["S60","f","SUM(H60:R60)"],["U60","f","+T60-S60"],["A61","s","Mill Scale (%)"],["B61","p",0.003],["C61","f","+IFERROR(D61/$I$59,0)"],["D61","f","+J61"],["G61","s","Mill Scale (%)"],["S61","f","SUM(H61:R61)"],["U61","f","+T61-S61"],["W61","f","+S61-V61"],["A62","s","Bead (%)"],["B62","p",0.005],["C62","f","+IFERROR(D62/$I$59,0)"],["D62","f","+J62"],["G62","s","Bead (%)"],["S62","f","SUM(H62:R62)"],["U62","f","+T62-S62"],["W62","f","+S62-V62"],["A63","s","End cutting (%) - Accumulator"],["B63","p",0.001],["C63","f","+IFERROR(D63/$I$59,0)"],["D63","f","+J63"],["G63","s","End Accumulator"],["S63","f","SUM(H63:R63)"],["U63","f","+T63-S63"],["W63","f","+S63-V63"],["A64","s","End cutting (%) - Pipe"],["B64","p",0.0015],["C64","f","+IFERROR(D64/$I$59,0)"],["D64","f","+J64"],["G64","s","End Pipe"],["S64","f","SUM(H64:R64)"],["U64","f","+T64-S64"],["W64","f","+S64-V64"],["A65","s","Random Pipe"],["B65","p",0],["C65","f","+IFERROR(D65/$I$59,0)"],["D65","f","+J65"],["G65","s","Random Pipe"],["S65","f","SUM(H65:R65)"],["U65","f","+T65-S65"],["W65","f","+S65-V65"],["A66","s","Rejection (%)"],["B66","p",0.02],["C66","f","+IFERROR(D66/$I$59,0)"],["D66","f","+J66"],["G66","s","Rejection (%)"],["S66","f","SUM(H66:R66)"],["U66","f","+T66-S66"],["W66","f","+S66-V66"],["A67","s","Joint Loss (%)"],["B67","p",0.031],["C67","f","+IFERROR(D67/$I$59,0)"],["D67","f","+J67"],["G67","s","Joint Loss (%)"],["S67","f","SUM(H67:R67)"],["U67","f","+T67-S67"],["W67","f","+S67-V67"],["D68","f","SUM(D59:D67)"],["P68","f","+SUM(P59:P67)+SUM(P50:P52)+SUM(P44:P46)+SUM(P36:P39)"],["Q68","f","+SUM(Q59:Q67)+SUM(Q50:Q52)+SUM(Q44:Q46)+SUM(Q36:Q39)"],["R68","f","+SUM(R59:R67)+SUM(R50:R52)+SUM(R44:R46)+SUM(R36:R39)"],["S68","f","+SUM(S60:S67)+S51+S52+S45+S46"],["T68","f","+SUM(T60:T67)+T51+T52+T45+T46"],["C69","s","Diff"],["D69","f","+D68-I59"],["J69","f","+SUM(J36:J68)"],["K69","f","+SUM(K59:K67)+SUM(K50:K51)+SUM(K44:K46)+SUM(K36:K39)"],["A70","s","Total shortage / (excess) Production"],["B70","f","+B56*B59"],["C70","f","+C56*C59"],["D70","f","+D41+D48+D54+D69"]];
+const PSV_HEAD_REST = ["ERP Stock", "Receipt/issue after ERP Stock report generated", "Physical stock", "Gap", "Gap %", "Date of adjustment in Books", "Remarks"];
+const PSV_LETTERS = ["A", "B", "C", "D", "E", "F", "G=(F-E)-D", "H=G/D×100", "I", "J"];
+const PSV_KEY = "psvDraft";
+let psvState = null;
+
+function psvNum(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v).replace(/,/g, "").trim();
+  if (s === "" || s === "-" || s === ".") return null;
+  const n = Number(s);
+  return isFinite(n) ? n : null;
+}
+function psvSizeKey(name) {
+  const up = String(name || "").toUpperCase();
+  const nums = (up.match(/\d+(?:\.\d+)?/g) || []).map(Number);
+  if (!nums.length) return "";
+  if (/RAND/.test(up)) return nums[0] + "|R";
+  const len = nums.length >= 3 ? nums[2] : nums[1];
+  return len === undefined ? "" : nums[0] + "|" + len;
+}
+function psvFgItems() {
+  const extra = (psvState && psvState.extraFg) || [];
+  return PSV_FG_DEFAULT.concat(extra).map(f => ({ name: f.name, sec: f.sec, len: f.len, uom: f.uom || (f.len ? "MT" : "MTR"), fgKey: psvSizeKey(f.name) }));
+}
+function psvSectionItems(sec) { return sec.key === "fg" ? psvFgItems() : sec.items; }
+function psvId(sec, item) { return sec.key + ":" + item.name; }
+function psvSt(sec, item) {
+  const id = psvId(sec, item);
+  if (!psvState.items[id]) psvState.items[id] = { erp: "", e: "", phys: "", lots: item.lots ? new Array(item.lots).fill("") : undefined, meas: "", adj: "", rem: "", src: "" };
+  const st = psvState.items[id];
+  if (item.lots && !Array.isArray(st.lots)) st.lots = new Array(item.lots).fill("");
+  return st;
+}
+function psvLoad() {
+  let o = null;
+  try { o = JSON.parse(localStorage.getItem(PSV_KEY) || "null"); } catch (e) { o = null; }
+  psvState = Object.assign({ period: "Monthly", division: "SMS", date: "", erpDate: "", signs: {}, items: {}, extraFg: [] }, o || {});
+  if (!psvState.items || typeof psvState.items !== "object") psvState.items = {};
+  if (!Array.isArray(psvState.extraFg)) psvState.extraFg = [];
+  if (!psvState.signs || typeof psvState.signs !== "object") psvState.signs = {};
+}
+function psvSave() { try { localStorage.setItem(PSV_KEY, JSON.stringify(psvState)); } catch (e) { /* storage blocked: still works for this session */ } }
+
+// One row's numbers, exactly as the sheet works them out.
+function psvCalc(sec, item, st) {
+  const D = psvNum(st.erp);
+  let C = null, E = psvNum(st.e) || 0, F = null, lotsSum = null, factor = null;
+  if (item.lots) {
+    const nums = st.lots.map(psvNum).filter(v => v !== null);
+    if (nums.length) { lotsSum = nums.reduce((a, b) => a + b, 0); F = lotsSum + E; }
+  } else if (sec.mode === "fg") {
+    const dens = PSV_DENS[item.sec] || 0;
+    factor = item.len ? item.len * dens : dens;
+    C = psvNum(st.phys);
+    E = (psvNum(st.e) || 0) * factor;          // receipt/issue entered in pieces (metres for RANDOM)
+    if (C !== null) F = C * factor;            // physical stock does NOT add E (sheet: AB = Y x len x density)
+  } else if (sec.mode === "rm") {
+    const p = psvNum(st.phys);
+    if (p !== null) F = p + E;                 // sheet: Q = physical + P
+  } else {
+    const p = psvNum(st.phys);
+    if (p !== null) F = p;                     // sheet: AM = physical
+  }
+  let G = null, H = null;
+  if (F !== null) { G = (F - E) - (D || 0); H = D ? G / D : null; }
+  return { C, D, E, F, G, H, lotsSum, factor, ePcs: sec.mode === "fg" ? psvNum(st.e) : null };
+}
+function psvTotals(sec) {
+  const t = { D: 0, E: 0, F: 0, G: 0 };
+  psvSectionItems(sec).forEach(item => {
+    const r = psvCalc(sec, item, psvSt(sec, item));
+    t.D += r.D || 0; t.E += r.E || 0; t.F += r.F || 0; t.G += r.G || 0;
+  });
+  t.H = t.D ? t.G / t.D : null;
+  return t;
+}
+const psvF3 = v => (v === null || v === undefined || !isFinite(v)) ? "" : v.toFixed(3);
+const psvPct = v => (v === null || v === undefined || !isFinite(v)) ? "" : (v * 100).toFixed(2) + "%";
+
+function psvRender() {
+  const box = document.getElementById("psvBody");
+  if (!box) return;
+  const inp = (field, val, ph, mode) => `<input type="text" inputmode="${mode || "decimal"}" data-f="${field}" value="${_escH(val)}" placeholder="${_escH(ph || "")}">`;
+  let h = "";
+  PSV_SECTIONS.forEach(sec => {
+    h += `<div class="psvSec" data-sec="${sec.key}"><div class="psvSecHead">${_escH(sec.nature)}</div>`;
+    psvSectionItems(sec).forEach(item => {
+      const st = psvSt(sec, item), id = psvId(sec, item);
+      const uom = item.uom || "MT";
+      h += `<div class="psvItem" data-id="${_escH(id)}">`;
+      h += `<div class="psvItemHead"><b>${_escH(item.name)}</b><span class="psvUom">${_escH(uom)}</span>` +
+        (st.src === "auto" ? `<span class="psvBadge">ERP auto</span>` : (item.erp === null ? `<span class="psvBadge psvBadgeM">ERP manual</span>` : "")) + `</div>`;
+      h += `<div class="psvFields">`;
+      h += `<label>ERP Stock (MT)${inp("erp", st.erp, "0.000")}</label>`;
+      h += `<label>Receipt/Issue after ERP report ${sec.mode === "fg" ? (item.len ? "(pcs, ±)" : "(m, ±)") : "(MT, ±)"}${inp("e", st.e, "0", "text")}</label>`;
+      if (item.lots) {
+        st.lots.forEach((lv, li) => {
+          h += `<label>Lot ${li + 1} weight (MT)<input type="text" inputmode="decimal" data-f="lot" data-li="${li}" value="${_escH(lv)}" placeholder="0"></label>`;
+        });
+      } else if (sec.mode === "fg") {
+        h += `<label>${item.len ? "No. of pieces" : "Metres"}${inp("phys", st.phys, "0")}</label>`;
+      } else {
+        h += `<label>Physical (MT)${inp("phys", st.phys, "0.000")}</label>`;
+      }
+      if (sec.measLabel) h += `<label>${_escH(sec.measLabel)}<input type="text" data-f="meas" value="${_escH(st.meas)}"></label>`;
+      h += `</div>`;
+      if (item.lots) h += `<div class="psvLotBtns"><button type="button" class="psvMini" data-act="addlot">+ Lot</button>${st.lots.length > 1 ? `<button type="button" class="psvMini" data-act="dellot">− Lot</button>` : ""}</div>`;
+      h += `<div class="psvRes" data-res="1"></div>`;
+      h += `<details class="psvMore"><summary>Date of adjustment / Remarks</summary><div class="psvFields">` +
+        `<label>Date of adjustment in Books<input type="text" data-f="adj" value="${_escH(st.adj)}" placeholder="dd-mm-yyyy"></label>` +
+        `<label>Remarks<input type="text" data-f="rem" value="${_escH(st.rem)}"></label></div></details>`;
+      h += `</div>`;
+    });
+    h += `<div class="psvSecTot" data-tot="${sec.key}"></div></div>`;
+  });
+  box.innerHTML = h;
+  psvRefreshResults();
+}
+function psvFindItem(id) {
+  for (const sec of PSV_SECTIONS) for (const item of psvSectionItems(sec)) if (psvId(sec, item) === id) return { sec, item };
+  return null;
+}
+function psvRefreshResults() {
+  document.querySelectorAll("#psvBody .psvItem").forEach(el => {
+    const f = psvFindItem(el.dataset.id); if (!f) return;
+    const r = psvCalc(f.sec, f.item, psvSt(f.sec, f.item));
+    const res = el.querySelector("[data-res]");
+    if (r.F === null) { res.innerHTML = `<span class="psvMuted">Physical stock not entered</span>`; return; }
+    const cls = r.G < -0.0005 ? "psvNeg" : (r.G > 0.0005 ? "psvPos" : "");
+    res.innerHTML = (f.sec.mode === "fg" ? `<span>E = ${psvF3(r.E)} MT</span>` : (f.item.lots ? `<span>Lots = ${psvF3(r.lotsSum)}</span>` : "")) +
+      `<span>Physical F = <b>${psvF3(r.F)}</b></span><span class="${cls}">Gap G = <b>${psvF3(r.G)}</b></span><span class="${cls}">Gap % = <b>${r.H === null ? "—" : psvPct(r.H)}</b></span>`;
+  });
+  PSV_SECTIONS.forEach(sec => {
+    const el = document.querySelector(`#psvBody [data-tot="${sec.key}"]`); if (!el) return;
+    const t = psvTotals(sec);
+    el.innerHTML = `<b>Total</b><span>ERP ${psvF3(t.D)}</span><span>Rec/Iss ${psvF3(t.E)}</span><span>Physical ${psvF3(t.F)}</span><span>Gap ${psvF3(t.G)}</span><span>Gap % ${t.H === null ? "—" : psvPct(t.H)}</span>`;
+  });
+}
+function psvSyncHeader() {
+  const g = id => document.getElementById(id);
+  psvState.period = g("psvPeriod").value; psvState.division = g("psvDivision").value;
+  psvState.date = g("psvDate").value; psvState.erpDate = g("psvErpDate").value;
+  psvState.signs = { qad: g("psvSignQad").value, fin: g("psvSignFin").value, hod: g("psvSignHod").value, ph: g("psvSignPh").value };
+}
+function psvFillHeader() {
+  const g = id => document.getElementById(id);
+  if (!psvState.date) psvState.date = localDateToISO(new Date());
+  if (!psvState.erpDate) { const d = new Date(psvState.date + "T00:00:00"); d.setDate(d.getDate() - 1); psvState.erpDate = localDateToISO(d); }
+  g("psvPeriod").value = psvState.period || "Monthly"; g("psvDivision").value = psvState.division || "SMS";
+  g("psvDate").value = psvState.date; g("psvErpDate").value = psvState.erpDate;
+  const s = psvState.signs || {};
+  g("psvSignQad").value = s.qad || ""; g("psvSignFin").value = s.fin || ""; g("psvSignHod").value = s.hod || ""; g("psvSignPh").value = s.ph || "";
+}
+function psvInit() {
+  if (!document.getElementById("psvBody")) return;
+  psvLoad(); psvFillHeader(); psvRender();
+  const body = document.getElementById("psvBody");
+  body.addEventListener("input", ev => {
+    const t = ev.target, wrap = t.closest(".psvItem"); if (!wrap || !t.dataset.f) return;
+    const f = psvFindItem(wrap.dataset.id); if (!f) return;
+    const st = psvSt(f.sec, f.item);
+    if (t.dataset.f === "lot") st.lots[+t.dataset.li] = t.value;
+    else st[t.dataset.f] = t.value;
+    if (t.dataset.f === "erp") st.src = "manual";
+    psvSave(); psvRefreshResults();
+    if (t.dataset.f === "erp") { const b = wrap.querySelector(".psvBadge"); if (b && f.item.erp !== null) b.remove(); }
+  });
+  body.addEventListener("click", ev => {
+    const b = ev.target.closest("button[data-act]"); if (!b) return;
+    const wrap = b.closest(".psvItem"), f = psvFindItem(wrap.dataset.id); if (!f) return;
+    const st = psvSt(f.sec, f.item);
+    if (b.dataset.act === "addlot") st.lots.push("");
+    if (b.dataset.act === "dellot" && st.lots.length > 1) st.lots.pop();
+    psvSave(); psvRender();
+  });
+  ["psvPeriod", "psvDivision", "psvDate", "psvErpDate", "psvSignQad", "psvSignFin", "psvSignHod", "psvSignPh"].forEach(id => {
+    document.getElementById(id).addEventListener("change", () => { psvSyncHeader(); psvSave(); });
+    document.getElementById(id).addEventListener("input", () => { psvSyncHeader(); psvSave(); });
+  });
+  document.getElementById("psvFetchBtn").addEventListener("click", psvFetchErp);
+  document.getElementById("psvClearBtn").addEventListener("click", () => {
+    if (!confirm("Clear all entered physical stock, ERP and remarks? (Names in the signature block are kept.)")) return;
+    const keepSigns = psvState.signs;
+    psvState = { period: psvState.period, division: psvState.division, date: psvState.date, erpDate: psvState.erpDate, signs: keepSigns, items: {}, extraFg: [] };
+    psvSave(); psvRender();
+  });
+  document.getElementById("psvPdfBtn").addEventListener("click", () => { psvSyncHeader(); psvSave(); psvPdf(); });
+  document.getElementById("psvXlsxBtn").addEventListener("click", () => { psvSyncHeader(); psvSave(); psvXlsx(); });
+}
+
+async function psvFetchErp() {
+  const statusEl = document.getElementById("status");
+  psvSyncHeader();
+  const asOn = psvState.erpDate;
+  if (!asOn) { statusEl.className = "err"; statusEl.textContent = "Please select the \"ERP Stock as on\" date."; return; }
+  const btn = document.getElementById("psvFetchBtn");
+  btn.disabled = true;
+  statusEl.className = "wait"; statusEl.textContent = "Reading ERP stock...";
+  try {
+    const token = await getToken();
+    const monthStart = asOn.slice(0, 7) + "-01";
+    const { results: wbList, missing } = await getWorkbooksForRange(token, monthStart, asOn);
+    if (!wbList.length) { statusEl.className = "err"; statusEl.textContent = `Couldn't find the file for ${missing.join(", ") || asOn}.`; return; }
+    const names = [];
+    PSV_SECTIONS.forEach(sec => sec.items.forEach(it => { if (it.erp && !names.includes(it.erp)) names.push(it.erp); }));
+    PSV_RM_ROWS.forEach(x => { if (x[1] && !names.includes(x[1])) names.push(x[1]); });
+    const [rows, sizes] = await Promise.all([
+      computeStockRowsForItems(wbList, names, statusEl, token),
+      getBilletStockBySize(wbList[wbList.length - 1].wb, monthStart, asOn, token)
+    ]);
+    const closing = {}; rows.forEach(r => { closing[r.name] = r.closing; });
+    // month figures for the 2nd sheet ("SMS - RM"): same numbers as the Raw Material Stock report
+    const rmRows = {}; rows.forEach(r => { rmRows[r.name] = { o: r.opening, i: r.incoming, c: r.consumption, t: r.transfer || 0 }; });
+    const billet = { o: 0, p: 0, c: 0, cl: 0 };
+    Object.keys(sizes).forEach(n => {
+      const s = sizes[n];
+      if (s.latestQty === null || s.latestQty === undefined || ["110X6", "110X5.25"].includes(n.toUpperCase().replace(/\s+/g, ""))) return;
+      const o = s.openingQty !== null && s.openingQty !== undefined ? s.openingQty : (s.latestQty - s.production + s.consumption);
+      billet.o += o; billet.p += s.production; billet.c += o + s.production - s.latestQty; billet.cl += s.latestQty;
+    });
+    psvState.rmMonth = { month: asOn.slice(0, 7), asOn, rows: rmRows, billet };
+    let filled = 0;
+    PSV_SECTIONS.forEach(sec => sec.items.forEach(it => {
+      if (!it.erp || closing[it.erp] === undefined) return;
+      const st = psvSt(sec, it); st.erp = (Math.round(closing[it.erp] * 1000) / 1000).toFixed(3); st.src = "auto"; filled++;
+    }));
+    // billets: Daily Stock "ERP stock weight" of each size
+    const bySize = {};
+    Object.keys(sizes).forEach(n => { const s = sizes[n]; if (s.latestQty !== null && s.latestQty !== undefined) bySize[psvSizeKey(n)] = { name: n, qty: s.latestQty }; });
+    const fgSec = PSV_SECTIONS.find(s => s.key === "fg");
+    const known = new Set(psvFgItems().map(f => f.fgKey));
+    const skipped = [];
+    Object.keys(bySize).forEach(k => {
+      if (!k || known.has(k) || Math.abs(bySize[k].qty) < 0.0005) return;
+      const [secTxt, lenTxt] = k.split("|"), sec = Number(secTxt);
+      if (!PSV_DENS[sec]) { skipped.push(bySize[k].name); return; }
+      const isR = lenTxt === "R";
+      psvState.extraFg.push({ name: isR ? `${sec} X ${sec} RANDOM` : `${sec} X ${sec} X ${lenTxt}`, sec, len: isR ? 0 : Number(lenTxt), uom: isR ? "MTR" : "MT" });
+      known.add(k);
+    });
+    let fgFilled = 0;
+    psvFgItems().forEach(it => {
+      const st = psvSt(fgSec, it), hit = bySize[it.fgKey];
+      st.erp = hit ? (Math.round(hit.qty * 1000) / 1000).toFixed(3) : "0.000"; st.src = "auto";
+      if (hit) fgFilled++;
+    });
+    psvSave(); psvRender();
+    statusEl.className = "ok";
+    statusEl.textContent = `ERP stock as on ${asOn} filled for ${filled} item(s) and ${fgFilled} billet size(s).` +
+      (skipped.length ? ` Not added (density not known): ${skipped.join(", ")}.` : "") +
+      (missing.length ? ` (No file for: ${missing.join(", ")})` : "");
+  } catch (e) {
+    statusEl.className = "err"; statusEl.textContent = "Error: " + e.message;
+  } finally { btn.disabled = false; }
+}
+
+// Rows of one block, in the same order the sheet prints them.
+function psvBlockRows(sec) {
+  const out = [];
+  psvSectionItems(sec).forEach(item => {
+    const st = psvSt(sec, item), r = psvCalc(sec, item, st);
+    if (item.lots) {
+      st.lots.forEach((lv, li) => out.push({ sec, item, st, r, first: li === 0, span: st.lots.length, lotIdx: li,
+        a: `${item.name} ${li + 1}`, lot: psvNum(lv) }));
+    } else out.push({ sec, item, st, r, first: true, span: 1, a: item.name });
+  });
+  return out;
+}
+function psvDateText(iso) { if (!iso) return ""; const [y, m, d] = iso.split("-"); return `${d}-${m}-${y}`; }
+function psvFileName(ext) {
+  const iso = psvState.date || localDateToISO(new Date());
+  const d = new Date(iso + "T00:00:00");
+  return `Physical_Stock_Verification_${d.toLocaleString("en-US", { month: "long" })}${String(d.getFullYear()).slice(2)}.${ext}`;
+}
+
+function psvPdf() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+  const pw = doc.internal.pageSize.getWidth(), M = 28;
+  PSV_SECTIONS.forEach((sec, si) => {
+    if (si) doc.addPage();
+    // header: logo | company name, then the title
+    doc.setDrawColor(60); doc.setLineWidth(0.6);
+    doc.rect(M, 20, pw - 2 * M, 38);
+    coDrawLogo(doc, M + 6, 24, 150, 30);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(20, 20, 20);
+    if (COMPANY.name) coFitText(doc, COMPANY.name, pw / 2 + 40, 44, pw - 2 * M - 200, "center");
+    doc.setFontSize(12);
+    doc.rect(M, 58, pw - 2 * M, 18);
+    doc.text("Physical verification of stock", pw / 2, 71, { align: "center" });
+    doc.autoTable({
+      startY: 76, keepZeros: true, theme: "grid", margin: { left: M, right: M },
+      body: [["Period", psvState.period || ""], ["Date of Verification", psvDateText(psvState.date)],
+        ["Nature Of Product", sec.nature], ["Division", psvState.division || ""]],
+      styles: { fontSize: 8.5, cellPadding: 3, lineColor: [60, 60, 60], lineWidth: 0.5, textColor: 20 },
+      columnStyles: { 0: { cellWidth: 140, fontStyle: "bold" } }
+    });
+    const head = [sec.head.concat(PSV_HEAD_REST), PSV_LETTERS];
+    const body = [];
+    psvBlockRows(sec).forEach(row => {
+      const r = row.r, isFg = sec.mode === "fg";
+      let c = "";
+      if (row.item.lots) c = psvF3(row.lot);
+      else if (isFg) c = r.C === null ? "" : String(r.C);
+      else c = row.st.meas || "";
+      const cells = [row.a, row.item.uom || "MT", c];
+      if (row.first) {
+        const sp = row.span > 1 ? { rowSpan: row.span } : {};
+        const v = (t, extra) => Object.assign({ content: t }, sp, extra || {});
+        const gCol = r.G === null ? {} : { textColor: r.G < -0.0005 ? [163, 39, 28] : (r.G > 0.0005 ? [30, 107, 60] : [20, 20, 20]) };
+        cells.push(v(psvF3(r.D)), v(r.E ? psvF3(r.E) : ""), v(psvF3(r.F)), v(psvF3(r.G), { styles: gCol }), v(r.H === null ? "" : psvPct(r.H), { styles: gCol }),
+          v(row.st.adj || ""), v(row.st.rem || ""));
+      }
+      body.push(cells);
+    });
+    const t = psvTotals(sec);
+    const B = x => ({ content: x, styles: { fontStyle: "bold", fillColor: [242, 242, 242] } });
+    body.push([B("Total"), B(""), B(""), B(psvF3(t.D)), B(t.E ? psvF3(t.E) : ""), B(psvF3(t.F)), B(psvF3(t.G)), B(t.H === null ? "" : psvPct(t.H)), B(""), B("")]);
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY + 6, keepZeros: true, theme: "grid", margin: { left: M, right: M },
+      head, body,
+      styles: { fontSize: 8, cellPadding: 3, halign: "center", valign: "middle", lineColor: [60, 60, 60], lineWidth: 0.5, textColor: 20, overflow: "linebreak" },
+      headStyles: { fillColor: [221, 235, 247], textColor: 20, fontStyle: "bold", fontSize: 7.5 },
+      columnStyles: { 0: { halign: "left", cellWidth: 120 }, 1: { cellWidth: 34 }, 2: { cellWidth: 90 }, 3: { cellWidth: 62 }, 4: { cellWidth: 78 },
+        5: { cellWidth: 62 }, 6: { cellWidth: 58 }, 7: { cellWidth: 52 }, 8: { cellWidth: 70 } },
+      didParseCell: d => { if (d.section === "head" && d.row.index === 1) { d.cell.styles.fillColor = [242, 242, 242]; d.cell.styles.fontStyle = "normal"; } }
+    });
+    // signature block
+    const s = psvState.signs || {};
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY + 14, keepZeros: true, theme: "grid", margin: { left: M, right: M },
+      head: [["", "QAD-Team", "Finance Team", "Deptt. -HOD", "Plant Head"]],
+      body: [["Name", s.qad || "", s.fin || "", s.hod || "", s.ph || ""], ["Sign.", "", "", "", ""]],
+      styles: { fontSize: 8.5, cellPadding: 4, halign: "center", valign: "middle", lineColor: [60, 60, 60], lineWidth: 0.5, textColor: 20, minCellHeight: 16 },
+      headStyles: { fillColor: [242, 242, 242], textColor: 20, fontStyle: "bold" },
+      columnStyles: { 0: { cellWidth: 70, fontStyle: "bold" } },
+      didParseCell: d => { if (d.section === "body" && d.row.index === 1) d.cell.styles.minCellHeight = 34; }
+    });
+  });
+  showPdfPreview(doc, psvFileName("pdf"), "Physical Stock Verification");
+}
+
+
+// Sheet 2 "SMS - RM": opening / received / issue / M to M & sale for the month of the "ERP Stock as on" date,
+// pre-filled from the same numbers as the Raw Material Stock report; formulas as in the sheet.
+function psvRmSheet(wb) {
+  const rm = psvState.rmMonth || null;
+  const iso = (rm && rm.asOn) || psvState.erpDate || psvState.date || localDateToISO(new Date());
+  const y = +iso.slice(0, 4), m = +iso.slice(5, 7);
+  const monthDate = new Date(Date.UTC(y, m - 1, 1));
+  const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][m - 1];
+  const ws = wb.addWorksheet("SMS - RM", { pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+  const W = { A: 30.43, B: 23, C: 9.86, D: 10.71, E: 10.71, F: 11.14, G: 20.29, H: 10.43, I: 11, J: 11.57, K: 10.71, L: 10.71, M: 10.71, N: 10.71, Q: 14.29, R: 10.71, T: 10.57, U: 10.71, V: 15.71, W: 12.14 };
+  Object.keys(W).forEach(k => { ws.getColumn(k).width = W[k]; });
+  const thin = { style: "thin", color: { argb: "FF000000" } }, BOX = { top: thin, left: thin, bottom: thin, right: thin };
+  const N3 = "0.000", N2 = "0.00", P2 = "0.00%";
+  const put = (a, v, fmt, extra) => { const c = ws.getCell(a); c.value = v; if (fmt) c.numFmt = fmt; if (extra) Object.assign(c, extra); return c; };
+  const f = (formula, result) => (result === undefined ? { formula } : { formula, result });
+  ws.mergeCells("A1:M1"); ws.mergeCells("A2:M2");
+  put("A1", `SMS Monthly Report - ${MON}'${String(y).slice(2)}`).font = { bold: true, size: 14 };
+  put("A2", "SMS Stock and Consumption reports. As per actual Physical stock").font = { bold: true };
+  ws.getCell("A1").alignment = ws.getCell("A2").alignment = { horizontal: "center" };
+  ["Sl no", "Particular", "Opening", "Received", "Total", "Issue", "M to M \n& Sale", "Closing to be filled from Physical stock report",
+    "% Target Consp.", "% Actual cons.", "Metal conv.", "Assumed yield %"].forEach((t, i) => {
+    const c = ws.getCell(3, i + 1); c.value = t; c.font = { bold: true }; c.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDEBF7" } };
+  });
+  ws.getRow(3).height = 60;
+  // numbers first, so results can go with the formulas
+  const vals = PSV_RM_ROWS.map(([, item, yld]) => {
+    const r = rm && item ? rm.rows[item] : null;
+    const o = r ? r.o : 0, i = r ? r.i : 0, c = r ? r.c : 0, g = r && r.t ? -r.t : 0;
+    return { o, i, c, g, e: o + i, h: o + i - (c - g), yld: yld || null };
+  });
+  const totF = vals.reduce((s, v) => s + v.c, 0);
+  let totK = 0;
+  vals.forEach((v, k) => {
+    const r = 4 + k, label = PSV_RM_ROWS[k][0];
+    put("A" + r, k === 0 ? 1 : f(`+A${r - 1}+1`, k + 1));
+    put("B" + r, label);
+    put("C" + r, v.o, N3); put("D" + r, v.i, N3);
+    put("E" + r, f(`+C${r}+D${r}`, v.e), N3);
+    put("F" + r, v.c, N3);
+    if (v.g) put("G" + r, v.g, N3);
+    put("H" + r, f(`+E${r}-(F${r}-G${r})`, v.h), N3);
+    const j = totF ? v.c / totF * 100 : 0, kk = v.yld ? j * v.yld : 0; totK += kk;
+    put("J" + r, f(`IFERROR((F${r}/$F$19)*100,0)`, j), N2);
+    put("K" + r, f(`J${r}*L${r}`, kk), N2);
+    if (v.yld) put("L" + r, v.yld, P2);
+  });
+  const sum = key => vals.reduce((s, v) => s + v[key], 0);
+  put("B19", "TOTAL").font = { bold: true };
+  [["C", sum("o"), N3], ["D", sum("i"), N3], ["E", sum("e"), N3], ["F", totF, N3], ["G", sum("g"), N3], ["H", sum("h"), N3], ["I", 0, N2], ["J", totF ? 100 : 0, N2], ["K", totK, N2]]
+    .forEach(([col, res, fmt]) => { const c = put(col + "19", f(`SUM(${col}4:${col}18)`, res), fmt); c.font = { bold: true }; });
+  put("A20", 16); put("B20", "Salg Iron (Jam)"); put("C20", 0, N3); put("E20", f("+C20+D20", 0), N3); put("G20", 0, N3);
+  put("H20", f("+E20-F20-G20", 0), N3); put("I20", 0); put("J20", 0); put("K20", 0);
+  for (let r = 3; r <= 20; r++) for (let c = 1; c <= 12; c++) ws.getCell(r, c).border = BOX;
+  // billet section
+  ws.mergeCells("C24:I24");
+  put("C24", monthDate, "mmm-yy").alignment = { horizontal: "center" };
+  [["D25", "Opening"], ["E25", "Production/Purchase"], ["F25", "Consumption in RM"], ["G25", "Sale"], ["H25", "Closing to be filled from Physical stock report"],
+    ["L25", "Actual \nYield"], ["M25", "Diff."]].forEach(([a, t]) => { const c = put(a, t); c.font = { bold: true }; c.alignment = { horizontal: "center", vertical: "middle", wrapText: true }; });
+  ws.getRow(25).height = 45;
+  const b = rm ? rm.billet : null;
+  put("C26", "Billet-FG");
+  if (b) { put("D26", b.o, N3); put("E26", b.p, N3); put("F26", -b.c, N3); }
+  put("H26", f("SUM(D26:G26)", b ? b.o + b.p - b.c : 0), N3);
+  put("C27", "Billet-RM"); put("H27", f("SUM(D27:G27)", 0), N3);
+  const ly = totF && b ? b.p / totF * 100 : 0;
+  put("L27", f("+(E26+J26)/F19*100", ly), N3); put("M27", f("+L27-K19", ly - totK), N3);
+  put("C28", "Total").font = { bold: true };
+  [["D", b ? b.o : 0], ["E", b ? b.p : 0], ["F", b ? -b.c : 0], ["G", 0], ["H", b ? b.o + b.p - b.c : 0], ["J", 0]]
+    .forEach(([col, res]) => { put(col + "28", f(`SUM(${col}26:${col}27)`, res), N3).font = { bold: true }; });
+  for (let r = 25; r <= 28; r++) for (let c = 3; c <= 13; c++) ws.getCell(r, c).border = BOX;
+  // billet -> strip -> coil -> pipe balance: same labels / norms / formulas, month figures left for you
+  ws.mergeCells("A31:D31"); ws.mergeCells("H31:U31");
+  PSV_RM_SPEC.forEach(([a, kind, v]) => {
+    const col = a.replace(/\d+/g, "");
+    if (kind === "d") put(a, monthDate, "mmm-yy").font = { bold: true };
+    else if (kind === "s") put(a, v);
+    else if (kind === "p") put(a, v, P2);
+    else put(a, f(v), (col === "B" || col === "C") ? P2 : N2);
+  });
+  ws.getCell("A31").value = f("+H31"); ws.getCell("A31").numFmt = "mmm-yy"; ws.getCell("A31").alignment = ws.getCell("H31").alignment = { horizontal: "center" };
+  ws.eachRow(row => row.eachCell(c => { c.font = Object.assign({ name: "Calibri", size: 10 }, c.font || {}); }));
+}
+const PSV_EXCELJS = "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
+function psvLoadExcelJs() {
+  if (window.ExcelJS) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = PSV_EXCELJS; s.integrity = "sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz"; s.crossOrigin = "anonymous";
+    s.onload = res; s.onerror = () => rej(new Error("Excel library could not load (internet needed)"));
+    document.head.appendChild(s);
+  });
+}
+function psvColName(n) { let s = ""; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+
+async function psvXlsx() {
+  const statusEl = document.getElementById("status");
+  try {
+    statusEl.className = "wait"; statusEl.textContent = "Making the Excel file...";
+    await psvLoadExcelJs();
+    const wb = new ExcelJS.Workbook();
+    wb.calcProperties.fullCalcOnLoad = true;
+    const ws = wb.addWorksheet("SMS", { pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 1 } });
+    const WIDTHS = [22.14, 5.43, 16.71, 9.29, 13.86, 8.57, 11.71, 10.29, 12.43, 14.0];
+    const thin = { style: "thin", color: { argb: "FF000000" } };
+    const BOX = { top: thin, left: thin, bottom: thin, right: thin };
+    const F3 = "0.000", PCT = "0.00%";
+    let logoId = null;
+    if (COMPANY.logo && reportLogoOn()) {
+      const m = /^data:image\/(png|jpe?g);base64,(.+)$/i.exec(COMPANY.logo);
+      if (m) logoId = wb.addImage({ base64: m[2], extension: m[1].toLowerCase() === "png" ? "png" : "jpeg" });
+    }
+    const blocks = PSV_SECTIONS.map(sec => ({ sec, rows: psvBlockRows(sec) }));
+    const nData = Math.max(11, ...blocks.map(b => b.rows.length));
+    const R0 = 10, RT = R0 + nData, RS = RT + 1;   // first data row, total row, first signature row
+    const dateVal = psvState.date ? new Date(psvState.date + "T00:00:00Z") : null;
+
+    blocks.forEach((blk, bi) => {
+      const sec = blk.sec, b = bi * 11;              // A, L, W, AH
+      const col = i => psvColName(b + 1 + i);        // i = 0..9 -> A..J of this block
+      const cell = (i, r) => ws.getCell(col(i) + r);
+      for (let i = 0; i < 10; i++) ws.getColumn(b + 1 + i).width = WIDTHS[i];
+      if (bi < 3) ws.getColumn(b + 11).width = 3;
+      ws.mergeCells(`${col(0)}1:${col(1)}2`);
+      ws.mergeCells(`${col(2)}1:${col(9)}2`);
+      Object.assign(cell(2, 1), { value: COMPANY.name || "" });
+      cell(2, 1).font = { bold: true, size: 14 }; cell(2, 1).alignment = { horizontal: "center", vertical: "middle" };
+      if (logoId !== null) {
+        const iw = COMPANY.lw || 171, ih = COMPANY.lh || 38, k = Math.min(180 / iw, 36 / ih);
+        ws.addImage(logoId, { tl: { col: b + 0.1, row: 0.1 }, ext: { width: Math.round(iw * k), height: Math.round(ih * k) } });
+      }
+      ws.mergeCells(`${col(0)}3:${col(9)}3`);
+      cell(0, 3).value = "Physical verification of stock"; cell(0, 3).font = { bold: true, size: 12 }; cell(0, 3).alignment = { horizontal: "center" };
+      [["Period", psvState.period || ""], ["Date of Verification", dateVal], ["Nature Of Product", sec.nature], ["Division", psvState.division || ""]]
+        .forEach(([k, v], j) => {
+          const r = 4 + j;
+          cell(0, r).value = k; cell(0, r).font = { bold: true };
+          ws.mergeCells(`${col(1)}${r}:${col(9)}${r}`);
+          cell(1, r).value = v; cell(1, r).alignment = { horizontal: "left" };
+          if (v instanceof Date) cell(1, r).numFmt = "dd-mm-yyyy";
+        });
+      sec.head.concat(PSV_HEAD_REST).forEach((t, i) => {
+        const c = cell(i, 8); c.value = t; c.font = { bold: true }; c.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+        c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDEBF7" } };
+      });
+      PSV_LETTERS.forEach((t, i) => { const c = cell(i, 9); c.value = t.replace("×100", "*100"); c.alignment = { horizontal: "center" }; });
+
+      blk.rows.forEach((row, k) => {
+        const r = R0 + k, rr = row.r, isFg = sec.mode === "fg";
+        cell(0, r).value = row.a; cell(1, r).value = row.item.uom || "MT";
+        if (row.item.lots) { if (row.lot !== null) { cell(2, r).value = row.lot; cell(2, r).numFmt = F3; } }
+        else if (isFg) { if (rr.C !== null) cell(2, r).value = rr.C; }
+        else if (row.st.meas) cell(2, r).value = row.st.meas;
+        if (!row.first) return;
+        const D = col(3) + r, E = col(4) + r, Fc = col(5) + r, G = col(6) + r;
+        if (rr.D !== null) { cell(3, r).value = rr.D; cell(3, r).numFmt = F3; }
+        if (isFg) {
+          if (rr.ePcs) { cell(4, r).value = { formula: `${rr.ePcs}*${row.item.len ? row.item.len + "*" : ""}${PSV_DENS[row.item.sec]}`, result: rr.E }; cell(4, r).numFmt = F3; }
+        } else if (psvNum(row.st.e) !== null && psvNum(row.st.e) !== 0) { cell(4, r).value = psvNum(row.st.e); cell(4, r).numFmt = F3; }
+        if (rr.F !== null) {
+          let f;
+          if (row.item.lots) f = `SUM(${col(2)}${r}:${col(2)}${r + row.span - 1})+${E}`;
+          else if (isFg) f = `${col(2)}${r}*${row.item.len ? row.item.len + "*" : ""}${PSV_DENS[row.item.sec]}`;
+          else if (sec.mode === "rm") f = `${psvNum(row.st.phys)}+${E}`;
+          if (f) cell(5, r).value = { formula: f, result: rr.F }; else cell(5, r).value = rr.F;
+          cell(5, r).numFmt = F3;
+          cell(6, r).value = { formula: `SUM(${Fc}-${E})-${D}`, result: rr.G }; cell(6, r).numFmt = F3;
+          cell(7, r).value = { formula: `IFERROR(${G}/${D},"")`, result: rr.H === null ? "" : rr.H }; cell(7, r).numFmt = PCT;
+        }
+        if (row.st.adj) cell(8, r).value = row.st.adj;
+        if (row.st.rem) cell(9, r).value = row.st.rem;
+      });
+      // total row
+      const t = psvTotals(sec);
+      cell(0, RT).value = "Total"; cell(0, RT).font = { bold: true };
+      [[3, t.D], [4, t.E], [5, t.F], [6, t.G]].forEach(([i, v]) => {
+        const c = cell(i, RT); c.value = { formula: `SUM(${col(i)}${R0}:${col(i)}${RT - 1})`, result: v }; c.numFmt = F3; c.font = { bold: true };
+      });
+      cell(7, RT).value = { formula: `IFERROR(${col(6)}${RT}/${col(3)}${RT},"")`, result: t.H === null ? "" : t.H }; cell(7, RT).numFmt = PCT; cell(7, RT).font = { bold: true };
+      // signature block (same places as the sheet)
+      const s = psvState.signs || {};
+      ws.mergeCells(`${col(1)}${RS}:${col(2)}${RS}`); ws.mergeCells(`${col(1)}${RS + 1}:${col(2)}${RS + 1}`);
+      ws.mergeCells(`${col(1)}${RS + 2}:${col(2)}${RS + 2}`); ws.mergeCells(`${col(1)}${RS + 3}:${col(2)}${RS + 3}`);
+      [[1, "QAD-Team", s.qad], [4, "Finance Team", s.fin], [6, "Deptt. -HOD", s.hod], [8, "Plant Head", s.ph]].forEach(([i, k, n]) => {
+        cell(i, RS).value = k; cell(i, RS).font = { bold: true }; cell(i, RS).alignment = { horizontal: "center" };
+        if (n) { cell(i, RS + 1).value = n; cell(i, RS + 1).alignment = { horizontal: "center" }; }
+      });
+      cell(0, RS + 1).value = "Name"; cell(0, RS + 3).value = "Sign.";
+      ws.getRow(RS + 3).height = 30;
+      // borders + font on the whole block
+      for (let r = 1; r <= RS + 3; r++) for (let i = 0; i < 10; i++) {
+        const c = cell(i, r); c.border = BOX;
+        c.font = Object.assign({ name: "Calibri", size: 10 }, c.font || {});
+        if (r >= R0 && r <= RT && i >= 3 && i <= 7) c.alignment = Object.assign({ horizontal: "right" }, c.alignment || {});
+      }
+    });
+    ws.getRow(8).height = 62;
+    ws.pageSetup.printArea = `A1:${psvColName(33 + 10)}${RS + 3}`;
+    psvRmSheet(wb);
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const u = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = u; a.download = psvFileName("xlsx"); document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 10000);
+    statusEl.className = "ok"; statusEl.textContent = `Excel downloaded: ${psvFileName("xlsx")}`;
+  } catch (e) {
+    statusEl.className = "err"; statusEl.textContent = "Excel error: " + e.message;
+  }
+}
+psvInit();
 
 /* ===================== MONTH-OVER-MONTH COMPARISON ===================== */
 let momChartInstance = null;
