@@ -4906,6 +4906,8 @@ window.__gmFS = {
             <div class="btnRow psvEditOnly">
               <button class="primary" id="psvFetchBtn" type="button">⬇️ Fetch ERP Stock</button>
               <button class="secondary" id="psvClearBtn" type="button">🧹 Clear entries</button>
+              <button class="secondary" id="psvImportBtn" type="button">📥 Import from Excel</button>
+              <input type="file" id="psvImportFile" accept=".xlsx,.xlsm,.xls" style="display:none">
             </div>
             <div id="psvBody" style="margin-top:14px;"></div>
             <details class="psvSign">
@@ -6699,9 +6701,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.01.5";
+const APP_VERSION = "2026.11.01.6";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📥 Physical Stock Verification: Import from Excel - fills the whole entry from a Physical_Stock_Verification file (SMS and SMS - RM sheets)",
   "📝 Physical Stock Verification: items are a compact list - tap a name to open its entry boxes (ERP, physical and gap show in one line when closed)",
   "🔒 Physical Stock Verification: each month is saved in OneDrive, can be changed for 3 days after the verification date, then locked - its PDF / Excel can be downloaded any time from \"Saved verifications\"",
   "📊 Physical Stock Verification Excel now also has the 2nd sheet \"SMS - RM\" (opening, received, issue, closing for the month), pre-filled from the ERP stock",
@@ -21542,6 +21545,8 @@ function psvInit() {
     psvDirty(); psvRender();
   });
   document.getElementById("psvSaveBtn").addEventListener("click", () => { psvSyncHeader(); psvSave(); psvSaveCloud(); });
+  document.getElementById("psvImportBtn").addEventListener("click", () => { const f = document.getElementById("psvImportFile"); f.value = ""; f.click(); });
+  document.getElementById("psvImportFile").addEventListener("change", ev => { const f = ev.target.files && ev.target.files[0]; if (f) psvImportXlsx(f); });
   document.getElementById("psvNewBtn").addEventListener("click", psvBackToDraft);
   document.getElementById("psvHistReload").addEventListener("click", psvLoadHistory);
   document.querySelector('[data-substock="psv"]').addEventListener("click", () => { if (!psvHistLoaded) psvLoadHistory(); });
@@ -21616,6 +21621,101 @@ async function psvFetchErp() {
   } finally { btn.disabled = false; }
 }
 
+
+// Fills the entry from a Physical_Stock_Verification Excel file (sheet "SMS", plus "SMS - RM" if it is there).
+// Reads the values Excel saved in the file. The Date of Verification on screen is kept.
+async function psvImportXlsx(file) {
+  const statusEl = document.getElementById("status");
+  try {
+    if (psvReadOnly) return;
+    const hasData = Object.values(psvState.items || {}).some(st => st && (st.phys || st.e || (st.lots || []).some(Boolean)));
+    if (hasData && !confirm("Replace the entries on screen with the ones from this Excel file?")) return;
+    statusEl.className = "wait"; statusEl.textContent = "Reading the Excel file...";
+    const wb = XLSX.read(await file.arrayBuffer(), { cellDates: true });
+    const ws = wb.Sheets["SMS"];
+    if (!ws) throw new Error('sheet "SMS" not found in this file');
+    const V = a => (ws[a] ? ws[a].v : null);
+    const N = a => { const v = V(a); return typeof v === "number" ? v : psvNum(v); };
+    const T = a => { const v = V(a); return v === null || v === undefined ? "" : (v instanceof Date ? psvDateText(localDateToISO(v)) : String(v).trim()); };
+    const fmt = v => (v === null || v === undefined || !isFinite(v)) ? "" : String(Math.round(v * 1000) / 1000);
+    const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    psvState.items = {}; psvState.extraFg = [];
+    let count = 0;
+    const notFound = [];
+    PSV_SECTIONS.forEach((sec, bi) => {
+      const col = i => psvColName(bi * 11 + 1 + i);
+      for (let r = 10; r < 80; r++) {
+        const name = T(col(0) + r);
+        if (!name) continue;
+        if (/^total$/i.test(name)) break;
+        const D = N(col(3) + r), E = N(col(4) + r), F = N(col(5) + r), C = col(2) + r;
+        const lotM = sec.key === "scrap" ? /^STEEL\s*MELTING\s*SCRAP\s*-?\s*(\d+)$/i.exec(name) : null;
+        let item = null;
+        if (lotM) item = sec.items.find(it => it.lots);
+        else item = psvSectionItems(sec).find(it => norm(it.name) === norm(name));
+        if (!item && sec.key === "fg") {
+          const k = psvSizeKey(name);
+          item = psvFgItems().find(it => it.fgKey === k);
+          if (!item && k) {
+            const [a, b] = k.split("|"), sc = Number(a);
+            if (PSV_DENS[sc]) { psvState.extraFg.push({ name, sec: sc, len: b === "R" ? 0 : Number(b), uom: b === "R" ? "MTR" : "MT" }); item = psvFgItems().find(it => it.fgKey === k); }
+          }
+        }
+        if (!item) { notFound.push(name); continue; }
+        const st = psvSt(sec, item);
+        if (lotM) {
+          const li = +lotM[1] - 1;
+          while (st.lots.length <= li) st.lots.push("");
+          st.lots[li] = fmt(N(C));
+          if (li > 0) continue;            // ERP / E / remarks are on the first lot row
+        }
+        if (D !== null) { st.erp = fmt(D); st.src = "excel"; }
+        st.adj = T(col(8) + r); st.rem = T(col(9) + r);
+        if (sec.mode === "fg") {
+          const dens = PSV_DENS[item.sec] || 0, factor = item.len ? item.len * dens : dens;
+          st.phys = fmt(N(C));
+          st.e = E && factor ? fmt(E / factor) : "";   // the sheet keeps E in MT; the app takes pieces (metres)
+        } else if (sec.mode === "rm") {
+          st.e = E ? fmt(E) : "";
+          if (!item.lots) st.phys = F !== null ? fmt(F - (E || 0)) : "";
+          if (sec.measLabel) st.meas = T(C);
+        } else {
+          st.e = E ? fmt(E) : "";
+          st.phys = F !== null ? fmt(F) : "";
+          st.meas = T(C);
+        }
+        count++;
+      }
+    });
+    // names under the signature block (row "Name" of the first block)
+    for (let r = 10; r < 90; r++) if (/^name$/i.test(T("A" + r))) {
+      psvState.signs = { qad: T("B" + r) || (psvState.signs || {}).qad || "", fin: T("E" + r) || (psvState.signs || {}).fin || "",
+        hod: T("G" + r) || (psvState.signs || {}).hod || "", ph: T("I" + r) || (psvState.signs || {}).ph || "" };
+      break;
+    }
+    // 2nd sheet: opening / received / issue / M to M & sale and the billet line
+    let rmNote = "";
+    const wr = wb.Sheets["SMS - RM"];
+    if (wr) {
+      const RV = a => (wr[a] ? wr[a].v : null), RN = a => { const v = RV(a); return typeof v === "number" ? v : (psvNum(v) || 0); };
+      const rows = {};
+      for (let r = 4; r <= 18; r++) {
+        const hit = PSV_RM_ROWS.find(x => x[1] && norm(x[0]) === norm(RV("B" + r)));
+        if (hit) rows[hit[1]] = { o: RN("C" + r), i: RN("D" + r), c: RN("F" + r), t: -RN("G" + r) };
+      }
+      const o = RN("D26"), pr = RN("E26"), c = -RN("F26"), sale = RN("G26");
+      psvState.rmMonth = { month: (psvState.erpDate || "").slice(0, 7), asOn: psvState.erpDate, rows, billet: { o, p: pr, c, s: sale, cl: o + pr - c + sale }, src: "excel" };
+      rmNote = ` "SMS - RM" figures taken too (its title in the file: ${String(RV("A1") || "").trim() || "-"}).`;
+    }
+    psvState.dirty = true; psvSave(); psvFillHeader(); psvRender();
+    statusEl.className = "ok";
+    statusEl.textContent = `Imported ${count} item(s) from ${file.name}.` + rmNote +
+      (notFound.length ? ` Not matched: ${notFound.join(", ")}.` : "") +
+      " ERP stock is as in the file - pressing ⬇️ Fetch ERP Stock would replace it. Check, edit, then press 💾 Save verification.";
+  } catch (e) {
+    statusEl.className = "err"; statusEl.textContent = "Import error: " + e.message;
+  }
+}
 
 // ---- saved verifications (OneDrive app folder: PhysicalStockVerification/PSV_YYYY-MM.json) ----
 // A month can be changed until 3 days after its date of verification (e.g. 01-11 -> till 04-11), then it is locked.
@@ -21906,13 +22006,14 @@ function psvRmSheet(wb) {
   ws.getRow(25).height = 45;
   const b = rm ? rm.billet : null;
   put("C26", "Billet-FG");
-  if (b) { put("D26", b.o, N3); put("E26", b.p, N3); put("F26", -b.c, N3); }
-  put("H26", f("SUM(D26:G26)", b ? b.o + b.p - b.c : 0), N3);
+  const bs = b && b.s ? b.s : 0;
+  if (b) { put("D26", b.o, N3); put("E26", b.p, N3); put("F26", -b.c, N3); if (bs) put("G26", bs, N3); }
+  put("H26", f("SUM(D26:G26)", b ? b.o + b.p - b.c + bs : 0), N3);
   put("C27", "Billet-RM"); put("H27", f("SUM(D27:G27)", 0), N3);
   const ly = totF && b ? b.p / totF * 100 : 0;
   put("L27", f("+(E26+J26)/F19*100", ly), N3); put("M27", f("+L27-K19", ly - totK), N3);
   put("C28", "Total").font = { bold: true };
-  [["D", b ? b.o : 0], ["E", b ? b.p : 0], ["F", b ? -b.c : 0], ["G", 0], ["H", b ? b.o + b.p - b.c : 0], ["J", 0]]
+  [["D", b ? b.o : 0], ["E", b ? b.p : 0], ["F", b ? -b.c : 0], ["G", bs], ["H", b ? b.o + b.p - b.c + bs : 0], ["J", 0]]
     .forEach(([col, res]) => { put(col + "28", f(`SUM(${col}26:${col}27)`, res), N3).font = { bold: true }; });
   for (let r = 25; r <= 28; r++) for (let c = 3; c <= 13; c++) ws.getCell(r, c).border = BOX;
   // billet -> strip -> coil -> pipe balance: same labels / norms / formulas, month figures left for you
