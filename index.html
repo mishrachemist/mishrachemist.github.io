@@ -6705,9 +6705,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.02.2";
+const APP_VERSION = "2026.11.02.3";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📥 Excel import keeps extra rows a month's file has (e.g. PIG IRON GRANULES, CI SKULL, MAG MATERIAL SLAG) instead of leaving them out",
   "📥 Add past months: a month added from an Excel file can be added again (corrected file replaces it); older files without lot weights now take Steel Melting Scrap's physical stock too",
   "📥 Saved verifications: \"Add past months\" - pick several old Physical_Stock_Verification Excel files at once, each is saved as its month (locked)",
   "📥 Physical Stock Verification: Import from Excel - fills the whole entry from a Physical_Stock_Verification file (SMS and SMS - RM sheets)",
@@ -21373,7 +21374,9 @@ function psvFgItems() {
   const extra = (psvState && psvState.extraFg) || [];
   return PSV_FG_DEFAULT.concat(extra).map(f => ({ name: f.name, sec: f.sec, len: f.len, uom: f.uom || (f.len ? "MT" : "MTR"), fgKey: psvSizeKey(f.name) }));
 }
-function psvSectionItems(sec) { return sec.key === "fg" ? psvFgItems() : sec.items; }
+// items a month's file had beyond the usual list (e.g. PIG IRON GRANULES, CI SKULL) - kept per verification, ERP entered by hand
+function psvExtraItems(sec) { const x = psvState && psvState.extraItems && psvState.extraItems[sec.key]; return Array.isArray(x) ? x.map(n => ({ name: n, erp: null, extra: true })) : []; }
+function psvSectionItems(sec) { return sec.key === "fg" ? psvFgItems() : sec.items.concat(psvExtraItems(sec)); }
 function psvId(sec, item) { return sec.key + ":" + item.name; }
 function psvSt(sec, item) {
   const id = psvId(sec, item);
@@ -21639,7 +21642,7 @@ function psvFillFromWorkbook(wb) {
   const T = a => { const v = V(a); return v === null || v === undefined ? "" : (v instanceof Date ? psvDateText(localDateToISO(v)) : String(v).trim()); };
   const fmt = v => (v === null || v === undefined || !isFinite(v)) ? "" : String(Math.round(v * 1000) / 1000);
   const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  psvState.items = {}; psvState.extraFg = [];
+  psvState.items = {}; psvState.extraFg = []; psvState.extraItems = {};
   let count = 0, smsLot = 0, smsF = null, smsE = 0;
   const notFound = [];
   PSV_SECTIONS.forEach((sec, bi) => {
@@ -21661,6 +21664,10 @@ function psvFillFromWorkbook(wb) {
           const [a, b] = k.split("|"), sc = Number(a);
           if (PSV_DENS[sc]) { psvState.extraFg.push({ name, sec: sc, len: b === "R" ? 0 : Number(b), uom: b === "R" ? "MTR" : "MT" }); item = psvFgItems().find(it => it.fgKey === k); }
         }
+      }
+      if (!item && !lotM && sec.key !== "fg" && /[A-Z]/i.test(name)) {   // a row the usual list does not have: keep it for this month
+        psvState.extraItems[sec.key] = (psvState.extraItems[sec.key] || []).concat([name]);
+        item = psvSectionItems(sec).find(it => it.name === name);
       }
       if (!item) { notFound.push(name); continue; }
       const st = psvSt(sec, item);
