@@ -6705,9 +6705,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.02.1";
+const APP_VERSION = "2026.11.02.2";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📥 Add past months: a month added from an Excel file can be added again (corrected file replaces it); older files without lot weights now take Steel Melting Scrap's physical stock too",
   "📥 Saved verifications: \"Add past months\" - pick several old Physical_Stock_Verification Excel files at once, each is saved as its month (locked)",
   "📥 Physical Stock Verification: Import from Excel - fills the whole entry from a Physical_Stock_Verification file (SMS and SMS - RM sheets)",
   "📝 Physical Stock Verification: items are a compact list - tap a name to open its entry boxes (ERP, physical and gap show in one line when closed)",
@@ -21639,7 +21640,7 @@ function psvFillFromWorkbook(wb) {
   const fmt = v => (v === null || v === undefined || !isFinite(v)) ? "" : String(Math.round(v * 1000) / 1000);
   const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   psvState.items = {}; psvState.extraFg = [];
-  let count = 0;
+  let count = 0, smsLot = 0, smsF = null, smsE = 0;
   const notFound = [];
   PSV_SECTIONS.forEach((sec, bi) => {
     const col = i => psvColName(bi * 11 + 1 + i);
@@ -21648,7 +21649,8 @@ function psvFillFromWorkbook(wb) {
       if (!name) continue;
       if (/^total$/i.test(name)) break;
       const D = N(col(3) + r), E = N(col(4) + r), F = N(col(5) + r), C = col(2) + r;
-      const lotM = sec.key === "scrap" ? /^STEEL\s*MELTING\s*SCRAP\s*-?\s*(\d+)$/i.exec(name) : null;
+      // any "STEEL MELTING SCRAP ..." row is one lot (numbered or not, in the order they come)
+      const lotM = sec.key === "scrap" && /^STEEL\s*MELTING\s*SCRAP\b/i.test(name) ? [name, String(++smsLot)] : null;
       let item = null;
       if (lotM) item = sec.items.find(it => it.lots);
       else item = psvSectionItems(sec).find(it => norm(it.name) === norm(name));
@@ -21667,6 +21669,7 @@ function psvFillFromWorkbook(wb) {
         while (st.lots.length <= li) st.lots.push("");
         st.lots[li] = fmt(N(C));
         if (li > 0) continue;            // ERP / E / remarks are on the first lot row
+        smsF = F; smsE = E || 0;
       }
       if (D !== null) { st.erp = fmt(D); st.src = "excel"; }
       st.adj = T(col(8) + r); st.rem = T(col(9) + r);
@@ -21686,6 +21689,14 @@ function psvFillFromWorkbook(wb) {
       count++;
     }
   });
+  // Steel Melting Scrap without lot weights (older files): physical = F - E of its row, kept as one lot
+  const smsItem = PSV_SECTIONS[0].items.find(it => it.lots);
+  if (smsItem) {
+    const st = psvSt(PSV_SECTIONS[0], smsItem);
+    const lotNums = st.lots.map(psvNum).filter(v => v !== null);
+    if (!lotNums.length && smsF !== null) st.lots = [fmt(smsF - smsE)].concat(new Array(Math.max(0, st.lots.length - 1)).fill(""));
+    while (st.lots.length > 1 && !String(st.lots[st.lots.length - 1]).trim() && st.lots.length > (smsItem.lots || 1)) st.lots.pop();
+  }
   // names under the signature block (row "Name" of the first block)
   for (let r = 10; r < 90; r++) if (/^name$/i.test(T("A" + r))) {
     psvState.signs = { qad: T("B" + r) || (psvState.signs || {}).qad || "", fin: T("E" + r) || (psvState.signs || {}).fin || "",
@@ -21724,33 +21735,52 @@ async function psvBulkImport(files) {
   for (const f of files) { const m = psvMonthFromName(f.name); if (m) list.push({ f, m }); else bad.push(f.name); }
   if (!list.length) { statusEl.className = "err"; statusEl.textContent = "Month could not be read from the file name(s): " + bad.join(", ") + ' (name should have the month and year, e.g. "Physical_Stock_Verification_October26.xlsx").'; return; }
   list.sort((x, y) => x.m < y.m ? -1 : 1);
-  if (!confirm(`Save these months to OneDrive (verification date = 1st of the month; they will be locked straight away):\n\n` +
-    list.map(x => `${psvMonthLabel(x.m)}  ←  ${x.f.name}`).join("\n") + (bad.length ? `\n\nSkipped (no month in name): ${bad.join(", ")}` : "") +
-    `\n\nMonths already saved are not changed.`)) return;
-  const done = [], skipped = [], failed = [];
+  const done = [], skipped = [], failed = [], replaced = [];
+  let token;
+  try { token = await getToken(); if (!token) throw new Error("not signed in"); }
+  catch (e) { statusEl.className = "err"; statusEl.textContent = "Error: " + e.message; return; }
+  // what is already saved? Months added from Excel files earlier may be replaced; months verified in the app stay as they are.
+  statusEl.className = "wait"; statusEl.textContent = "Checking saved months...";
+  const existing = await Promise.all(list.map(x => psvGetRecord(token, x.m).catch(() => ({ unreadable: true }))));
+  const fresh = [], again = [], keepApp = [];
+  list.forEach((x, i) => { const ex = existing[i]; if (!ex) fresh.push(x); else if (ex.importedFrom) again.push(x); else keepApp.push(x); });
+  if (!fresh.length && !again.length) {
+    statusEl.className = "err";
+    statusEl.textContent = `Nothing to save - these months were verified in the app and are not changed: ${keepApp.map(x => psvMonthLabel(x.m)).join(", ")}.`;
+    return;
+  }
+  if (!confirm(`Save to OneDrive (verification date = 1st of the month, locked straight away):\n\n` +
+    (fresh.length ? `NEW:\n${fresh.map(x => `${psvMonthLabel(x.m)}  ←  ${x.f.name}`).join("\n")}\n\n` : "") +
+    (again.length ? `REPLACE (added from Excel earlier):\n${again.map(x => `${psvMonthLabel(x.m)}  ←  ${x.f.name}`).join("\n")}\n\n` : "") +
+    (keepApp.length ? `NOT CHANGED (verified in the app): ${keepApp.map(x => psvMonthLabel(x.m)).join(", ")}\n\n` : "") +
+    (bad.length ? `Skipped (no month in name): ${bad.join(", ")}` : ""))) return;
+  keepApp.forEach(x => skipped.push(psvMonthLabel(x.m)));
+  const todo = fresh.concat(again).sort((x, y) => x.m < y.m ? -1 : 1);
   try {
-    const token = await getToken(); if (!token) throw new Error("not signed in");
     const keep = psvState;
-    for (let k = 0; k < list.length; k++) {
-      const { f, m } = list[k];
-      statusEl.className = "wait"; statusEl.textContent = `Saving ${psvMonthLabel(m)} (${k + 1}/${list.length})...`;
+    for (let k = 0; k < todo.length; k++) {
+      const { f, m } = todo[k];
+      const isAgain = again.includes(todo[k]);
+      statusEl.className = "wait"; statusEl.textContent = `Saving ${psvMonthLabel(m)} (${k + 1}/${todo.length})...`;
       try {
-        if (await psvGetRecord(token, m)) { skipped.push(psvMonthLabel(m)); continue; }
+        const old = isAgain ? existing[list.indexOf(todo[k])] : null;
         const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
         const d = new Date(+m.slice(0, 4), +m.slice(5, 7) - 1, 1), prev = new Date(d); prev.setDate(0);
         psvState = { period: "Monthly", division: keep.division || "SMS", date: localDateToISO(d), erpDate: localDateToISO(prev), signs: {}, items: {}, extraFg: [] };
-        try { psvFillFromWorkbook(wb); } finally { var rec = psvState; psvState = keep; }
+        let rec;
+        try { psvFillFromWorkbook(wb); } finally { rec = psvState; psvState = keep; }
         const now = new Date().toISOString();
-        const out = Object.assign({}, rec, { v: 1, month: m, savedAt: now, firstSavedAt: now, importedFrom: f.name });
+        const out = Object.assign({}, rec, { v: 1, month: m, savedAt: now, firstSavedAt: (old && old.firstSavedAt) || now, importedFrom: f.name });
         delete out.recMonth; delete out.dirty;
         const r = await fetch(psvRecUrl(m), { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(out) });
         if (!r.ok) throw new Error("OneDrive save failed (" + r.status + ")");
-        done.push(psvMonthLabel(m));
+        (isAgain ? replaced : done).push(psvMonthLabel(m));
       } catch (e) { psvState = keep; failed.push(`${f.name}: ${e.message}`); }
     }
   } catch (e) { failed.push(e.message); }
   statusEl.className = failed.length ? "err" : "ok";
-  statusEl.textContent = `Saved: ${done.join(", ") || "none"}.` + (skipped.length ? ` Already saved (not changed): ${skipped.join(", ")}.` : "") +
+  statusEl.textContent = `Saved: ${done.join(", ") || "none"}.` + (replaced.length ? ` Replaced: ${replaced.join(", ")}.` : "") +
+    (skipped.length ? ` Verified in the app (not changed): ${skipped.join(", ")}.` : "") +
     (bad.length ? ` No month in name: ${bad.join(", ")}.` : "") + (failed.length ? ` Failed: ${failed.join("; ")}.` : "");
   psvLoadHistory();
 }
@@ -21905,7 +21935,7 @@ async function psvLoadHistory() {
       const rec = recs[i], d = rec && rec.date;
       const st = !rec ? "⚠️ could not be read" : (psvIsLocked(d) ? `🔒 locked` : `✏️ can be changed till ${psvDateText(psvEditUntil(d))}`);
       return `<div class="psvHistRow"><div class="psvHistTxt"><b>${_escH(psvMonthLabel(m))}</b><br><span class="psvMuted" style="font-style:normal">` +
-        `Verified ${_escH(psvDateText(d || ""))} · ${st}</span></div>` +
+        `Verified ${_escH(psvDateText(d || ""))} · ${st}${rec && rec.importedFrom ? " · from Excel" : ""}</span></div>` +
         `<button type="button" class="secondary" data-psvopen="${m}">${rec && !psvIsLocked(d) ? "✏️ Open" : "👁️ View"}</button>` +
         `<button type="button" class="secondary" data-psvpdf="${m}">📄 PDF</button><button type="button" class="secondary" data-psvxlsx="${m}">📊 Excel</button></div>`;
     }).join("");
