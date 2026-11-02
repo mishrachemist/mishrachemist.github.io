@@ -6705,9 +6705,11 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.02.3";
+const APP_VERSION = "2026.11.02.5";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🧹 Physical Stock Verification: SI LUMPS always in 2 lots; entries saved by the older version with separate \"SI LUMPS LOT 1\" / \"(Weighted)\" rows are merged into the right item (no empty duplicate rows)",
+  "📝 Physical Stock Verification follows the new November format: SI LUMPS in lots (LOT 1 / LOT 2), names like STEEL MELTING SCRAP 1 (Incoming), 4 (Running), CI MIX SCRAP / PIG IRON / SILICO MANGANESE / BAG FILTER DUST / RAW SLAG / OVER SIZE SPONGE (Weighted)",
   "📥 Excel import keeps extra rows a month's file has (e.g. PIG IRON GRANULES, CI SKULL, MAG MATERIAL SLAG) instead of leaving them out",
   "📥 Add past months: a month added from an Excel file can be added again (corrected file replaces it); older files without lot weights now take Steel Melting Scrap's physical stock too",
   "📥 Saved verifications: \"Add past months\" - pick several old Physical_Stock_Verification Excel files at once, each is saved as its month (locked)",
@@ -21323,24 +21325,26 @@ const PSV_SECTIONS = [
   { key: "scrap", nature: "Raw Material (Scrap)", mode: "rm",
     head: ["Lot No", "UOM", "Lot Weight"],
     items: [
-      { name: "STEEL MELTING SCRAP", erp: "Steel Melting Scrap", lots: 4 },
+      { name: "STEEL MELTING SCRAP", erp: "Steel Melting Scrap", lots: 4, lotRe: /^STEEL\s*MELTING\s*SCRAP\b/i,
+        lotLabel: n => `STEEL MELTING SCRAP ${n}` + (n === 1 ? " (Incoming)" : n === 4 ? " (Running)" : "") },
       { name: "MS SCRAP-ROLLING", erp: "MS Scrap - Rolling Mill" },
       { name: "MS SCRAP", erp: "MS Scrap" },
-      { name: "CI MIX SCRAP", erp: "CI Mix Scrap" }] },
+      { name: "CI MIX SCRAP", label: "CI MIX SCRAP (Weighted)", erp: "CI Mix Scrap" }] },
   { key: "other", nature: "Raw Material (Other than Scrap)", mode: "rm", measLabel: "Measurement (L × W × H)",
     head: ["Name of item", "UOM", "Measurement by Length, Width and Height"],
     items: [
-      { name: "SI LUMPS", erp: "Lumps" }, { name: "S I PELLETS", erp: "Pellets" }, { name: "SI FINES", erp: "Fines" },
-      { name: "PIG IRON", erp: "Pig Iron" }, { name: "SILICO MANGANESE", erp: "Silico Manganeese" }] },
+      { name: "SI LUMPS", erp: "Lumps", lots: 2, fixedLots: true, lotRe: /^SI\s*LUMPS\b/i, lotLabel: n => `SI LUMPS LOT ${n}` },
+      { name: "S I PELLETS", erp: "Pellets" }, { name: "SI FINES", erp: "Fines" },
+      { name: "PIG IRON", label: "PIG IRON (Weighted)", erp: "Pig Iron" }, { name: "SILICO MANGANESE", label: "SILICO MANGANESE (Weighted)", erp: "Silico Manganeese" }] },
   { key: "fg", nature: "Finished Good", mode: "fg",
     head: ["Size of Billet & Length of Billet", "UOM", "Measurement using by counting of No. of billets (i.e. No. of pieces X density)"],
     items: [] },   // filled from PSV_FG_DEFAULT + extra Daily Stock sizes
   { key: "bp", nature: "By Product", mode: "bp", measLabel: "Visual estimate",
     head: ["Name of item", "UOM", "Visual Estimate"],
     items: [
-      { name: "BAG FILTER DUST", erp: "Bag Filter Dust" }, { name: "MILL SCALE", erp: "Mill Scale-SMS" },
-      { name: "RAW SLAG", erp: "Raw Slag" }, { name: "SLAG METAL FINES", erp: "Slag Metal Fines, Size: 1mm to 3mm" },
-      { name: "SLAG WASTE", erp: "Slag Waste" }, { name: "OVER SIZE SPONGE", erp: "Over Size Sponge" },
+      { name: "BAG FILTER DUST", label: "BAG FILTER DUST (Weighted)", erp: "Bag Filter Dust" }, { name: "MILL SCALE", erp: "Mill Scale-SMS" },
+      { name: "RAW SLAG", label: "RAW SLAG (Weighted)", erp: "Raw Slag" }, { name: "SLAG METAL FINES", erp: "Slag Metal Fines, Size: 1mm to 3mm" },
+      { name: "SLAG WASTE", erp: "Slag Waste" }, { name: "OVER SIZE SPONGE", label: "OVER SIZE SPONGE (Weighted)", erp: "Over Size Sponge" },
       { name: "SCRAP DUST (MIX)", erp: null }] }
 ];
 // 2nd sheet "SMS - RM" (monthly stock & consumption): [particular, Raw Material Stock item, assumed yield]
@@ -21378,11 +21382,21 @@ function psvFgItems() {
 function psvExtraItems(sec) { const x = psvState && psvState.extraItems && psvState.extraItems[sec.key]; return Array.isArray(x) ? x.map(n => ({ name: n, erp: null, extra: true })) : []; }
 function psvSectionItems(sec) { return sec.key === "fg" ? psvFgItems() : sec.items.concat(psvExtraItems(sec)); }
 function psvId(sec, item) { return sec.key + ":" + item.name; }
+const psvLabel = item => item.label || item.name;
+function psvLotLabel(item, n) { return item.lotLabel ? item.lotLabel(n) : `${item.name} ${n}`; }
 function psvSt(sec, item) {
   const id = psvId(sec, item);
   if (!psvState.items[id]) psvState.items[id] = { erp: "", e: "", phys: "", lots: item.lots ? new Array(item.lots).fill("") : undefined, meas: "", adj: "", rem: "", src: "" };
   const st = psvState.items[id];
-  if (item.lots && !Array.isArray(st.lots)) st.lots = new Array(item.lots).fill("");
+  if (item.lots && !Array.isArray(st.lots)) {
+    st.lots = new Array(item.lots).fill("");
+    if (psvNum(st.phys) !== null) st.lots[0] = st.phys;   // saved before this item had lots
+  }
+  if (item.fixedLots && Array.isArray(st.lots)) {         // SI LUMPS: always LOT 1 and LOT 2
+    const extra = st.lots.slice(item.lots).map(psvNum).filter(v => v !== null).reduce((a, b) => a + b, 0);
+    st.lots = st.lots.slice(0, item.lots); while (st.lots.length < item.lots) st.lots.push("");
+    if (extra) st.lots[item.lots - 1] = String(Math.round(((psvNum(st.lots[item.lots - 1]) || 0) + extra) * 1000) / 1000);
+  }
   return st;
 }
 function psvLoad() {
@@ -21392,6 +21406,47 @@ function psvLoad() {
   if (!psvState.items || typeof psvState.items !== "object") psvState.items = {};
   if (!Array.isArray(psvState.extraFg)) psvState.extraFg = [];
   if (!psvState.signs || typeof psvState.signs !== "object") psvState.signs = {};
+  psvMigrate(psvState);
+}
+
+// Older versions kept rows like "SI LUMPS LOT 1", "PIG IRON (Weighted)", "CI MIX SCRAP (Weighted)" as extra items
+// beside the usual ones (so the report showed an empty "SI LUMPS" / "PIG IRON" row too). Move them into the usual item.
+function psvMigrate(state) {
+  if (!state || !state.extraItems || typeof state.extraItems !== "object") return state;
+  const norm = x => String(x || "").toUpperCase().replace(/\([^)]*\)/g, "").replace(/[^A-Z0-9]/g, "");
+  const empty = st => !st || (![st.phys, st.e, st.erp, st.adj, st.rem, st.meas].some(v => String(v || "").trim()) && !(st.lots || []).some(v => String(v || "").trim()));
+  PSV_SECTIONS.forEach(sec => {
+    const list = state.extraItems[sec.key]; if (!Array.isArray(list) || !list.length) return;
+    const keep = [];
+    list.forEach(name => {
+      const xid = sec.key + ":" + name, x = state.items[xid];
+      const lotItem = sec.items.find(it => it.lots && it.lotRe && it.lotRe.test(name));
+      const std = lotItem || sec.items.find(it => norm(it.name) === norm(name) || norm(it.label) === norm(name));
+      if (!std) { keep.push(name); return; }
+      const sid = sec.key + ":" + std.name;
+      const cur = state.items[sid];
+      if (lotItem) {
+        const st = cur && Array.isArray(cur.lots) ? cur : Object.assign({ erp: "", e: "", phys: "", meas: "", adj: "", rem: "", src: "" }, cur || {}, { lots: new Array(lotItem.lots).fill("") });
+        const m = /(\d+)\s*$/.exec(name.replace(/\([^)]*\)/g, "").trim());
+        const li = Math.max(0, (m ? +m[1] : 1) - 1);
+        while (st.lots.length <= li) st.lots.push("");
+        if (x) {
+          const phys = psvNum(x.phys), e = psvNum(x.e) || 0;
+          if (phys !== null) st.lots[li] = String(Math.round(phys * 1000) / 1000);   // the old row kept F - E as its physical
+          if (li === 0 || !String(st.erp || "").trim()) {
+            ["erp", "src", "adj", "rem"].forEach(k => { if (String(x[k] || "").trim() && !String(st[k] || "").trim()) st[k] = x[k]; });
+            if (e && !String(st.e || "").trim()) st.e = x.e;
+          }
+        }
+        state.items[sid] = st;
+      } else if (empty(cur) && x) {
+        state.items[sid] = Object.assign({}, x);
+      } else if (!empty(x)) { keep.push(name); return; }
+      delete state.items[xid];
+    });
+    state.extraItems[sec.key] = keep;
+  });
+  return state;
 }
 let psvReadOnly = false;   // a locked month opened from "Saved verifications": view + download only
 function psvSave() { if (psvReadOnly) return; try { localStorage.setItem(PSV_KEY, JSON.stringify(psvState)); } catch (e) { /* storage blocked: still works for this session */ } }
@@ -21445,7 +21500,7 @@ function psvRender() {
       const st = psvSt(sec, item), id = psvId(sec, item);
       const uom = item.uom || "MT";
       h += `<details class="psvItem" data-id="${_escH(id)}"${psvOpenIds.has(id) ? " open" : ""}>`;
-      h += `<summary class="psvItemHead"><span class="psvChev">▸</span><b>${_escH(item.name)}</b><span class="psvUom">${_escH(uom)}</span>` +
+      h += `<summary class="psvItemHead"><span class="psvChev">▸</span><b>${_escH(psvLabel(item))}</b><span class="psvUom">${_escH(uom)}</span>` +
         (st.src === "auto" ? `<span class="psvBadge">ERP auto</span>` : (item.erp === null ? `<span class="psvBadge psvBadgeM">ERP manual</span>` : "")) +
         `<span class="psvSum" data-sum="1"></span></summary>`;
       h += `<div class="psvFields">`;
@@ -21453,16 +21508,16 @@ function psvRender() {
       h += `<label>Receipt/Issue after ERP report ${sec.mode === "fg" ? (item.len ? "(pcs, ±)" : "(m, ±)") : "(MT, ±)"}${inp("e", st.e, "0", "text")}</label>`;
       if (item.lots) {
         st.lots.forEach((lv, li) => {
-          h += `<label>Lot ${li + 1} weight (MT)<input type="text" inputmode="decimal" data-f="lot" data-li="${li}" value="${_escH(lv)}" placeholder="0"></label>`;
+          h += `<label>${_escH(psvLotLabel(item, li + 1))} (MT)<input type="text" inputmode="decimal" data-f="lot" data-li="${li}" value="${_escH(lv)}" placeholder="0"></label>`;
         });
       } else if (sec.mode === "fg") {
         h += `<label>${item.len ? "No. of pieces" : "Metres"}${inp("phys", st.phys, "0")}</label>`;
       } else {
         h += `<label>Physical (MT)${inp("phys", st.phys, "0.000")}</label>`;
       }
-      if (sec.measLabel) h += `<label>${_escH(sec.measLabel)}<input type="text" data-f="meas" value="${_escH(st.meas)}"></label>`;
+      if (sec.measLabel && !item.lots) h += `<label>${_escH(sec.measLabel)}<input type="text" data-f="meas" value="${_escH(st.meas)}"></label>`;
       h += `</div>`;
-      if (item.lots) h += `<div class="psvLotBtns"><button type="button" class="psvMini" data-act="addlot">+ Lot</button>${st.lots.length > 1 ? `<button type="button" class="psvMini" data-act="dellot">− Lot</button>` : ""}</div>`;
+      if (item.lots && !item.fixedLots) h += `<div class="psvLotBtns"><button type="button" class="psvMini" data-act="addlot">+ Lot</button>${st.lots.length > 1 ? `<button type="button" class="psvMini" data-act="dellot">− Lot</button>` : ""}</div>`;
       h += `<div class="psvRes" data-res="1"></div>`;
       h += `<details class="psvMore"><summary>Date of adjustment / Remarks</summary><div class="psvFields">` +
         `<label>Date of adjustment in Books<input type="text" data-f="adj" value="${_escH(st.adj)}" placeholder="dd-mm-yyyy"></label>` +
@@ -21643,7 +21698,9 @@ function psvFillFromWorkbook(wb) {
   const fmt = v => (v === null || v === undefined || !isFinite(v)) ? "" : String(Math.round(v * 1000) / 1000);
   const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   psvState.items = {}; psvState.extraFg = []; psvState.extraItems = {};
-  let count = 0, smsLot = 0, smsF = null, smsE = 0;
+  let count = 0;
+  const lotSeen = {};   // item name -> { n: lots read, F, E of its first row }
+  const base = x => norm(String(x || "").replace(/\([^)]*\)/g, ""));
   const notFound = [];
   PSV_SECTIONS.forEach((sec, bi) => {
     const col = i => psvColName(bi * 11 + 1 + i);
@@ -21652,11 +21709,13 @@ function psvFillFromWorkbook(wb) {
       if (!name) continue;
       if (/^total$/i.test(name)) break;
       const D = N(col(3) + r), E = N(col(4) + r), F = N(col(5) + r), C = col(2) + r;
-      // any "STEEL MELTING SCRAP ..." row is one lot (numbered or not, in the order they come)
-      const lotM = sec.key === "scrap" && /^STEEL\s*MELTING\s*SCRAP\b/i.test(name) ? [name, String(++smsLot)] : null;
+      // rows of a lot item ("STEEL MELTING SCRAP 1 (Incoming)", "SI LUMPS LOT 2", or just "SI LUMPS") - one lot each, in order
+      const lotItem = sec.items.find(it => it.lots && it.lotRe && it.lotRe.test(name));
+      let lotM = null;
+      if (lotItem) { const ls = lotSeen[lotItem.name] = lotSeen[lotItem.name] || { n: 0, F: null, E: 0 }; lotM = [name, String(++ls.n)]; }
       let item = null;
-      if (lotM) item = sec.items.find(it => it.lots);
-      else item = psvSectionItems(sec).find(it => norm(it.name) === norm(name));
+      if (lotM) item = lotItem;
+      else item = psvSectionItems(sec).find(it => base(it.name) === base(name) || base(psvLabel(it)) === base(name));
       if (!item && sec.key === "fg") {
         const k = psvSizeKey(name);
         item = psvFgItems().find(it => it.fgKey === k);
@@ -21676,7 +21735,7 @@ function psvFillFromWorkbook(wb) {
         while (st.lots.length <= li) st.lots.push("");
         st.lots[li] = fmt(N(C));
         if (li > 0) continue;            // ERP / E / remarks are on the first lot row
-        smsF = F; smsE = E || 0;
+        lotSeen[item.name].F = F; lotSeen[item.name].E = E || 0;
       }
       if (D !== null) { st.erp = fmt(D); st.src = "excel"; }
       st.adj = T(col(8) + r); st.rem = T(col(9) + r);
@@ -21687,7 +21746,7 @@ function psvFillFromWorkbook(wb) {
       } else if (sec.mode === "rm") {
         st.e = E ? fmt(E) : "";
         if (!item.lots) st.phys = F !== null ? fmt(F - (E || 0)) : "";
-        if (sec.measLabel) st.meas = T(C);
+        if (sec.measLabel && !item.lots) st.meas = T(C);
       } else {
         st.e = E ? fmt(E) : "";
         st.phys = F !== null ? fmt(F) : "";
@@ -21696,14 +21755,14 @@ function psvFillFromWorkbook(wb) {
       count++;
     }
   });
-  // Steel Melting Scrap without lot weights (older files): physical = F - E of its row, kept as one lot
-  const smsItem = PSV_SECTIONS[0].items.find(it => it.lots);
-  if (smsItem) {
-    const st = psvSt(PSV_SECTIONS[0], smsItem);
+  // a lot item without lot weights (older files): physical = F - E of its row, kept as lot 1
+  PSV_SECTIONS.forEach(sec => sec.items.filter(it => it.lots).forEach(it => {
+    const seen = lotSeen[it.name]; if (!seen) return;
+    const st = psvSt(sec, it);
     const lotNums = st.lots.map(psvNum).filter(v => v !== null);
-    if (!lotNums.length && smsF !== null) st.lots = [fmt(smsF - smsE)].concat(new Array(Math.max(0, st.lots.length - 1)).fill(""));
-    while (st.lots.length > 1 && !String(st.lots[st.lots.length - 1]).trim() && st.lots.length > (smsItem.lots || 1)) st.lots.pop();
-  }
+    if (!lotNums.length && seen.F !== null) st.lots = [fmt(seen.F - seen.E)].concat(new Array(Math.max(0, st.lots.length - 1)).fill(""));
+    while (st.lots.length > (it.lots || 1) && !String(st.lots[st.lots.length - 1]).trim()) st.lots.pop();
+  }));
   // names under the signature block (row "Name" of the first block)
   for (let r = 10; r < 90; r++) if (/^name$/i.test(T("A" + r))) {
     psvState.signs = { qad: T("B" + r) || (psvState.signs || {}).qad || "", fin: T("E" + r) || (psvState.signs || {}).fin || "",
@@ -21887,7 +21946,7 @@ function psvApplyRecord(rec, month) {
   const st = Object.assign({ period: "Monthly", division: "SMS", date: "", erpDate: "", signs: {}, items: {}, extraFg: [] }, rec);
   delete st.v; delete st.month; delete st.savedAt; delete st.firstSavedAt;
   st.recMonth = month; st.dirty = false;
-  return st;
+  return psvMigrate(st);
 }
 async function psvOpenRecord(month, then) {
   const statusEl = document.getElementById("status");
@@ -21961,8 +22020,8 @@ function psvBlockRows(sec) {
     const st = psvSt(sec, item), r = psvCalc(sec, item, st);
     if (item.lots) {
       st.lots.forEach((lv, li) => out.push({ sec, item, st, r, first: li === 0, span: st.lots.length, lotIdx: li,
-        a: `${item.name} ${li + 1}`, lot: psvNum(lv) }));
-    } else out.push({ sec, item, st, r, first: true, span: 1, a: item.name });
+        a: psvLotLabel(item, li + 1), lot: psvNum(lv) }));
+    } else out.push({ sec, item, st, r, first: true, span: 1, a: psvLabel(item) });
   });
   return out;
 }
@@ -22209,7 +22268,7 @@ async function psvXlsx() {
           if (f) cell(5, r).value = { formula: f, result: rr.F }; else cell(5, r).value = rr.F;
           cell(5, r).numFmt = F3;
           cell(6, r).value = { formula: `SUM(${Fc}-${E})-${D}`, result: rr.G }; cell(6, r).numFmt = F3;
-          cell(7, r).value = { formula: `IFERROR(${G}/${D},"")`, result: rr.H === null ? "" : rr.H }; cell(7, r).numFmt = PCT;
+          cell(7, r).value = { formula: `IFERROR(${G}/${D},"")`, result: rr.H === null ? "" : rr.H }; cell(7, r).numFmt = PCT;   // as in the sheet
         }
         if (row.st.adj) cell(8, r).value = row.st.adj;
         if (row.st.rem) cell(9, r).value = row.st.rem;
