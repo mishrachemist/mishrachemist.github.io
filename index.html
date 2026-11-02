@@ -6707,9 +6707,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.02.6";
+const APP_VERSION = "2026.11.02.7";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "✍️ Signature boxes are all the same size with more room to sign (PDF: six equal boxes; Excel: two rows of three)",
   "✍️ Physical Stock Verification signature block: QAD-Team (2), Finance Team (1), Prod Team (2), Plant Head (1)",
   "🧹 Physical Stock Verification: SI LUMPS always in 2 lots; entries saved by the older version with separate \"SI LUMPS LOT 1\" / \"(Weighted)\" rows are merged into the right item (no empty duplicate rows)",
   "📝 Physical Stock Verification follows the new November format: SI LUMPS in lots (LOT 1 / LOT 2), names like STEEL MELTING SCRAP 1 (Incoming), 4 (Running), CI MIX SCRAP / PIG IRON / SILICO MANGANESE / BAG FILTER DUST / RAW SLAG / OVER SIZE SPONGE (Weighted)",
@@ -21774,8 +21775,11 @@ function psvFillFromWorkbook(wb) {
   for (let r = 10; r < 90; r++) if (/^name$/i.test(T("A" + r))) {
     const was = psvSigners(psvState.signs);
     const head = ["B", "C", "D", "E", "F", "G", "H", "I", "J"].map(c => T(c + (r - 1))).join(" ");
-    const got = /prod/i.test(head)
-      ? { qad: T("B" + r), qad2: T("D" + r), fin: T("E" + r), prod: T("F" + r), prod2: T("H" + r), ph: T("I" + r) }     // this app's layout
+    const head2 = ["B", "E", "H"].map(c => T(c + (r + 2))).join(" ");
+    const got = /finance/i.test(head) && /prod/i.test(head2) && /^name$/i.test(T("A" + (r + 3)))
+      ? { qad: T("B" + r), qad2: T("E" + r), fin: T("H" + r), prod: T("B" + (r + 3)), prod2: T("E" + (r + 3)), ph: T("H" + (r + 3)) }   // this app: two bands of three
+      : /prod/i.test(head)
+      ? { qad: T("B" + r), qad2: T("D" + r), fin: T("E" + r), prod: T("F" + r), prod2: T("H" + r), ph: T("I" + r) }     // one band (v2026.11.02.6)
       : { qad: T("B" + r), qad2: "", fin: T("E" + r), prod: T("G" + r), prod2: "", ph: T("I" + r) };                   // older sheet (Deptt. -HOD)
     psvState.signs = {};
     Object.keys(was).forEach(k => { psvState.signs[k] = got[k] || was[k]; });
@@ -22104,8 +22108,9 @@ function psvPdf() {
       body: [["Name", s.qad, s.qad2, s.fin, s.prod, s.prod2, s.ph], ["Sign.", "", "", "", "", "", ""]],
       styles: { fontSize: 8.5, cellPadding: 4, halign: "center", valign: "middle", lineColor: [60, 60, 60], lineWidth: 0.5, textColor: 20, minCellHeight: 16 },
       headStyles: { fillColor: [242, 242, 242], textColor: 20, fontStyle: "bold" },
-      columnStyles: { 0: { cellWidth: 70, fontStyle: "bold" } },
-      didParseCell: d => { if (d.section === "body" && d.row.index === 1) d.cell.styles.minCellHeight = 34; }
+      columnStyles: Object.assign({ 0: { cellWidth: 70, fontStyle: "bold" } },
+        ...[1, 2, 3, 4, 5, 6].map(i => ({ [i]: { cellWidth: (pw - 2 * M - 70) / 6 } }))),   // every signatory gets the same width
+      didParseCell: d => { if (d.section === "body" && d.row.index === 1) d.cell.styles.minCellHeight = 46; }
     });
   });
   showPdfPreview(doc, psvFileName("pdf"), "Physical Stock Verification");
@@ -22292,28 +22297,29 @@ async function psvXlsx() {
         const c = cell(i, RT); c.value = { formula: `SUM(${col(i)}${R0}:${col(i)}${RT - 1})`, result: v }; c.numFmt = F3; c.font = { bold: true };
       });
       cell(7, RT).value = { formula: `IFERROR(${col(6)}${RT}/${col(3)}${RT},"")`, result: t.H === null ? "" : t.H }; cell(7, RT).numFmt = PCT; cell(7, RT).font = { bold: true };
-      // signature block (same places as the sheet)
+      // signature block: two bands of three equal boxes (B:D, E:G, H:J) - enough room to sign
       const s = psvSigners(psvState.signs);
-      const span = (a, b2, r) => { if (b2 > a) ws.mergeCells(`${col(a)}${r}:${col(b2)}${r}`); };
-      [[1, 3, "QAD-Team"], [4, 4, "Finance Team"], [5, 7, "Prod Team"], [8, 9, "Plant Head"]].forEach(([a, b2, k]) => {
-        span(a, b2, RS); cell(a, RS).value = k; cell(a, RS).font = { bold: true }; cell(a, RS).alignment = { horizontal: "center" };
+      const span = (a, b2, r) => ws.mergeCells(`${col(a)}${r}:${col(b2)}${r}`);
+      [[RS, [["QAD-Team (1)", s.qad], ["QAD-Team (2)", s.qad2], ["Finance Team", s.fin]]],
+       [RS + 3, [["Prod Team (1)", s.prod], ["Prod Team (2)", s.prod2], ["Plant Head", s.ph]]]].forEach(([r0, boxes]) => {
+        boxes.forEach(([title, n], k) => {
+          const a = 1 + k * 3, b2 = a + 2;
+          for (let q = 0; q < 3; q++) span(a, b2, r0 + q);
+          cell(a, r0).value = title; cell(a, r0).font = { bold: true }; cell(a, r0).alignment = { horizontal: "center" };
+          if (n) { cell(a, r0 + 1).value = n; cell(a, r0 + 1).alignment = { horizontal: "center" }; }
+        });
+        cell(0, r0 + 1).value = "Name"; cell(0, r0 + 2).value = "Sign.";
+        ws.getRow(r0 + 2).height = 42;
       });
-      [[1, 2, s.qad], [3, 3, s.qad2], [4, 4, s.fin], [5, 6, s.prod], [7, 7, s.prod2], [8, 9, s.ph]].forEach(([a, b2, n]) => {
-        for (let k = 1; k <= 3; k++) span(a, b2, RS + k);
-        if (n) { cell(a, RS + 1).value = n; cell(a, RS + 1).alignment = { horizontal: "center", wrapText: true }; }
-      });
-      cell(0, RS + 1).value = "Name"; cell(0, RS + 3).value = "Sign.";
-      ws.getRow(RS + 1).height = 28;   // room for a long name in the narrow QAD-Team (2) / Prod Team (2) cells
-      ws.getRow(RS + 3).height = 30;
       // borders + font on the whole block
-      for (let r = 1; r <= RS + 3; r++) for (let i = 0; i < 10; i++) {
+      for (let r = 1; r <= RS + 5; r++) for (let i = 0; i < 10; i++) {
         const c = cell(i, r); c.border = BOX;
         c.font = Object.assign({ name: "Calibri", size: 10 }, c.font || {});
         if (r >= R0 && r <= RT && i >= 3 && i <= 7) c.alignment = Object.assign({ horizontal: "right" }, c.alignment || {});
       }
     });
     ws.getRow(8).height = 62;
-    ws.pageSetup.printArea = `A1:${psvColName(33 + 10)}${RS + 3}`;
+    ws.pageSetup.printArea = `A1:${psvColName(33 + 10)}${RS + 5}`;
     psvRmSheet(wb);
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
