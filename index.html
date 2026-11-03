@@ -6754,10 +6754,9 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.03.6";
+const APP_VERSION = "2026.11.03.5";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
-  "📦 Raw Material Stock: every whole month in the range now takes incoming, consumption and transfer from that month's FC Report (part of a month still adds up the daily RM Report)",
   "📑 New AOP tile: import your AOP Excel (kept in your OneDrive), change the numbers in the app, formulas work out at once, Save / download the same Excel with the format unchanged",
   "📦 Billet Stock Format next-day block now also makes the small summary block on the right (X:AA): same format, formulas carried on, typed numbers kept, \"As on\" date moved to the next day",
   "💬 Short heat message (\"No of Billets\" / \"STRIP MILL\", lines like 160×160MM=02pcs4mtr) is read too. If a heat's two messages have different pieces, the latest is entered and the Total Prod cell is coloured red with a MISMATCH note",
@@ -20797,18 +20796,6 @@ async function getRmIncomingAndConsumption(wb, fromDate, toDate, token) {
 
 let stockReportData = null;
 
-// A month the range covers from its 1st to its last day: its incoming / consumption / transfer come straight
-// from that month's FC Report (the books' figures) instead of adding up the RM Report's daily columns.
-// Part of a month (e.g. the running month, or a range starting mid-month) still uses the daily figures.
-function stockWholeMonth(sub) {
-  const [y, m] = sub.fromDate.split("-").map(Number);
-  const last = `${sub.fromDate.slice(0, 8)}${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
-  return sub.fromDate.endsWith("-01") && sub.toDate === last;
-}
-// FC Report filled in for that month? (an empty / not-yet-updated FC Report falls back to the daily figures)
-function stockFcFilled(fc) { return STOCK_ITEMS.some(it => fc.colValues[it.name].E || fc.colValues[it.name].G); }
-function stockUseFc(sub, fc) { return sub.fromDate.slice(0, 7) < "2026-08" || (stockWholeMonth(sub) && stockFcFilled(fc)); }
-
 // Reads the "Daily Stock" sheet: it uses repeating 18-row date-blocks
 // (title row holds the date, followed by "SIZE"/"WEIGHT" headers, then one
 // row per billet size with its C/E/F/M/Q values - matching the same block
@@ -20963,7 +20950,7 @@ async function computeStockRowsForItems(wbList, itemNames, statusEl, token) {
     const sub = wbList[i];
     const [r, fc] = await Promise.all([   // both reads at the same time
       getRmIncomingAndConsumption(sub.wb, sub.fromDate, sub.toDate, token), getFcData(sub.wb, token)]);
-    const fcMonth = stockUseFc(sub, fc);   // whole month (or before Aug 2026): everything from FC Report
+    const isPreAugust = sub.fromDate.slice(0, 7) < "2026-08";
     items.forEach(item => {
       // Incoming and consumption each independently decide whether their
       // own figure comes from FC Report (a single whole-month number) or
@@ -20972,8 +20959,8 @@ async function computeStockRowsForItems(wbList, itemNames, statusEl, token) {
       // items like Pig Iron that need incoming from FC Report (it has no
       // daily incoming column anywhere) but consumption from RM Report's
       // daily AQ column (from the WhatsApp Consumption message).
-      const useFcForIncoming = fcMonth || (item.fcIncomingCol && item.rmCols.length === 0);
-      const useFcForConsumption = fcMonth || (item.fcConsumeCol && !item.consumeCol);
+      const useFcForIncoming = isPreAugust || (item.fcIncomingCol && item.rmCols.length === 0);
+      const useFcForConsumption = isPreAugust || (item.fcConsumeCol && !item.consumeCol);
 
       if (useFcForIncoming) {
         incoming[item.name] += fc.colValues[item.name][item.fcIncomingCol || "E"] || 0;
@@ -21185,13 +21172,9 @@ async function loadStockReport() {
       const [r, fc, sizesThisFile] = await Promise.all([   // three reads at the same time
         getRmIncomingAndConsumption(sub.wb, sub.fromDate, sub.toDate, token), getFcData(sub.wb, token),
         getBilletStockBySize(sub.wb, sub.fromDate, sub.toDate, token)]);
-      return { r, fc, isPreAugust: stockUseFc(sub, fc), sizesThisFile, sub };
+      const isPreAugust = sub.fromDate.slice(0, 7) < "2026-08";
+      return { r, fc, isPreAugust, sizesThisFile };
     }));
-    // which months came from the FC Report and which from the daily RM Report (shown under the report)
-    const srcNote = monthResults.map(({ sub, isPreAugust }) => {
-      const lbl = new Date(sub.fromDate + "T00:00:00").toLocaleString("en-GB", { month: "short", year: "2-digit" });
-      return isPreAugust ? `${lbl}: FC Report` : `${lbl} (${sub.fromDate.slice(8)}-${sub.toDate.slice(8)}): RM Report daily`;
-    }).join(" · ");
 
     // Aggregation itself is fast (no network calls) - do it sequentially
     // over the already-fetched results, so the "only the first month has a
@@ -21347,7 +21330,7 @@ async function loadStockReport() {
 
     document.getElementById("stockReportWrap").classList.remove("hidden");
     statusEl.className = "ok";
-    statusEl.textContent = `Stock report loaded for ${fromDate} to ${toDate} (opening from ${wbList[0].filePath}). Incoming / consumption: ${srcNote}.` +
+    statusEl.textContent = `Stock report loaded for ${fromDate} to ${toDate} (opening from ${wbList[0].filePath}).` +
       (missing.length ? ` (Couldn't find a file for: ${missing.join(", ")})` : "");
 
   } catch (e) {
