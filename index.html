@@ -6815,9 +6815,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.03.9";
+const APP_VERSION = "2026.11.03.10";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "💱 AOP vs Indent & Consumption: rate columns too - AOP rate, indent rate and issue (consumption) rate, and the difference from the AOP rate (red = costlier than AOP, green = cheaper), on screen and in the Excel",
   "🧪 AOP vs Indent & Consumption: import the store-issue Excel (e.g. SMS-QAD Consumption, QAD_Issue sheet) - every AOP item's consumption is compared with its Annual Consumption Budget (pro-rata too), items issued but not in the AOP listed as new items, all in the Excel",
   "📑 AOP tile now has 3 tiles: AOP (every AOP you keep, in its own format), AOP vs Indent & Consumption (compare an AOP with the ERP indent report, new items listed in the AOP format, Excel download) and Next FY AOP (work in progress)",
   "📄 AOP: download as PDF too - Summary and every table of the sheet with today's numbers (A3 landscape, company logo)",
@@ -23378,7 +23379,9 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
           const remark = [a ? a.nos.join(", ") : "", a && a.canc ? `cancelled qty ${a.canc}` : "", ...(a ? a.notes : []),
             c ? `issued in ${[...c.months].sort((x, y) => x - y).map(k => MON[k % 12]).join(", ")}` : "",
             it.byName ? "matched by item name (no item code in AOP)" : "", it.remark].filter(Boolean).join("; ");
+          const ir = a && a.qty ? a.val / a.qty : null, cr = c && c.qty ? c.val / c.qty : null, ar = Math.round(it.rate * 1e4) / 1e4;
           return { it, a, c, iq: a ? a.qty : null, iv: a ? a.val : null, n: a ? a.n : null, cqv: c ? c.qty : null, cvv: c ? c.val : null, cn: c ? c.n : null,
+            ir, cr, id: ir === null || it.isNew ? null : ir - ar, cd: cr === null || it.isNew ? null : cr - ar,
             status: status(it, a), cstatus: cStatus(it, c), remark };
         });
         const t = rows.reduce((s, r) => ({ cost: s.cost + (r.it.cost || 0), val: s.val + (r.iv || 0), n: s.n + (r.n || 0), cc: s.cc + (r.it.cc || 0), cv: s.cv + (r.cvv || 0), cn: s.cn + (r.cn || 0) }),
@@ -23428,11 +23431,13 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
     }
     const hit = [].concat(...res.sections.map(s => s.rows.filter(r => r.a || r.c).map(r => Object.assign({ sec: s.title }, r))));
     const cls = st => /Over|Above|New item \(|new item/.test(st) ? "psvNeg" : (/Within/.test(st) ? "psvPos" : "");
-    h += `<h3 style="margin:14px 0 6px;font-size:15px;">Items indented or consumed (${hit.length})</h3><div class="tableScroll"><table class="matrixTable stockTable"><tr><th>Item</th>` +
-      (res.hasInd ? `<th>AOP indent cost</th><th>Indent value</th><th>Indent status</th>` : "") + (res.hasCons ? `<th>AOP consumption cost</th><th>Consumed qty</th><th>Consumed value</th><th>Consumption status</th>` : "") + `</tr>` +
-      hit.map(r => `<tr><td style="text-align:left">${_escH(r.it.name)}<br><small style="color:var(--muted)">${_escH(r.sec)} · ${_escH(r.it.code || "no code")}</small></td>` +
-        (res.hasInd ? `<td>${fmt(r.it.cost) || "–"}</td><td>${fmt(r.iv)}</td><td class="${cls(r.status)}">${_escH(r.status)}</td>` : "") +
-        (res.hasCons ? `<td>${fmt(r.it.cc) || "–"}</td><td>${r.cqv === null ? "" : fmt(r.cqv, 2)}</td><td>${fmt(r.cvv)}</td><td class="${cls(r.cstatus)}">${_escH(r.cstatus)}</td>` : "") + `</tr>`).join("") + `</table></div>`;
+    const dcell = d => d === null ? "<td></td>" : `<td class="${d > 0.005 ? "psvNeg" : (d < -0.005 ? "psvPos" : "")}">${d > 0.005 ? "+" : ""}${fmt(d, 2)}</td>`;
+    h += `<h3 style="margin:14px 0 6px;font-size:15px;">Items indented or consumed (${hit.length})</h3><div class="tableScroll"><table class="matrixTable stockTable"><tr><th>Item</th><th>AOP rate</th>` +
+      (res.hasInd ? `<th>AOP indent cost</th><th>Indent value</th><th>Indent rate</th><th>Indent rate − AOP rate</th><th>Indent status</th>` : "") +
+      (res.hasCons ? `<th>AOP consumption cost</th><th>Consumed qty</th><th>Consumed value</th><th>Issue rate</th><th>Issue rate − AOP rate</th><th>Consumption status</th>` : "") + `</tr>` +
+      hit.map(r => `<tr><td style="text-align:left">${_escH(r.it.name)}<br><small style="color:var(--muted)">${_escH(r.sec)} · ${_escH(r.it.code || "no code")}</small></td><td>${r.it.isNew ? "–" : fmt(r.it.rate, 2)}</td>` +
+        (res.hasInd ? `<td>${fmt(r.it.cost) || "–"}</td><td>${fmt(r.iv)}</td><td>${r.ir === null ? "" : fmt(r.ir, 2)}</td>${dcell(r.id)}<td class="${cls(r.status)}">${_escH(r.status)}</td>` : "") +
+        (res.hasCons ? `<td>${fmt(r.it.cc) || "–"}</td><td>${r.cqv === null ? "" : fmt(r.cqv, 2)}</td><td>${fmt(r.cvv)}</td><td>${r.cr === null ? "" : fmt(r.cr, 2)}</td>${dcell(r.cd)}<td class="${cls(r.cstatus)}">${_escH(r.cstatus)}</td>` : "") + `</tr>`).join("") + `</table></div>`;
     const rowsAll = [].concat(...res.sections.map(s => s.rows));
     const notes = [];
     if (res.hasInd) notes.push(`${rowsAll.filter(r => r.status === "Not indented yet").length} AOP item(s) with an indent budget are not indented yet`);
@@ -23456,6 +23461,8 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
       const GREEN = fill("FF92D050"), YELLOW = fill("FFFFFF00"), GREY = fill("FFF2F2F2"), RED = fill("FFFFC7CE"), BLUE = fill("FFDDEBF7"), ORANGE = fill("FFFCE4D6");
       const thin = { style: "thin", color: { argb: "FF000000" } }, BOX = { top: thin, left: thin, bottom: thin, right: thin };
       const NUM = '_ * #,##0_ ;_ * \\-#,##0_ ;_ * "-"??_ ;_ @_ ', QTY = '_ * #,##0.##_ ;_ * \\-#,##0.##_ ;_ * "-"??_ ;_ @_ ', PCT = "0.0%";
+      const RATE = '_ * #,##0.00_ ;_ * \\-#,##0.00_ ;_ * "-"??_ ;_ @_ ';
+      const diffFill = d => d === null ? undefined : (d > 0.005 ? RED : (d < -0.005 ? fill("FFC6EFCE") : undefined));
       const L = c => { let s = ""; for (c = +c; c > 0; c = Math.floor((c - 1) / 26)) s = String.fromCharCode(65 + (c - 1) % 26) + s; return s; };
       const put = (r, c, v, o) => { o = o || {}; const x = ws.getCell(r, c); x.value = v; x.border = BOX; x.font = { name: "Calibri", size: 11, bold: !!o.bold };
         if (o.fmt) x.numFmt = o.fmt; if (o.fill) x.fill = o.fill; if (o.wrap || o.align) x.alignment = { wrapText: !!o.wrap, horizontal: o.align, vertical: "middle" }; return x; };
@@ -23468,13 +23475,14 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
         { k: "code", h: "Item Code", w: 14.1, v: r => r.it.code || "-" },
         { k: "name", h: "Item Name", w: 47.7, v: r => r.it.name },
         { k: "um", h: "UM", w: 8, v: r => r.it.um, o: { align: "center" } },
-        { k: "rate", h: "AOP Rate", w: 12.6, v: r => Math.round(r.it.rate * 1e4) / 1e4, o: { fmt: NUM } }];
+        { k: "rate", h: "AOP Rate", w: 12.6, v: r => Math.round(r.it.rate * 1e4) / 1e4, o: { fmt: RATE } }];
       if (res.hasInd) COLS.push(
         { k: "aq", h: `AOP Qty FY ${res.fy}`, w: 13, v: r => r.it.qty || null, o: { fmt: QTY } },
         { k: "ac", h: `AOP Cost FY ${res.fy}`, w: 15, v: r => r.it.cost ? r2(r.it.cost) : null, o: { fmt: NUM }, sum: true },
         { k: "iq", h: `Indent Qty (${res.period})`, w: 14, v: r => r.iq, o: { fmt: QTY } },
         { k: "iv", h: `Indent Value (${res.period})`, w: 15, v: r => r.iv === null ? null : r2(r.iv), o: { fmt: NUM }, sum: true },
-        { k: "ir", h: "Avg Indent Rate", w: 12, v: (r, k, R0, c) => f(`IFERROR(${c("iv")}${R0}/${c("iq")}${R0},"")`, r.iq ? r.iv / r.iq : ""), o: { fmt: NUM } },
+        { k: "ir", h: "Avg Indent Rate", w: 12, v: (r, k, R0, c) => f(`IFERROR(${c("iv")}${R0}/${c("iq")}${R0},"")`, r.iq ? r.iv / r.iq : ""), o: { fmt: RATE } },
+        { k: "id", h: "Indent Rate − AOP Rate", w: 12, v: (r, k, R0, c) => r.it.isNew ? null : f(`IF(${c("ir")}${R0}="","",${c("ir")}${R0}-${c("rate")}${R0})`, r.id === null ? "" : r.id), o: { fmt: RATE }, fillBy: r => diffFill(r.id) },
         { k: "bq", h: "Balance Qty", w: 11, v: (r, k, R0, c) => f(`${c("aq")}${R0}-${c("iq")}${R0}`, (r.it.qty || 0) - (r.iq || 0)), o: { fmt: QTY } },
         { k: "bc", h: "Balance Cost", w: 14, v: (r, k, R0, c) => f(`${c("ac")}${R0}-${c("iv")}${R0}`, (r.it.cost || 0) - (r.iv || 0)), o: { fmt: NUM }, sum: true },
         { k: "ip", h: "% of AOP Cost Used", w: 11, v: (r, k, R0, c) => f(`IFERROR(${c("iv")}${R0}/${c("ac")}${R0},"")`, r.it.cost ? (r.iv || 0) / r.it.cost : ""), o: { fmt: PCT }, tot: c => `IFERROR(${c("iv")}#/${c("ac")}#,"")` },
@@ -23485,6 +23493,8 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
         { k: "cc", h: `AOP Consumption Cost FY ${res.fy}`, w: 15, v: r => r.it.cc ? r2(r.it.cc) : null, o: { fmt: NUM }, sum: true },
         { k: "xq", h: `Consumed Qty (${res.cPeriod})`, w: 14, v: r => r.cqv, o: { fmt: QTY } },
         { k: "xv", h: `Consumed Value (${res.cPeriod})`, w: 15, v: r => r.cvv === null ? null : r2(r.cvv), o: { fmt: NUM }, sum: true },
+        { k: "xa", h: "Avg Issue Rate", w: 12, v: (r, k, R0, c) => f(`IFERROR(${c("xv")}${R0}/${c("xq")}${R0},"")`, r.cqv ? r.cvv / r.cqv : ""), o: { fmt: RATE } },
+        { k: "xd", h: "Issue Rate − AOP Rate", w: 12, v: (r, k, R0, c) => r.it.isNew ? null : f(`IF(${c("xa")}${R0}="","",${c("xa")}${R0}-${c("rate")}${R0})`, r.cd === null ? "" : r.cd), o: { fmt: RATE }, fillBy: r => diffFill(r.cd) },
         { k: "xb", h: "Consumption Balance Cost", w: 14, v: (r, k, R0, c) => f(`${c("cc")}${R0}-${c("xv")}${R0}`, (r.it.cc || 0) - (r.cvv || 0)), o: { fmt: NUM }, sum: true },
         { k: "xp", h: "% of Consumption Budget Used", w: 12, v: (r, k, R0, c) => f(`IFERROR(${c("xv")}${R0}/${c("cc")}${R0},"")`, r.it.cc ? (r.cvv || 0) / r.it.cc : ""), o: { fmt: PCT }, tot: c => `IFERROR(${c("xv")}#/${c("cc")}#,"")` },
         { k: "xr", h: `Consumption pro-rata (${res.cm}/12)`, w: 14, v: (r, k, R0, c) => f(`${c("cc")}${R0}*${res.cm}/12`, (r.it.cc || 0) * res.cm / 12), o: { fmt: NUM }, sum: true },
