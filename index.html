@@ -6709,11 +6709,9 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.03.2";
+const APP_VERSION = "2026.11.02.8";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
-  "⚠️ WhatsApp sync: if a heat's pieces in a message differ from what is already in the Prod. sheet, it is not entered - a \"Mismatch\" pop-up shows both, with Edit & paste",
-  "💬 Heat message in the short format (\"No of Billets\" / \"STRIP MILL\" blocks with lines like 160×160MM=02pcs4mtr) now enters production and chemistry; Production= is checked against the billets",
   "📈 Market: IND / US / Intraday tiles right under the header; the slogan is now on a sticky note below them, and a different slogan shows every day",
   "✍️ Signature boxes are all the same size with more room to sign (PDF: six equal boxes; Excel: two rows of three)",
   "✍️ Physical Stock Verification signature block: QAD-Team (2), Finance Team (1), Prod Team (2), Plant Head (1)",
@@ -11677,10 +11675,6 @@ function parseMessage(msg) {
   const reCompact = /(\d+)\s*[x\u00d7]\s*(\d)\s*m\b/gi;
   const reChem = /([A-Za-z]{1,2})\s*%\s*=\s*([\d.]+)/gi;
   const reTotalPcs = /total\s*pcs\s*=\s*(\d+)/i;
-  // "160×160MM=02pcs4mtr" / "130x130 mm = 3 pcs 5 mtr" (size = pieces of length)
-  const reSizePcs = /(\d{3})\s*[x\u00d7*]\s*\d{3}\s*(?:mm)?\s*[=:\-]\s*(\d+)\s*pcs?\s*(\d(?:\.\d+)?)\s*m(?:tr?s?|eters?|etres?)?\b/gi;
-  let prodStated = null;
-
 
   for (let raw of lines) {
     const ln = raw.trim();
@@ -11720,14 +11714,8 @@ function parseMessage(msg) {
       continue;
     }
 
-    const pm = /^production\s*[=:\-]+\s*([\d.]+)/i.exec(ln);
-    if (pm && prodStated === null) { const v = parseFloat(pm[1].replace(/\.{2,}/g, ".")); if (isFinite(v)) prodStated = v; }
-
     if (low.includes("hot out")) section = "HOTOUT";
     else if (low.includes("feed")) section = "HOT";
-    // short format: "No of Billets" block = billets kept at CCM (bypass), "STRIP MILL" block = sent to the strip mill (hot charging)
-    else if (/^no\.?\s*of\s*billets?\b/i.test(ln)) section = "BYPASS";
-    else if (/^strip\s*mill\s*:?$/i.test(ln)) section = "HOT";
     // "For STRIP MILL BYPASS IN CCM" is its own distinct category (kept in
     // grp130) - checked before the generic "bypass"/"by pass" match below,
     // which is specifically "BY PASS Billet of CCM", so the two don't get
@@ -11761,11 +11749,6 @@ function parseMessage(msg) {
     while ((m = reCompact.exec(ln)) !== null) {
       addCount(parseInt(m[2]), parseInt(m[1]));
     }
-    reSizePcs.lastIndex = 0;
-    while ((m = reSizePcs.exec(ln)) !== null) {
-      const len = parseFloat(m[3]);
-      if (Number.isInteger(len)) addCount(len, parseInt(m[2], 10));
-    }
   }
 
   // Where a block's pcs go (as entered manually in the Prod. sheet):
@@ -11798,7 +11781,7 @@ function parseMessage(msg) {
   }
 
   if (hotSz !== null) sz = hotSz;
-  return { heatKey, dateLine, hot, byp, grp130, hotout, gotHot, gotByp, got130, gotHotOut, chem, hotTotalStated, bypTotalStated, grp130TotalStated, hotoutTotalStated, sz, heatFixedFrom, heatIssue, prodStated };
+  return { heatKey, dateLine, hot, byp, grp130, hotout, gotHot, gotByp, got130, gotHotOut, chem, hotTotalStated, bypTotalStated, grp130TotalStated, hotoutTotalStated, sz, heatFixedFrom, heatIssue };
 }
 
 /* ===================== GRAPH / EXCEL CALLS ===================== */
@@ -12165,15 +12148,6 @@ async function updateExcel(msgOverride, opts = {}) {
   checkPcsTotal("Bypass 160 (By Pass + Strip Mill Bypass in CCM)", parsed.byp, parsed.gotByp, parsed.bypTotalStated);
   checkPcsTotal("130 X 130 (130x130 bypass in a 160 heat)", parsed.grp130, parsed.got130, parsed.grp130TotalStated);
   checkPcsTotal("Hot Out", parsed.hotout, parsed.gotHotOut, parsed.hotoutTotalStated);
-  // "Production=30.691" in the message: compare with the billets (pieces x length x MT per metre)
-  if (typeof parsed.prodStated === "number" && !parsed.gotHotOut) {
-    const DEN = { 110: 0.095, 130: 0.132335, 160: 0.198005 };
-    const mt = (grp, size) => [3, 4, 5, 6].reduce((t, L) => t + (grp[L] || 0) * L * (DEN[size] || 0), 0);
-    const calc = mt(parsed.hot, parsed.sz) + mt(parsed.byp, parsed.sz) + mt(parsed.grp130, 130);
-    if (calc > 0 && Math.abs(calc - parsed.prodStated) > 0.05) {
-      anomalies.push(`Production: message says ${parsed.prodStated}, but the billet counts make ${calc.toFixed(3)} MT`);
-    }
-  }
   const chemLimits = { C: 2, MN: 3, SI: 2, S: 0.5, P: 0.5 };
   Object.keys(chemLimits).forEach(key => {
     const v = parsed.chem[key];
@@ -12306,23 +12280,6 @@ async function updateExcel(msgOverride, opts = {}) {
       return { ok: false, error: `Heat ${parsed.heatKey} not found in the sheet (${fileName})` };
     }
 
-    // Already filled for this heat (e.g. the short message came first, now the long one) and the pieces differ?
-    // WhatsApp sync / batch: nothing is written, the heat goes to the "Mismatch" pop-up. Single paste: asked first.
-    const diffs = await pcsMismatch(wb, sheetName, rowIndex, parsed, token);
-    if (diffs.length) {
-      const txt = diffs.map(d => `${d.group} ${d.len}M: sheet ${d.sheet}, message ${d.msg}`).join("\n");
-      if (opts.skipConfirm) {
-        statusEl.className = "err";
-        statusEl.textContent = `Heat ${parsed.heatKey}: pieces do not match what is already in the sheet - not entered.`;
-        return { ok: false, mismatch: true, heatKey: parsed.heatKey, diffs, msg, error: `Mismatch with sheet - not entered` };
-      }
-      if (!confirm(`⚠️ Mismatch - heat ${parsed.heatKey}\n\nThe sheet already has different pieces:\n${txt}\n\nWrite this message's pieces over them?`)) {
-        statusEl.className = "err";
-        statusEl.textContent = "Not entered - pieces did not match the sheet.";
-        return { ok: false, error: "Cancelled after mismatch" };
-      }
-    }
-
     let log = `Heat ${parsed.heatKey} (row ${rowIndex}) updated:\n`;
     if (parsed.heatFixedFrom) log += `ℹ️ Heat no. auto-corrected from "${parsed.heatFixedFrom}" to ${parsed.heatKey}\n`;
     if (monthNote) log += monthNote;
@@ -12392,86 +12349,6 @@ async function updateExcel(msgOverride, opts = {}) {
     return { ok: false, error: e.message, heatKey: parsed.heatKey };
   }
 }
-
-
-// Pieces already in the heat row (J:M 130x130, P:S hot charging, V:Y bypass, AC:AF hot out) vs the message.
-// Only groups that the message carries AND that already have a number in the sheet are compared.
-async function pcsMismatch(wb, sheetName, rowIndex, parsed, token) {
-  const groups = [
-    { group: "130 X 130", got: parsed.got130, v: parsed.grp130, off: 0 },
-    { group: "Hot Charging", got: parsed.gotHot, v: parsed.hot, off: 6 },
-    { group: "Bypass", got: parsed.gotByp, v: parsed.byp, off: 12 },
-    { group: "Hot Out", got: parsed.gotHotOut, v: parsed.hotout, off: 19 }].filter(g => g.got);
-  if (!groups.length) return [];
-  let row;
-  try {
-    const r = await graphFetch(`${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='J${rowIndex}:AF${rowIndex}')?$select=values`, token, { noCache: true });
-    row = (r.values && r.values[0]) || [];
-  } catch (e) { return []; }   // could not read: behave as before
-  const n = x => { if (typeof x === "number") return x; const v = parseFloat(String(x == null ? "" : x).trim()); return isNaN(v) ? 0 : v; };
-  const out = [];
-  groups.forEach(g => {
-    const have = [3, 4, 5, 6].map((L, i) => n(row[g.off + i]));
-    if (!have.some(Boolean)) return;            // empty in the sheet: first message for this group
-    [3, 4, 5, 6].forEach((L, i) => { if (have[i] !== (g.v[L] || 0)) out.push({ group: g.group, len: L, sheet: have[i], msg: g.v[L] || 0 }); });
-  });
-  return out;
-}
-
-/* ----- "Mismatch" pop-up: heats that WhatsApp sync / batch did not enter because their pieces differ ----- */
-const MISMATCH_KEY = "waMismatchPending";
-function mismatchLoad() { try { return JSON.parse(localStorage.getItem(MISMATCH_KEY) || "[]") || []; } catch (e) { return []; } }
-function mismatchSave(list) { try { localStorage.setItem(MISMATCH_KEY, JSON.stringify(list.slice(-30))); } catch (e) {} }
-function mismatchAdd(items) {
-  const list = mismatchLoad();
-  items.forEach(it => { if (!list.some(x => x.heatKey === it.heatKey && x.msg === it.msg)) list.push({ heatKey: it.heatKey, diffs: it.diffs, msg: it.msg, label: it.label || "", at: Date.now() }); });
-  mismatchSave(list);
-  showMismatchPopup();
-}
-function showMismatchPopup() {
-  const list = mismatchLoad();
-  let ov = document.getElementById("mismatchOverlay");
-  if (!list.length) { if (ov) ov.classList.add("hidden"); return; }
-  if (!ov) {
-    ov = document.createElement("div");
-    ov.id = "mismatchOverlay"; ov.className = "pdfOverlay";
-    ov.innerHTML = `<div class="pdfModal" style="height:auto;max-height:88vh;max-width:520px;display:flex;flex-direction:column;">
-      <div class="pdfModalHead" style="flex-shrink:0;"><span>⚠️ Mismatch</span><div><button class="secondary" id="mismatchCloseBtn" type="button">Close</button></div></div>
-      <div id="mismatchBody" style="padding:14px 16px;overflow-y:auto;min-height:0;color:var(--ink);font-size:13.5px;"></div></div>`;
-    document.body.appendChild(ov);
-    document.getElementById("mismatchCloseBtn").addEventListener("click", () => ov.classList.add("hidden"));
-    ov.addEventListener("click", ev => {
-      const b = ev.target.closest("button[data-mm]"); if (!b) return;
-      const i = +b.dataset.i, L = mismatchLoad(), it = L[i]; if (!it) return;
-      if (b.dataset.mm === "edit") {
-        ov.classList.add("hidden");
-        const nav = document.querySelector('#mainSidebar .navItem[data-section="whatsapp"]'); if (nav) nav.click();
-        const sub = document.querySelector('[data-subwhatsapp="update"]'); if (sub) sub.click();
-        const box = document.getElementById("msgBox");
-        if (box) { box.value = it.msg; box.focus(); box.scrollIntoView({ behavior: "smooth", block: "center" }); }
-        L.splice(i, 1); mismatchSave(L);
-        const st = document.getElementById("status");
-        if (st) { st.className = "wait"; st.textContent = `Heat ${it.heatKey}: correct the pieces in the box, then press Update (it will ask once more before writing over the sheet).`; }
-      } else if (b.dataset.mm === "copy") {
-        try { navigator.clipboard.writeText(it.msg); b.textContent = "✅ Copied"; } catch (e) {}
-      } else if (b.dataset.mm === "drop") {
-        L.splice(i, 1); mismatchSave(L); showMismatchPopup();
-      }
-    });
-  }
-  const esc = _escH;
-  document.getElementById("mismatchBody").innerHTML =
-    `<p style="margin:0 0 10px;">These heats were <b>not entered</b> by WhatsApp sync: the pieces in the message do not match what is already in the Prod. sheet. Correct the message and paste it.</p>` +
-    list.map((it, i) => `<div style="border:1px solid rgba(127,127,127,.4);border-radius:10px;padding:10px 12px;margin:8px 0;">
-      <div style="font-weight:800;margin-bottom:6px;">Heat ${esc(it.heatKey)}${it.label ? ` <span style="font-weight:400;color:var(--muted)">· ${esc(it.label)}</span>` : ""}</div>
-      <table class="matrixTable" style="width:100%;font-size:12.5px;"><tr><th>Group</th><th>Length</th><th>In sheet</th><th>In message</th></tr>
-      ${it.diffs.map(d => `<tr><td>${esc(d.group)}</td><td>${d.len} M</td><td>${d.sheet}</td><td style="color:#e05545;font-weight:700">${d.msg}</td></tr>`).join("")}</table>
-      <details style="margin-top:6px;"><summary style="cursor:pointer;font-size:12.5px;color:var(--muted)">Message</summary><pre style="white-space:pre-wrap;font-size:12px;margin:6px 0 0;">${esc(it.msg)}</pre></details>
-      <div class="btnRow" style="margin-top:8px;"><button type="button" class="primary" data-mm="edit" data-i="${i}">✏️ Edit &amp; paste</button>
-      <button type="button" class="secondary" data-mm="copy" data-i="${i}">📋 Copy</button><button type="button" class="secondary" data-mm="drop" data-i="${i}">✖ Remove</button></div></div>`).join("");
-  ov.classList.remove("hidden");
-}
-setTimeout(() => { if (mismatchLoad().length) showMismatchPopup(); }, 2500);   // left from an auto-fetch while the app was closed
 
 function fmt(v) { return v === null ? "-" : v; }
 
@@ -12568,7 +12445,6 @@ document.getElementById("batchSubmitBtn").addEventListener("click", async () => 
     const r = await updateExcel(messages[i], { skipConfirm: true });
     results.push(r || { ok: false, error: "Unknown error" });
   }
-  const mm = results.filter(r => r && r.mismatch);
 
   const okCount = results.filter(r => r.ok).length;
   const failCount = results.length - okCount;
@@ -12585,7 +12461,6 @@ document.getElementById("batchSubmitBtn").addEventListener("click", async () => 
   statusEl.textContent = summary;
   showCompletionPopup(summary);
   if (failCount === 0) document.getElementById("msgBox").value = "";
-  if (mm.length) mismatchAdd(mm.map(r => ({ heatKey: r.heatKey, diffs: r.diffs, msg: r.msg, label: "batch paste" })));
 });
 
 /* ===================== WHATSAPP INBOX (MacroDroid -> Apps Script Sheet) ===================== */
@@ -12984,7 +12859,7 @@ async function waInboxFetch() {
           res = { label, kind: "skip", isRetry: m.isRetry, note: text.split(/\r?\n/)[0].slice(0, 40) };
         } else {
           const r = await updateExcel(text, { skipConfirm: true });
-          res = { label, kind: r && r.ok ? "ok" : (r && r.mismatch ? "mismatch" : "fail"), isRetry: m.isRetry, r: r || { error: "Unknown error" }, fixedFrom: pre.heatFixedFrom };
+          res = { label, kind: r && r.ok ? "ok" : "fail", isRetry: m.isRetry, r: r || { error: "Unknown error" }, fixedFrom: pre.heatFixedFrom };
         }
         heatDateHint = null;
         // Remember the latest heat number seen (for the sequence rule).
@@ -13024,9 +12899,8 @@ async function waInboxFetch() {
     const skipN = results.filter(x => x.kind === "skip").length;
     const consN = results.filter(x => x.kind === "consumption").length;
     const rhfN = results.filter(x => x.kind === "rhf").length;
-    const mmList = results.filter(x => x.kind === "mismatch");
     let summary = `WhatsApp fetch: ${okN} saved` + (failN ? `, ${failN} failed` : "") + (skipN ? ` (${skipN} other message(s) ignored)` : "") +
-      (consN ? `, ${consN} consumption` : "") + (rhfN ? `, ${rhfN} RHF transfer` : "") + (mmList.length ? `, ⚠️ ${mmList.length} mismatch` : "") + "\n";
+      (consN ? `, ${consN} consumption` : "") + (rhfN ? `, ${rhfN} RHF transfer` : "") + "\n";
     if (results.some(x => x.kind === "fail" && /locked/.test(shortError(x.r.error))))
       summary += `⚠️ Excel file is open on the PC - close it, then press Fetch again.\n`;
     if (retryList.length) summary += `🔁 ${retryList.length} message(s) will be retried on the next Fetch.\n`;
@@ -13039,7 +12913,6 @@ async function waInboxFetch() {
       }
       else if (x.kind === "consumption") summary += `🧾 ${x.label}: consumption message submitted\n`;
       else if (x.kind === "rhf") summary += `🧱 ${x.label}: ${x.note}\n`;
-      else if (x.kind === "mismatch") summary += `⚠️ ${x.label}: Heat ${x.r.heatKey} - pieces do not match the sheet, NOT entered\n`;
       // Skipped messages (photo captions, power consumption, chat, etc.)
       // are not listed - only their count in the first line.
     });
@@ -13050,7 +12923,6 @@ async function waInboxFetch() {
     waInboxShowInfo();
     if (waAutoRun) addNotification("Auto-fetch: " + summary.split("\n")[0], failN ? "⚠️" : "📥");   // quiet: no pop-up while you work
     else showCompletionPopup(summary);
-    if (mmList.length) mismatchAdd(mmList.map(x => ({ heatKey: x.r.heatKey, diffs: x.r.diffs, msg: x.r.msg, label: x.label })));   // this one always pops up
   } finally {
     waInboxBusy = false;
     waCloudPush();   // save the new row / status to OneDrive for the other devices
