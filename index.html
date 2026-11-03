@@ -6709,9 +6709,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.02.8";
+const APP_VERSION = "2026.11.03.1";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "💬 Heat message in the short format (\"No of Billets\" / \"STRIP MILL\" blocks with lines like 160×160MM=02pcs4mtr) now enters production and chemistry; Production= is checked against the billets",
   "📈 Market: IND / US / Intraday tiles right under the header; the slogan is now on a sticky note below them, and a different slogan shows every day",
   "✍️ Signature boxes are all the same size with more room to sign (PDF: six equal boxes; Excel: two rows of three)",
   "✍️ Physical Stock Verification signature block: QAD-Team (2), Finance Team (1), Prod Team (2), Plant Head (1)",
@@ -11675,6 +11676,10 @@ function parseMessage(msg) {
   const reCompact = /(\d+)\s*[x\u00d7]\s*(\d)\s*m\b/gi;
   const reChem = /([A-Za-z]{1,2})\s*%\s*=\s*([\d.]+)/gi;
   const reTotalPcs = /total\s*pcs\s*=\s*(\d+)/i;
+  // "160×160MM=02pcs4mtr" / "130x130 mm = 3 pcs 5 mtr" (size = pieces of length)
+  const reSizePcs = /(\d{3})\s*[x\u00d7*]\s*\d{3}\s*(?:mm)?\s*[=:\-]\s*(\d+)\s*pcs?\s*(\d(?:\.\d+)?)\s*m(?:tr?s?|eters?|etres?)?\b/gi;
+  let prodStated = null;
+
 
   for (let raw of lines) {
     const ln = raw.trim();
@@ -11714,8 +11719,14 @@ function parseMessage(msg) {
       continue;
     }
 
+    const pm = /^production\s*[=:\-]+\s*([\d.]+)/i.exec(ln);
+    if (pm && prodStated === null) { const v = parseFloat(pm[1].replace(/\.{2,}/g, ".")); if (isFinite(v)) prodStated = v; }
+
     if (low.includes("hot out")) section = "HOTOUT";
     else if (low.includes("feed")) section = "HOT";
+    // short format: "No of Billets" block = billets kept at CCM (bypass), "STRIP MILL" block = sent to the strip mill (hot charging)
+    else if (/^no\.?\s*of\s*billets?\b/i.test(ln)) section = "BYPASS";
+    else if (/^strip\s*mill\s*:?$/i.test(ln)) section = "HOT";
     // "For STRIP MILL BYPASS IN CCM" is its own distinct category (kept in
     // grp130) - checked before the generic "bypass"/"by pass" match below,
     // which is specifically "BY PASS Billet of CCM", so the two don't get
@@ -11749,6 +11760,11 @@ function parseMessage(msg) {
     while ((m = reCompact.exec(ln)) !== null) {
       addCount(parseInt(m[2]), parseInt(m[1]));
     }
+    reSizePcs.lastIndex = 0;
+    while ((m = reSizePcs.exec(ln)) !== null) {
+      const len = parseFloat(m[3]);
+      if (Number.isInteger(len)) addCount(len, parseInt(m[2], 10));
+    }
   }
 
   // Where a block's pcs go (as entered manually in the Prod. sheet):
@@ -11781,7 +11797,7 @@ function parseMessage(msg) {
   }
 
   if (hotSz !== null) sz = hotSz;
-  return { heatKey, dateLine, hot, byp, grp130, hotout, gotHot, gotByp, got130, gotHotOut, chem, hotTotalStated, bypTotalStated, grp130TotalStated, hotoutTotalStated, sz, heatFixedFrom, heatIssue };
+  return { heatKey, dateLine, hot, byp, grp130, hotout, gotHot, gotByp, got130, gotHotOut, chem, hotTotalStated, bypTotalStated, grp130TotalStated, hotoutTotalStated, sz, heatFixedFrom, heatIssue, prodStated };
 }
 
 /* ===================== GRAPH / EXCEL CALLS ===================== */
@@ -12148,6 +12164,15 @@ async function updateExcel(msgOverride, opts = {}) {
   checkPcsTotal("Bypass 160 (By Pass + Strip Mill Bypass in CCM)", parsed.byp, parsed.gotByp, parsed.bypTotalStated);
   checkPcsTotal("130 X 130 (130x130 bypass in a 160 heat)", parsed.grp130, parsed.got130, parsed.grp130TotalStated);
   checkPcsTotal("Hot Out", parsed.hotout, parsed.gotHotOut, parsed.hotoutTotalStated);
+  // "Production=30.691" in the message: compare with the billets (pieces x length x MT per metre)
+  if (typeof parsed.prodStated === "number" && !parsed.gotHotOut) {
+    const DEN = { 110: 0.095, 130: 0.132335, 160: 0.198005 };
+    const mt = (grp, size) => [3, 4, 5, 6].reduce((t, L) => t + (grp[L] || 0) * L * (DEN[size] || 0), 0);
+    const calc = mt(parsed.hot, parsed.sz) + mt(parsed.byp, parsed.sz) + mt(parsed.grp130, 130);
+    if (calc > 0 && Math.abs(calc - parsed.prodStated) > 0.05) {
+      anomalies.push(`Production: message says ${parsed.prodStated}, but the billet counts make ${calc.toFixed(3)} MT`);
+    }
+  }
   const chemLimits = { C: 2, MN: 3, SI: 2, S: 0.5, P: 0.5 };
   Object.keys(chemLimits).forEach(key => {
     const v = parsed.chem[key];
