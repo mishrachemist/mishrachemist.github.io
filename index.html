@@ -4821,6 +4821,7 @@ window.__gmFS = {
             <div class="btnRow" style="margin-top:14px;">
               <button class="primary" id="aopSaveBtn" type="button">💾 Save</button>
               <button class="secondary" id="aopXlsxBtn" type="button">📊 Excel</button>
+              <button class="secondary" id="aopPdfBtn" type="button">📄 PDF</button>
               <button class="secondary" id="aopUndoBtn" type="button">↩ Undo changes</button>
             </div>
           </div>
@@ -6754,9 +6755,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.03.5";
+const APP_VERSION = "2026.11.03.7";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📄 AOP: download as PDF too - Summary and every table of the sheet with today's numbers (A3 landscape, company logo)",
   "📑 New AOP tile: import your AOP Excel (kept in your OneDrive), change the numbers in the app, formulas work out at once, Save / download the same Excel with the format unchanged",
   "📦 Billet Stock Format next-day block now also makes the small summary block on the right (X:AA): same format, formulas carried on, typed numbers kept, \"As on\" date moved to the next day",
   "💬 Short heat message (\"No of Billets\" / \"STRIP MILL\", lines like 160×160MM=02pcs4mtr) is read too. If a heat's two messages have different pieces, the latest is entered and the Total Prod cell is coloured red with a MISMATCH note",
@@ -22905,6 +22907,92 @@ psvInit();
       st.className = "ok"; st.textContent = `Downloaded ${S.name}` + (Object.keys(S.edits).length ? " (with your unsaved changes - press 💾 Save to keep them in OneDrive)." : ".");
     } catch (e) { st.className = "err"; st.textContent = "AOP download error: " + e.message; }
   }
+  // PDF: the Summary and every table of the sheet, with the numbers as they stand now (unsaved changes too)
+  function pdf() {
+    const st = $("status");
+    if (!S.name || !S.model) { st.className = "err"; st.textContent = "Open an AOP file first."; return; }
+    try {
+      S.memo = new Map();
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a3" });
+      const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight(), M = 24;
+      const title = S.name.replace(/\.xlsx$/i, "").replace(/_/g, " ");
+      const val = (a, head) => {
+        const x = S.ws[a];
+        if (x && x.f) return fmtN(cellNum(a), isMoney(head));
+        if (Object.prototype.hasOwnProperty.call(S.edits, a)) { const n = parseFloat(S.edits[a]); return isNaN(n) ? String(S.edits[a]) : fmtN(n, isMoney(head)); }
+        if (x && typeof x.v === "number") return fmtN(x.v, isMoney(head));
+        return txt(x);
+      };
+      const NAVY = [31, 56, 100], GOLD = [201, 162, 39];
+      const tableStyles = {
+        theme: "grid", keepZeros: true, margin: { left: M, right: M, top: 64, bottom: 30 },
+        styles: { fontSize: 7, cellPadding: 2.5, halign: "right", valign: "middle", lineColor: [150, 150, 150], lineWidth: 0.4, textColor: 20, overflow: "linebreak" },
+        headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "bold", halign: "center", fontSize: 6.8 }
+      };
+      let y = 70;
+      const sectionTitle = (t) => {
+        if (y > ph - 90) { doc.addPage(); y = 70; }
+        doc.setFillColor(...GOLD); doc.rect(M, y, pw - 2 * M, 16, "F");
+        doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(255, 255, 255);
+        doc.text(t, M + 6, y + 11.5); y += 18;
+      };
+      const M0 = S.model;
+      if (M0.summary) {
+        const sm = M0.summary;
+        sectionTitle("Summary");
+        doc.autoTable(Object.assign({}, tableStyles, {
+          startY: y, head: [sm.cols.map(c => sm.head[c])],
+          body: sm.rows.map(r => sm.cols.map(c => val(XLSX.utils.encode_cell({ r, c }), sm.head[c]))),
+          columnStyles: { 0: { halign: "left", fontStyle: "bold", cellWidth: 150 } },
+          didParseCell: d => { if (d.section === "body" && d.row.index === sm.rows.length - 1 && !txt(S.ws[XLSX.utils.encode_cell({ r: sm.rows[sm.rows.length - 1], c: sm.cols[0] })])) { d.cell.styles.fontStyle = "bold"; d.cell.styles.fillColor = [242, 242, 242]; } }
+        }));
+        y = doc.lastAutoTable.finalY + 16;
+      }
+      M0.sections.forEach(sec0 => {
+        let sec = sec0;
+        const nameCol = sec.cols.find(c => /item\s*name|description|particular/i.test(sec.head[c])) ?? 2;
+        sectionTitle(sec.title);
+        // a column with no heading and nothing in it is left out
+        const cols = sec.cols.filter(c => sec.head[c] || sec.rows.concat(sec.total !== null ? [sec.total] : []).some(r => val(XLSX.utils.encode_cell({ r, c }), "") !== ""));
+        sec = Object.assign({}, sec, { cols });
+        const colStyles = {};
+        sec.cols.forEach((c, i) => {
+          if (c === nameCol) colStyles[i] = { halign: "left", cellWidth: 140 };
+          else if (c === 0) colStyles[i] = { halign: "center", cellWidth: 26 };
+          else if (/code|^um$|^uom$|unit/i.test(sec.head[c])) colStyles[i] = { halign: "center" };
+        });
+        const body = sec.rows.map(r => sec.cols.map(c => val(XLSX.utils.encode_cell({ r, c }), sec.head[c])));
+        if (sec.total !== null) {
+          const tr = sec.cols.map(c => val(XLSX.utils.encode_cell({ r: sec.total, c }), sec.head[c]));
+          const ni = sec.cols.indexOf(nameCol); if (ni >= 0 && !tr[ni]) tr[ni] = "Total";
+          body.push(tr.map(t => ({ content: t, styles: { fontStyle: "bold", fillColor: [242, 242, 242] } })));
+        }
+        doc.autoTable(Object.assign({}, tableStyles, {
+          startY: y, head: [sec.cols.map(c => sec.head[c] || "Remarks")], body, columnStyles: colStyles
+        }));
+        y = doc.lastAutoTable.finalY + 16;
+      });
+      // header + footer on every page
+      const n = doc.internal.getNumberOfPages(), today = new Date().toLocaleDateString("en-GB");
+      const unsaved = Object.keys(S.edits).length;
+      for (let p = 1; p <= n; p++) {
+        doc.setPage(p);
+        coDrawLogo(doc, M, 12, 150, 30);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(...NAVY);
+        doc.text("Annual Operating Plan", pw / 2, 26, { align: "center" });
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(70, 70, 70);
+        doc.text(`${title}  ·  sheet ${S.sheet}`, pw / 2, 41, { align: "center" });
+        if (COMPANY.name) { doc.setFontSize(9); doc.text(COMPANY.name, pw - M, 22, { align: "right" }); }
+        doc.setDrawColor(...GOLD); doc.setLineWidth(1); doc.line(M, 52, pw - M, 52);
+        doc.setFontSize(7.5); doc.setTextColor(120, 120, 120);
+        doc.text(`Generated ${today}` + (unsaved ? `  ·  includes ${unsaved} change(s) not saved to the Excel yet` : ""), M, ph - 14);
+        doc.text(`Page ${p} of ${n}`, pw - M, ph - 14, { align: "right" });
+      }
+      showPdfPreview(doc, S.name.replace(/\.xlsx$/i, "") + ".pdf", "AOP");
+      st.className = "ok"; st.textContent = "AOP PDF ready.";
+    } catch (e) { st.className = "err"; st.textContent = "AOP PDF error: " + e.message; }
+  }
   async function importFile(file) {
     const st = $("status");
     try {
@@ -22939,6 +23027,7 @@ psvInit();
   $("aopReloadBtn").addEventListener("click", () => listFiles(S.name));
   $("aopSaveBtn").addEventListener("click", saveToCloud);
   $("aopXlsxBtn").addEventListener("click", download);
+  $("aopPdfBtn").addEventListener("click", pdf);
   $("aopUndoBtn").addEventListener("click", () => { if (!Object.keys(S.edits).length || !confirm("Undo all changes not saved yet?")) return; S.edits = {}; saveEditsLocal(); render(); });
   document.querySelectorAll('.navItem[data-section="aop"]').forEach(b => b.addEventListener("click", () => { if (!S.name) listFiles(); }));
   window._aopTest = { evalFormula: f => { S.memo = new Map(); return evalFormula(f); }, S, openFile, buildXlsx, zipRead, zipText };
