@@ -6709,9 +6709,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.02.8";
+const APP_VERSION = "2026.11.03.3";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "💬 Short heat message (\"No of Billets\" / \"STRIP MILL\", lines like 160×160MM=02pcs4mtr) is read too. If a heat's two messages have different pieces, the latest is entered and the Total Prod cell is coloured red with a MISMATCH note",
   "📈 Market: IND / US / Intraday tiles right under the header; the slogan is now on a sticky note below them, and a different slogan shows every day",
   "✍️ Signature boxes are all the same size with more room to sign (PDF: six equal boxes; Excel: two rows of three)",
   "✍️ Physical Stock Verification signature block: QAD-Team (2), Finance Team (1), Prod Team (2), Plant Head (1)",
@@ -11675,6 +11676,9 @@ function parseMessage(msg) {
   const reCompact = /(\d+)\s*[x\u00d7]\s*(\d)\s*m\b/gi;
   const reChem = /([A-Za-z]{1,2})\s*%\s*=\s*([\d.]+)/gi;
   const reTotalPcs = /total\s*pcs\s*=\s*(\d+)/i;
+  // short format: "160×160MM=02pcs4mtr" (size = pieces + length)
+  const reSizePcs = /(\d{3})\s*[x\u00d7*]\s*\d{3}\s*(?:mm)?\s*[=:\-]\s*(\d+)\s*pcs?\s*(\d)\s*m(?:tr?s?|eters?|etres?)?\b/gi;
+
 
   for (let raw of lines) {
     const ln = raw.trim();
@@ -11716,6 +11720,9 @@ function parseMessage(msg) {
 
     if (low.includes("hot out")) section = "HOTOUT";
     else if (low.includes("feed")) section = "HOT";
+    // short format: "No of Billets" block = kept at CCM (bypass), "STRIP MILL" block = sent to the strip mill (hot charging)
+    else if (/^no\.?\s*of\s*billets?\b/i.test(ln)) section = "BYPASS";
+    else if (/^strip\s*mill\s*:?$/i.test(ln)) section = "HOT";
     // "For STRIP MILL BYPASS IN CCM" is its own distinct category (kept in
     // grp130) - checked before the generic "bypass"/"by pass" match below,
     // which is specifically "BY PASS Billet of CCM", so the two don't get
@@ -11749,6 +11756,8 @@ function parseMessage(msg) {
     while ((m = reCompact.exec(ln)) !== null) {
       addCount(parseInt(m[2]), parseInt(m[1]));
     }
+    reSizePcs.lastIndex = 0;
+    while ((m = reSizePcs.exec(ln)) !== null) addCount(parseInt(m[3], 10), parseInt(m[2], 10));
   }
 
   // Where a block's pcs go (as entered manually in the Prod. sheet):
@@ -12280,6 +12289,10 @@ async function updateExcel(msgOverride, opts = {}) {
       return { ok: false, error: `Heat ${parsed.heatKey} not found in the sheet (${fileName})` };
     }
 
+    // pieces already in this heat row (from the other message of the same heat) - compared before writing;
+    // the entry still goes in (this message's pieces), and a difference is marked on the Total Prod cell
+    const diffs = await pcsMismatch(wb, sheetName, rowIndex, parsed, token);
+
     let log = `Heat ${parsed.heatKey} (row ${rowIndex}) updated:\n`;
     if (parsed.heatFixedFrom) log += `ℹ️ Heat no. auto-corrected from "${parsed.heatFixedFrom}" to ${parsed.heatKey}\n`;
     if (monthNote) log += monthNote;
@@ -12321,6 +12334,7 @@ async function updateExcel(msgOverride, opts = {}) {
       }
     }
     await patchCells(wb, sheetName, rowPiecesToCells(pieces), token);
+    if (diffs.length) log += await markPcsMismatch(wb, sheetName, rowIndex, parsed.heatKey, diffs, token);
     if (gotChem) {
       log += `Chemical Report -> %C=${fmt(parsed.chem.C)} %Mn=${fmt(parsed.chem.MN)} %Si=${fmt(parsed.chem.SI)} %S=${fmt(parsed.chem.S)} %P=${fmt(parsed.chem.P)}\n`;
     }
@@ -12348,6 +12362,51 @@ async function updateExcel(msgOverride, opts = {}) {
     statusEl.textContent = "Error: " + e.message;
     return { ok: false, error: e.message, heatKey: parsed.heatKey };
   }
+}
+
+
+
+// Pieces already in the heat row (J:M 130x130, P:S hot charging, V:Y bypass, AC:AF hot out) vs this message.
+// Only groups the message carries AND that already have a number in the sheet are compared.
+async function pcsMismatch(wb, sheetName, rowIndex, parsed, token) {
+  const groups = [
+    { group: "130 X 130", got: parsed.got130, v: parsed.grp130, off: 0 },
+    { group: "Hot Charging", got: parsed.gotHot, v: parsed.hot, off: 6 },
+    { group: "Bypass", got: parsed.gotByp, v: parsed.byp, off: 12 },
+    { group: "Hot Out", got: parsed.gotHotOut, v: parsed.hotout, off: 19 }].filter(g => g.got);
+  if (!groups.length) return [];
+  let row;
+  try {
+    const r = await graphFetch(`${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='J${rowIndex}:AF${rowIndex}')?$select=values`, token, { noCache: true });
+    row = (r.values && r.values[0]) || [];
+  } catch (e) { return []; }   // could not read: enter as before, without a check
+  const n = x => { if (typeof x === "number") return x; const v = parseFloat(String(x == null ? "" : x).trim()); return isNaN(v) ? 0 : v; };
+  const out = [];
+  groups.forEach(g => {
+    const have = [3, 4, 5, 6].map((L, i) => n(row[g.off + i]));
+    if (!have.some(Boolean)) return;            // empty in the sheet: this is the first message for this group
+    [3, 4, 5, 6].forEach((L, i) => { if (have[i] !== (g.v[L] || 0)) out.push({ group: g.group, len: L, before: have[i], now: g.v[L] || 0 }); });
+  });
+  return out;
+}
+// Total Prod cell (AB) of the heat row: light-red fill + an Excel comment "MISMATCH ..." listing both messages' pieces
+async function markPcsMismatch(wb, sheetName, rowIndex, heatKey, diffs, token) {
+  const cell = `AB${rowIndex}`;
+  const sh = `${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')`;
+  const text = `MISMATCH - heat ${heatKey}: the two messages have different pieces. ` +
+    diffs.map(d => `${d.group} ${d.len}M: earlier ${d.before}, latest ${d.now}`).join("; ") + ". The latest message's pieces are entered.";
+  let note = `⚠️ MISMATCH with the earlier message: ${diffs.map(d => `${d.group} ${d.len}M ${d.before}→${d.now}`).join(", ")} (latest entered; marked on ${cell})\n`;
+  try { await graphFetch(`${sh}/range(address='${cell}')/format/fill`, token, { method: "PATCH", body: JSON.stringify({ color: "#FFC7CE" }) }); }
+  catch (e) { note += `(could not colour ${cell}: ${e.message})\n`; }
+  try {
+    const beta = wb.replace("/v1.0/", "/beta/");
+    const addr = `'${String(sheetName).replace(/'/g, "''")}'!${cell}`;
+    const r = await fetch(`${beta}/comments`, { method: "POST",
+      headers: { Authorization: "Bearer " + (cachedAccessToken || token), "Content-Type": "application/json" },
+      body: JSON.stringify({ cellAddress: addr, content: text, contentType: "plain" }) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+  } catch (e) { note += `(note on ${cell} could not be added: ${e.message} - the cell is coloured red instead)\n`; }
+  return note;
 }
 
 function fmt(v) { return v === null ? "-" : v; }
