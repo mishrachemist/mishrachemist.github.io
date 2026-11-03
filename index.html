@@ -4854,16 +4854,38 @@ window.__gmFS = {
               <input type="file" id="aovConsFile" accept=".xlsx,.xlsm,.xls" style="display:none">
               <button class="primary" id="aovRun" type="button">⚖️ Compare</button>
             </div>
+            <details class="aopSec" id="aovAddBox" style="margin-top:12px;">
+              <summary>➕ Add indent / requisition in the app</summary>
+              <p style="font-size:12.5px;color:var(--muted);margin:6px 0 8px;">For an indent or a requisition (store issue) made after the last ERP report: add it here and it is counted in ⚖️ Compare,
+                the Excel / PDF and the next FY AOP. Kept in OneDrive → Apps → AOP → Manual. Once the ERP indent report / consumption file has the same indent / slip no. for that item, the file's line is used and this one is left out (so put the indent / slip no. if you have it).</p>
+              <div class="psvGrid">
+                <div><label for="aovMType">Type</label><select id="aovMType" style="width:100%"><option value="indent">Indent</option><option value="issue">Requisition (store issue)</option></select></div>
+                <div><label for="aovMDate">Date</label><input type="date" id="aovMDate"></div>
+                <div><label for="aovMNo">Indent / slip no.</label><input type="text" id="aovMNo" placeholder="optional"></div>
+                <div style="grid-column:1/-1"><label for="aovMItem">Item - type code or name (AOP items are listed)</label><input type="text" id="aovMItem" list="aovMItems" autocomplete="off"><datalist id="aovMItems"></datalist></div>
+                <div><label for="aovMCode">Item code</label><input type="text" id="aovMCode"></div>
+                <div><label for="aovMName">Item name</label><input type="text" id="aovMName"></div>
+                <div><label for="aovMUm">UM</label><input type="text" id="aovMUm"></div>
+                <div><label for="aovMQty">Qty</label><input type="text" id="aovMQty" inputmode="decimal"></div>
+                <div><label for="aovMRate">Rate (Rs)</label><input type="text" id="aovMRate" inputmode="decimal"></div>
+                <div><label for="aovMRemark">Remark</label><input type="text" id="aovMRemark"></div>
+              </div>
+              <div class="btnRow"><button class="primary" id="aovMAdd" type="button">➕ Add</button></div>
+              <div id="aovMList" style="margin-top:8px;"></div>
+            </details>
             <div id="aovOut" style="margin-top:12px;"></div>
             <div class="btnRow" style="margin-top:10px;">
               <button class="secondary" id="aovXlsx" type="button" disabled>📊 Excel</button>
+              <button class="secondary" id="aovPdfS" type="button" disabled>📄 PDF summary</button>
+              <button class="secondary" id="aovPdfD" type="button" disabled>📄 PDF detailed</button>
+              <button class="primary" id="aovNext" type="button" disabled title="Needs a consumption file">🛠️ Make next FY AOP (WIP)</button>
             </div>
           </div>
           </div>
           <div class="sub-sectionPanel hidden" id="subaop-next">
           <div class="card">
             <h2>🛠️ Next FY AOP (work in progress)</h2>
-            <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">The AOP being prepared for the next financial year. Kept separately (OneDrive → Apps → AOP → WIP) so it never mixes with the final AOPs. Import a draft Excel, work on it here, and when it is ready press ✅ Move to final AOP - it then shows in the AOP tile. (Making the next-FY format automatically from the AOP + indent + consumption files will be added here once the consumption file format is set.)</p>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">The AOP being prepared for the next financial year. Kept separately (OneDrive → Apps → AOP → WIP) so it never mixes with the final AOPs. Import a draft Excel, or make it automatically: AOP vs Indent &amp; Consumption → ⚖️ Compare → 🛠️ Make next FY AOP (same AOP format, the year moved on; estimate of the rest of this year from the months so far). Work on it here, and when it is ready press ✅ Move to final AOP - it then shows in the AOP tile, without the [WIP] working columns.</p>
             <div class="psvGrid">
               <div><label for="aopwFile">AOP file</label><select id="aopwFile"><option value="">…</option></select></div>
               <div style="display:none"><label for="aopwSheet">Sheet</label><select id="aopwSheet"></select></div>
@@ -6815,9 +6837,11 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.03.10";
+const APP_VERSION = "2026.11.03.12";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📄 AOP vs Indent & Consumption: PDF summary (with the items that need attention) and PDF detailed (every item), and ➕ add a new indent or requisition right in the app - it is counted in the comparison, Excel, PDF and next FY AOP",
+  "🛠️ Next FY AOP made automatically: AOP vs Indent & Consumption → Compare → Make next FY AOP. Same AOP format one year on; this year's consumption so far + estimate of the remaining months, rate from the latest issue / indent, budget qty = this year's estimated total; [WIP] working columns are dropped on Move to final",
   "💱 AOP vs Indent & Consumption: rate columns too - AOP rate, indent rate and issue (consumption) rate, and the difference from the AOP rate (red = costlier than AOP, green = cheaper), on screen and in the Excel",
   "🧪 AOP vs Indent & Consumption: import the store-issue Excel (e.g. SMS-QAD Consumption, QAD_Issue sheet) - every AOP item's consumption is compared with its Annual Consumption Budget (pro-rata too), items issued but not in the AOP listed as new items, all in the Excel",
   "📑 AOP tile now has 3 tiles: AOP (every AOP you keep, in its own format), AOP vs Indent & Consumption (compare an AOP with the ERP indent report, new items listed in the AOP format, Excel download) and Next FY AOP (work in progress)",
@@ -22859,7 +22883,7 @@ function aopEditor(P, AOP_DIR, opts) {
   const saveEditsLocal = () => { try { localStorage.setItem(editKey(), JSON.stringify(S.edits)); } catch (e) {} };
 
   /* ---------- write the numbers into the xlsx (only <v> of changed cells + cached results) ---------- */
-  async function buildXlsx() {
+  async function buildXlsx(opt) {
     const entries = zipRead(S.bytes.slice(0));
     const get = n => entries.find(e => e.name === n);
     const wbXml = await zipText(get("xl/workbook.xml"));
@@ -22919,6 +22943,21 @@ function aopEditor(P, AOP_DIR, opts) {
       [...c.childNodes].forEach(ch => { if (ch.localName === "v") c.removeChild(ch); });
       const ve = doc.createElementNS(NS, "v"); ve.textContent = String(Math.round(v * 1e10) / 1e10); c.appendChild(ve);
     });
+    // final AOP: the [WIP] working columns are left out; a formula that used them keeps its number
+    if (opt && opt.stripWip && S.model) {
+      const wip = new Set(); S.model.sections.forEach(sec => sec.head.forEach((h, c) => { if (/^\[WIP\]/.test(h)) wip.add(c); }));
+      if (wip.size) {
+        cellEl.forEach((c, a) => {
+          if (wip.has(colNum(a))) { c.parentNode.removeChild(c); return; }
+          const fe = [...c.childNodes].find(ch => ch.localName === "f");
+          if (!fe) return;
+          let hit = false;
+          String(fe.textContent).replace(/("[^"]*")|\$?([A-Z]{1,3})\$?\d+/g, (m, q, col) => { if (!q && wip.has(XLSX.utils.decode_col(col))) hit = true; return m; });
+          if (hit) c.removeChild(fe);
+        });
+        rowEls.forEach(r => r.removeAttribute("spans"));
+      }
+    }
     let xml = new XMLSerializer().serializeToString(doc);
     if (!/^<\?xml/.test(xml)) xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' + xml;
     await zipSetText(se, xml);
@@ -23126,9 +23165,10 @@ function aopEditor(P, AOP_DIR, opts) {
       const token = await getToken(); if (!token) return;
       const dest = `${AOP_ROOT}/${encodeURIComponent(S.name)}:/content`;
       const ex = await fetch(dest, { method: "HEAD", headers: { Authorization: "Bearer " + token } }).catch(() => null);
-      if (!confirm(ex && ex.ok ? `${S.name} is already in the AOP tile. Replace it with this one?` : `Move ${S.name} to the AOP tile as a final AOP?`)) return;
+      const hasWip = S.model && S.model.sections.some(sec => sec.head.some(h => /^\[WIP\]/.test(h)));
+      if (!confirm((ex && ex.ok ? `${S.name} is already in the AOP tile. Replace it with this one?` : `Move ${S.name} to the AOP tile as a final AOP?`) + (hasWip ? "\n\nThe [WIP] working columns are left out of the final AOP (kept in the WIP copy)." : ""))) return;
       st.className = "wait"; st.textContent = "Copying to the AOP tile...";
-      const blob = await buildXlsx();
+      const blob = await buildXlsx({ stripWip: true });
       const r = await fetch(dest, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": blob.type }, body: blob });
       if (!r.ok) throw new Error("OneDrive save failed (" + r.status + ")");
       st.className = "ok"; st.textContent = `${S.name} is now in the AOP tile (the work-in-progress copy is kept here too).`;
@@ -23207,7 +23247,8 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
         const indentBudget = qtyCol >= 0 || costCol >= 0;
         if (qtyCol < 0) qtyCol = cqCol;
         if (costCol < 0) costCol = ccCol;
-        const col = { code: first(/item\s*code/i), name: first(/item\s*name|description|particular/i), um: first(/^(um|uom|unit)$/i), rate: first(/rate/i), qty: qtyCol, cost: costCol, cq: cqCol, cc: ccCol };
+        const col = { code: first(/item\s*code/i), name: first(/item\s*name|description|particular/i), um: first(/^(um|uom|unit)$/i), rate: first(/rate/i), qty: qtyCol, cost: costCol, cq: cqCol, cc: ccCol,
+          inv: find(/budgeted\s*inventory\s*qty/i, true) };
         const items = [];
         for (let r = h + 1; r <= rg.e.r; r++) {
           const sr = tx(cell(r, 0));
@@ -23215,7 +23256,7 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
           const g = k => k >= 0 ? cell(r, k) : null, v = k => num(g(k) && g(k).v);
           const extra = []; for (let c = 0; c <= rg.e.c; c++) if (!Object.values(col).includes(c) && c > 0 && /[A-Za-z]/.test(tx(cell(r, c))) && !H[c]) extra.push(tx(cell(r, c)));
           items.push({ sec: title || `Table ${items.length + 1}`, sr: +sr, code: tx(g(col.code)).replace(/^-$/, ""), name: tx(g(col.name)), um: tx(g(col.um)),
-            rate: v(col.rate), qty: v(col.qty), cost: v(col.cost), cq: v(col.cq), cc: v(col.cc), remark: extra.join(" ") });
+            rate: v(col.rate), qty: v(col.qty), cost: v(col.cost), cq: v(col.cq), cc: v(col.cc), inv: v(col.inv), remark: extra.join(" ") });
         }
         return { title: title || "Table", items, indentBudget, hasCons: cqCol >= 0 || ccCol >= 0,
           meaning: indentBudget ? "AOP indent budget" : "AOP consumption budget (not an indent budget - kept out of the indent total)" };
@@ -23240,7 +23281,7 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
       const ix = name => H.indexOf(name.toLowerCase());
       const C = { date: ix("Indent Date"), no: ix("Indent Number"), code: ix("Item Code"), name: ix("Item Name"), um: ix("UM"), dept: ix("Department Name"),
         qty: ix("Indent Quantity"), canc: ix("Cancelled Quantity"), net: ix("Net Indent Quantity"), rate: ix("Indent Prov. Rate"), po: ix("po rate"),
-        val: ix("Indent Val for Budget"), pono: ix("Purchase Order No."), vendor: ix("Vendor Name"), grn: ix("GRN Number") };
+        val: ix("Indent Val for Budget"), pono: ix("Purchase Order No."), vendor: ix("Vendor Name"), grn: ix("GRN Number"), pend: ix("Balance Indent Qty (GRN)") };
       if (C.no < 0 || C.code < 0) return;
       const count = new Map();
       for (let r = hr + 1; r < rows.length; r++) {
@@ -23250,7 +23291,7 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
         const g = k => k >= 0 ? row[k] : "";
         const line = { date: String(g(C.date)), no, code: String(g(C.code)).trim(), name: String(g(C.name)).replace(/ /g, " ").trim(), um: String(g(C.um)),
           qty: num(g(C.qty)), canc: num(g(C.canc)), net: num(g(C.net)), rate: num(g(C.rate)), po: num(g(C.po)), val: num(g(C.val)),
-          pono: String(g(C.pono)), vendor: String(g(C.vendor)), grn: String(g(C.grn)) };
+          pono: String(g(C.pono)), vendor: String(g(C.vendor)), grn: String(g(C.grn)), pend: num(g(C.pend)) };
         const key = [no, line.code, line.qty, line.net].join("|");
         const k2 = (count.get(key) || 0) + 1; count.set(key, k2);
         const kk = key + "#" + k2, b = best.get(kk);
@@ -23322,8 +23363,9 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
         if (it) { how = "item name"; it.byName = true; }
       }
       if (!it) {
-        if (!fresh.has(l.code)) fresh.set(l.code, { sec: "New items (not in AOP)", sr: fresh.size + 1, code: l.code, name: l.name, um: l.um, rate: 0, qty: 0, cost: 0, cq: 0, cc: 0, remark: "", isNew: true });
-        it = fresh.get(l.code);
+        const fk = l.code || "N:" + norm(l.name);
+        if (!fresh.has(fk)) fresh.set(fk, { sec: "New items (not in AOP)", sr: fresh.size + 1, code: l.code, name: l.name, um: l.um, rate: 0, qty: 0, cost: 0, cq: 0, cc: 0, remark: "", isNew: true });
+        it = fresh.get(fk);
       }
       l.target = it; l.how = how;
       return it;
@@ -23398,7 +23440,7 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
     }
     const missing = []; if (mList.length) for (let k = fyFrom; k <= mList[mList.length - 1]; k++) if (!cMonths.has(k)) missing.push(MON[k % 12]);
     const cPeriod = mList.length ? `${monName(fyFrom)} to ${monName(mList[mList.length - 1])}` : "";
-    return { sections, lines: ind.lines, period: ind.period, months, fy: aop.fy, aopName: R.aopName, indName: R.indName, consName: R.consName, dept: $("aovDept").value.trim(),
+    return { sections, lines: ind.lines, period: ind.period, months, fy: aop.fy, fyStart: aop.fyStart, aopSheet: aop.sheet, aopName: R.aopName, indName: R.indName, consName: R.consName, dept: $("aovDept").value.trim(),
       hasInd: ind.lines.length > 0, hasCons: !!cons, cSheet: cons ? cons.sheet : "", cLines, cOut, cm, cPeriod, cMonthsWith: mList.map(k => MON[k % 12]), cMissing: missing };
   }
 
@@ -23407,7 +23449,9 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
     const pct = (a, b) => b ? (a / b * 100).toFixed(1) + "%" : "–";
     let h = `<div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">AOP FY ${res.fy} · ${_escH(res.dept)}` +
       (res.hasInd ? ` · indents ${_escH(res.period || "")} (${res.lines.length} line(s))` : " · no indent file") +
-      (res.hasCons ? ` · issues ${_escH(res.cPeriod)} (${res.cLines.length} line(s))` : " · no consumption file") + `</div>`;
+      (res.hasCons ? ` · issues ${_escH(res.cPeriod)} (${res.cLines.length} line(s))` : " · no consumption file") +
+      (res.manI || res.manC ? ` · app entries: ${res.manI} indent(s), ${res.manC} requisition(s)` : "") + `</div>`;
+    if (res.manDup) h += `<div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">${res.manDup} app entr${res.manDup > 1 ? "ies are" : "y is"} now in the ERP file (same indent / slip no.) - counted once, from the file.</div>`;
     if (res.hasCons && res.cMissing.length) h += `<div style="font-size:12.5px;color:var(--warn,#b45309);margin-bottom:6px;">⚠️ The consumption file has no issue lines for ${_escH(res.cMissing.join(", "))}. If those months had issues, add them to the file and compare again.</div>`;
     if (res.hasCons && res.cOut) h += `<div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">${res.cOut} issue line(s) outside FY ${res.fy} (or without a month) left out.</div>`;
     if (res.hasInd) {
@@ -23431,7 +23475,7 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
     }
     const hit = [].concat(...res.sections.map(s => s.rows.filter(r => r.a || r.c).map(r => Object.assign({ sec: s.title }, r))));
     const cls = st => /Over|Above|New item \(|new item/.test(st) ? "psvNeg" : (/Within/.test(st) ? "psvPos" : "");
-    const dcell = d => d === null ? "<td></td>" : `<td class="${d > 0.005 ? "psvNeg" : (d < -0.005 ? "psvPos" : "")}">${d > 0.005 ? "+" : ""}${fmt(d, 2)}</td>`;
+    const dcell = d => d === null ? "<td></td>" : `<td class="${d > 0.005 ? "psvNeg" : (d < -0.005 ? "psvPos" : "")}">${Math.abs(d) < 0.005 ? "0.00" : (d > 0 ? "+" : "") + fmt(d, 2)}</td>`;
     h += `<h3 style="margin:14px 0 6px;font-size:15px;">Items indented or consumed (${hit.length})</h3><div class="tableScroll"><table class="matrixTable stockTable"><tr><th>Item</th><th>AOP rate</th>` +
       (res.hasInd ? `<th>AOP indent cost</th><th>Indent value</th><th>Indent rate</th><th>Indent rate − AOP rate</th><th>Indent status</th>` : "") +
       (res.hasCons ? `<th>AOP consumption cost</th><th>Consumed qty</th><th>Consumed value</th><th>Issue rate</th><th>Issue rate − AOP rate</th><th>Consumption status</th>` : "") + `</tr>` +
@@ -23506,7 +23550,8 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
       COLS.forEach((x, i) => { ws.getColumn(i + 1).width = x.w; });
       ws.getCell("C1").value = `AOP FY ${res.fy} vs ${title.toUpperCase()} - ${res.dept}`; ws.getCell("C1").font = { name: "Calibri", size: 14, bold: true }; ws.getCell("C1").fill = YELLOW;
       ws.getCell("C2").value = [res.hasInd ? `Indents: ${res.period || ""} (ERP Master Indent Report, department ${res.dept}); Net Indent Qty and 'Indent Val for Budget' (cancelled quantity left out); file ${res.indName}.` : "",
-        res.hasCons ? `Consumption: store issues ${res.cPeriod} (file ${res.consName}, sheet ${res.cSheet}: Qty and Value)${res.cMissing.length ? `; no issue lines for ${res.cMissing.join(", ")}` : ""}.` : "",
+        res.hasCons ? `Consumption: store issues ${res.cPeriod} (file ${res.consName || "-"}, sheet ${res.cSheet}: Qty and Value)${res.cMissing.length ? `; no issue lines for ${res.cMissing.join(", ")}` : ""}.` : "",
+        res.manI || res.manC ? `Added in the app: ${res.manI} indent(s), ${res.manC} requisition(s).` : "",
         `AOP: ${res.aopName}.`].filter(Boolean).join(" ");
       ws.getCell("C2").font = { name: "Calibri", size: 10, italic: true };
       // where the summary goes: indent block and / or consumption block
@@ -23582,7 +23627,7 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
           [12, 13, 11, 50, 6, 9, 9, 9, 11, 10, 12, 13, 32, 13, 22, 8, 11, 22],
           res.lines.slice().sort((a, b) => (a.code + a.no).localeCompare(b.code + b.no)),
           l => [l.date, l.no, l.code, l.name, l.um, l.qty, l.canc, l.net, l.rate, l.po, l.val, l.pono, l.vendor, l.grn,
-            l.target.isNew ? "NEW (not in AOP)" : l.target.sec, l.target.isNew ? null : l.target.sr, l.how || "-", l.onlyIn ? `only in sheet ${l.onlyIn}` : ""],
+            l.target.isNew ? "NEW (not in AOP)" : l.target.sec, l.target.isNew ? null : l.target.sr, l.how || "-", l.manual ? "added in app" + (l.remark ? ": " + l.remark : "") : (l.onlyIn ? `only in sheet ${l.onlyIn}` : "")],
           l => l.target.isNew ? RED : (l.onlyIn ? BLUE : undefined));
         [9, 10, 11].forEach(k => { w2.getColumn(k).numFmt = NUM; });
       }
@@ -23607,23 +23652,346 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
     } catch (e) { st.className = "err"; st.textContent = "Excel error: " + e.message; }
   }
 
+  /* ---------- next FY AOP (work in progress) from the AOP + indent + consumption ---------- */
+  // Same table layout for every section (the Consumables format, one year on) + [WIP] working columns on the right,
+  // which "Move to final AOP" drops. Estimate Nov-Mar: average of the months so far x the months left; an item not consumed
+  // so far (and services, J codes / SRN) -> what is left of its AOP budget. Budget qty FY next = estimated total of this FY.
+  async function nextAop() {
+    const res = R.res, st = $("status");
+    if (!res || !res.hasCons) { st.className = "err"; st.textContent = "Compare with a consumption file first - the estimate needs it."; return; }
+    try {
+      st.className = "wait"; st.textContent = "Making the next FY AOP...";
+      await psvLoadExcelJs();
+      const n0 = res.fyStart + 1, FY = `${n0}-${n0 + 1}`, PFY = res.fy, cm = res.cm, rest = 12 - cm;
+      const fyFrom = (2000 + res.fyStart) * 12 + 3, ml = k => `${MON[k % 12]}-${String(Math.floor(k / 12)).slice(2)}`;
+      const soFar = `${ml(fyFrom)} to ${ml(fyFrom + cm - 1)}`, ahead = `${ml(fyFrom + cm)} to ${ml(fyFrom + 11)}`;
+      const wb = new ExcelJS.Workbook(); wb.calcProperties.fullCalcOnLoad = true;
+      const ws = wb.addWorksheet(res.aopSheet || "AOP", { views: [{ state: "frozen", xSplit: 3 }] });
+      const fill = argb => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
+      const GREEN = fill("FF92D050"), YELLOW = fill("FFFFFF00"), GREY = fill("FFF2F2F2"), WIPF = fill("FFFCE4D6");
+      const thin = { style: "thin", color: { argb: "FF000000" } }, BOX = { top: thin, left: thin, bottom: thin, right: thin };
+      const NUM = '_ * #,##0_ ;_ * \\-#,##0_ ;_ * "-"??_ ;_ @_ ', QTY = '_ * #,##0.##_ ;_ * \\-#,##0.##_ ;_ * "-"??_ ;_ @_ ', RATE = '_ * #,##0.00_ ;_ * \\-#,##0.00_ ;_ * "-"??_ ;_ @_ ';
+      const put = (r, c, v, o) => { o = o || {}; const x = ws.getCell(r, c); x.value = v; x.border = BOX; x.font = { name: "Calibri", size: 11, bold: !!o.bold };
+        if (o.fmt) x.numFmt = o.fmt; if (o.fill) x.fill = o.fill; if (o.wrap || o.align) x.alignment = { wrapText: !!o.wrap, horizontal: o.align, vertical: "middle" }; return x; };
+      const f = (formula, result) => ({ formula, result });
+      const r2 = v => Math.round(v * 100) / 100, r4 = v => Math.round(v * 1e4) / 1e4;
+      const HEAD = ["Sr.No.", "Item Code", "Item Name", "UM", `Consumption Rate FY ${FY}`, `Budgeted Consumption QTY FY ${PFY}`, `Total Consumed Qty FY ${PFY} (estimated)`,
+        `Total consumed Cost FY ${PFY} (estimated)`, `Opening inventory Qty FY ${FY} (estimated, 01-04-20${n0})`, `Opening inventory value FY ${FY} (estimated)`,
+        `Annual Consumption Budget Qty FY ${FY}`, `Annual Consumption Budget Cost FY ${FY}`, `Annual Budgeted Indent Qty FY ${FY}`, `Annual Budgeted Indent Cost FY ${FY}`,
+        `Annual Budgeted Inventory Qty FY ${FY}`, `Annual Budgeted Inventory Cost FY ${FY}`, "Remarks",
+        `[WIP] Actual Consumed Qty ${soFar} (${cm} months)`, `[WIP] Estimated Qty ${ahead} (${rest} months)`, "[WIP] Current Stock Qty (from the stock file)",
+        "[WIP] Pending Indent Qty (GRN not done)", `[WIP] Rate FY ${PFY} (AOP)`, "[WIP] Rate taken from"];
+      [6.3, 14.1, 47.7, 8, 12.6, 13, 13, 15, 14, 14, 13, 15, 13, 15, 13, 15, 24, 14, 14, 13, 13, 12, 30].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+      const dkey = s => { const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})/.exec(String(s || "").trim()); if (!m) return 0;
+        const mo = MON.findIndex(x => x.toLowerCase() === m[2].toLowerCase()); let y = +m[3]; if (y < 100) y += 2000; return y * 10000 + (mo + 1) * 100 + +m[1]; };
+      const latest = (lines, q, v) => lines.filter(l => l[q] > 0 && l[v] > 0).sort((a, b) => dkey(b.date) - dkey(a.date))[0];
+      // sections and their rows (new items: only those really indented or issued)
+      const secs = res.sections.map(sec => ({ sec, rows: sec.isNew ? sec.rows.filter(r => (r.a && r.a.qty > 0) || r.c) : sec.rows }));
+      const SUM_TOP = 1, nSum = secs.length;
+      let row = SUM_TOP + 2 + nSum + 1 + 3;
+      const totals = [];
+      let nItems = 0;
+      secs.forEach(({ sec, rows }) => {
+        const title = sec.isNew ? `New items (not in AOP FY ${PFY})` : sec.title;
+        ws.getCell(row, 3).value = title; ws.getCell(row, 3).font = { name: "Calibri", size: 16, bold: true }; ws.getCell(row, 3).fill = YELLOW;
+        row++;
+        HEAD.forEach((t, i) => put(row, i + 1, t, { bold: true, fill: /^\[WIP\]/.test(t) ? WIPF : GREEN, wrap: true, align: "center" }));
+        ws.getRow(row).height = 60; row++;
+        const first = row, sum = { 8: 0, 10: 0, 12: 0, 14: 0, 16: 0 };
+        rows.forEach((r, k) => {
+          const it = r.it, svc = /^J/i.test(it.code || "") || /\bSRN\b/i.test(sec.title);
+          const iLines = res.lines.filter(l => l.target === it), cLines = res.cLines.filter(l => l.target === it);
+          const actual = svc ? (r.a ? r.a.qty : 0) : (r.c ? r.c.qty : 0);
+          const F = it.isNew ? 0 : (it.cq || 0);
+          const li = latest(cLines, "qty", "val"), ln = latest(iLines, "net", "val");
+          let rate = it.isNew ? 0 : it.rate, src = `AOP FY ${PFY}`;
+          if (li) { rate = li.val / li.qty; src = `latest issue ${li.date} (slip ${li.slip})`; }
+          else if (ln) { rate = ln.val / ln.net; src = `latest indent ${ln.no} (${ln.date.slice(0, 11)})`; }
+          rate = r4(rate);
+          const est = svc ? Math.max(0, F - actual) : (actual > 0 ? actual / cm * rest : Math.max(0, F - actual));
+          const K = r2(actual + est), O = svc ? 0 : (it.inv || 0);
+          const pend = svc ? 0 : iLines.reduce((s, l) => s + (l.net > 0 ? l.pend : 0), 0);
+          const open = Math.max(0, pend - est), M = K + O - open;
+          const remark = [it.remark, sec.isNew ? (r.c ? `issued ${soFar}` : `indented ${soFar}`) : "", svc ? `service: ${soFar} from indents` : ""].filter(Boolean).join("; ");
+          const R0 = row;
+          put(R0, 1, k + 1, { align: "center" }); put(R0, 2, it.code || "-"); put(R0, 3, it.name); put(R0, 4, it.um, { align: "center" });
+          put(R0, 5, rate, { fmt: RATE }); put(R0, 6, F, { fmt: QTY });
+          put(R0, 7, f(`R${R0}+S${R0}`, actual + est), { fmt: QTY });
+          put(R0, 8, f(`G${R0}*E${R0}`, (actual + est) * rate), { fmt: NUM });
+          put(R0, 9, f(`MAX(0,T${R0}+U${R0}-S${R0})`, open), { fmt: QTY });
+          put(R0, 10, f(`I${R0}*E${R0}`, open * rate), { fmt: NUM });
+          put(R0, 11, K, { fmt: QTY });
+          put(R0, 12, f(`K${R0}*E${R0}`, K * rate), { fmt: NUM });
+          put(R0, 13, f(`K${R0}+O${R0}-I${R0}`, M), { fmt: QTY });
+          put(R0, 14, f(`M${R0}*E${R0}`, M * rate), { fmt: NUM });
+          put(R0, 15, O, { fmt: QTY });
+          put(R0, 16, f(`O${R0}*E${R0}`, O * rate), { fmt: NUM });
+          put(R0, 17, remark || null, { wrap: true });
+          put(R0, 18, r2(actual), { fmt: QTY, fill: WIPF });
+          put(R0, 19, f(svc ? `MAX(0,F${R0}-R${R0})` : `IF(R${R0}>0,R${R0}/${cm}*${rest},MAX(0,F${R0}-R${R0}))`, est), { fmt: QTY, fill: WIPF });
+          put(R0, 20, null, { fmt: QTY, fill: WIPF });
+          put(R0, 21, r2(pend), { fmt: QTY, fill: WIPF });
+          put(R0, 22, it.isNew ? null : r4(it.rate), { fmt: RATE, fill: WIPF });
+          put(R0, 23, src, { fill: WIPF, wrap: true });
+          sum[8] += (actual + est) * rate; sum[10] += open * rate; sum[12] += K * rate; sum[14] += M * rate; sum[16] += O * rate;
+          row++; nItems++;
+        });
+        const last = row - 1;
+        for (let c = 1; c <= 17; c++) put(row, c, null, { fill: GREY });
+        put(row, 3, "Total", { bold: true, fill: GREY });
+        [8, 10, 12, 14, 16].forEach(c => { const L = String.fromCharCode(64 + c); put(row, c, last >= first ? f(`SUM(${L}${first}:${L}${last})`, sum[c]) : 0, { fmt: NUM, bold: true, fill: GREY }); });
+        totals.push({ sec, title, row, sum });
+        row += 3;
+      });
+      // summary
+      ws.getCell(SUM_TOP, 3).value = "SUMMARY"; ws.getCell(SUM_TOP, 3).font = { name: "Calibri", size: 14, bold: true }; ws.getCell(SUM_TOP, 3).fill = YELLOW;
+      const SH = ["Description", "UOM", `Budget Consumption Cost FY ${PFY}`, `Estimated consumption FY ${PFY}`, `Opening stock value as on 01-04-20${n0} (estimated)`,
+        `Monthly Consumption Cost FY ${FY}`, `Annual Consumption Cost FY ${FY}`, `Annual Indent Cost FY ${FY}`, `Inventory Cost FY ${FY}`];
+      SH.forEach((t, i) => put(SUM_TOP + 1, 3 + i, t, { bold: true, fill: GREEN, wrap: true, align: "center" }));
+      ws.getRow(SUM_TOP + 1).height = 45;
+      let r = SUM_TOP + 2; const sFirst = r, gt = {};
+      totals.forEach(t => {
+        put(r, 3, t.title); put(r, 4, "Rs ");
+        const sv = { 5: r2(t.sec.tot.cc || 0), 6: t.sum[8], 7: t.sum[10], 8: t.sum[12] / 12, 9: t.sum[12], 10: t.sum[14], 11: t.sum[16] };
+        Object.keys(sv).forEach(c => { gt[c] = (gt[c] || 0) + sv[c]; });
+        put(r, 5, sv[5], { fmt: NUM }); put(r, 6, f(`H${t.row}`, sv[6]), { fmt: NUM }); put(r, 7, f(`J${t.row}`, sv[7]), { fmt: NUM });
+        put(r, 8, f(`I${r}/12`, sv[8]), { fmt: NUM }); put(r, 9, f(`L${t.row}`, sv[9]), { fmt: NUM }); put(r, 10, f(`N${t.row}`, sv[10]), { fmt: NUM }); put(r, 11, f(`P${t.row}`, sv[11]), { fmt: NUM });
+        r++;
+      });
+      put(r, 3, null, { fill: GREY }); put(r, 4, null, { fill: GREY });
+      for (let c = 5; c <= 11; c++) { const L = String.fromCharCode(64 + c); put(r, c, f(`SUM(${L}${sFirst}:${L}${r - 1})`, gt[c] || 0), { fmt: NUM, bold: true, fill: GREY }); }
+      const buf = await wb.xlsx.writeBuffer();
+      // into OneDrive -> AOP -> WIP, then open it in the Next FY AOP tile
+      const pre = `${res.fyStart}-${res.fyStart + 1}`;
+      const name = (R.aopName && R.aopName.includes(pre) ? R.aopName.replace(pre, FY) : `AOP_FY_${FY}.xlsx`).replace(/\.xls[xm]?$/i, "") + ".xlsx";
+      const token = await getToken(); if (!token) return;
+      const url = `${AOP_ROOT}/WIP/${encodeURIComponent(name)}:/content`;
+      const ex = await fetch(url, { method: "HEAD", headers: { Authorization: "Bearer " + token } }).catch(() => null);
+      if (ex && ex.ok && !confirm(`${name} is already in Next FY AOP (WIP). Make it again from these files? Changes saved in that file will be replaced.`)) { st.className = ""; st.textContent = ""; return; }
+      const up = await fetch(url, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }, body: buf });
+      if (!up.ok) throw new Error("OneDrive upload failed (" + up.status + ")");
+      try { Object.keys(localStorage).filter(k => k.startsWith("aopwEdits:" + name + ":")).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+      const back = document.getElementById("backToAopMenuBtn"), tile = document.querySelector('[data-subaop="next"]');
+      if (back) back.click(); if (tile) tile.click();
+      if (window._aopWip) { const ab = buf instanceof ArrayBuffer ? buf : buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength); await window._aopWip.openFile(name, ab); await window._aopWip.listFiles(name, true); }
+      st.className = "ok"; st.textContent = `${name} made (${nItems} items) and opened in Next FY AOP (WIP). [WIP] columns are dropped when you press ✅ Move to final AOP.`;
+    } catch (e) { st.className = "err"; st.textContent = "Next FY AOP error: " + e.message; }
+  }
+
+  /* ---------- PDF: summary (summary tables + items needing attention) or detailed (every item of every section) ---------- */
+  function pdf(detailed) {
+    const res = R.res, st = $("status");
+    if (!res) { st.className = "err"; st.textContent = "Press ⚖️ Compare first."; return; }
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: detailed ? "a3" : "a4" });
+      const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight(), M = 24;
+      const NAVY = [31, 56, 100], GOLD = [201, 162, 39], RED = [192, 0, 0], GRN = [0, 128, 0];
+      const pct = (a, b) => b ? (a / b * 100).toFixed(1) + "%" : "-";
+      const T = { theme: "grid", keepZeros: true, margin: { left: M, right: M, top: 64, bottom: 30 },
+        styles: { fontSize: detailed ? 7 : 8, cellPadding: 2.5, halign: "right", valign: "middle", lineColor: [150, 150, 150], lineWidth: 0.4, textColor: 20, overflow: "linebreak" },
+        headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "bold", halign: "center", fontSize: detailed ? 6.8 : 7.5 } };
+      let y = 70;
+      const bar = t => { if (y > ph - 90) { doc.addPage(); y = 70; } doc.setFillColor(...GOLD); doc.rect(M, y, pw - 2 * M, 16, "F");
+        doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(255, 255, 255); doc.text(t, M + 6, y + 11.5); y += 18; };
+      const table = (head, body, extra) => { doc.autoTable(Object.assign({}, T, { startY: y, head: [head], body }, extra || {})); y = doc.lastAutoTable.finalY + 14; };
+      const bold = row => row.map(t => ({ content: t, styles: { fontStyle: "bold", fillColor: [242, 242, 242] } }));
+      const bad = s => /Over|Above|New item \(|new item/.test(s || ""), good = s => /Within/.test(s || "");
+      const colour = idx => d => { if (d.section !== "body") return; const t = String(d.cell.raw && d.cell.raw.content !== undefined ? d.cell.raw.content : d.cell.raw);
+        if (idx.includes(d.column.index)) { if (bad(t) || /^\+/.test(t)) d.cell.styles.textColor = RED; else if (good(t) || /^-\d/.test(t)) d.cell.styles.textColor = GRN; } };
+      const sgn = d => d === null ? "" : (Math.abs(d) < 0.005 ? "0.00" : (d > 0 ? "+" : "") + fmt(d, 2));
+      // info lines
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
+      const info = [`Department ${res.dept}  ·  AOP: ${res.aopName}`,
+        res.hasInd ? `Indents: ${res.period || "-"} (${res.indName || "no indent file"})${res.manI ? ` + ${res.manI} added in the app` : ""} - Net Indent Qty, 'Indent Val for Budget'` : "",
+        res.hasCons ? `Consumption: ${res.cPeriod} (${res.consName || "no consumption file"})${res.manC ? ` + ${res.manC} added in the app` : ""}${res.cMissing.length ? ` - no issue lines for ${res.cMissing.join(", ")}` : ""}` : ""].filter(Boolean);
+      info.forEach(t => { doc.text(t, M, y); y += 12; }); y += 4;
+      if (res.hasInd) {
+        const inTot = res.sections.filter(s => s.indentBudget), info2 = res.sections.filter(s => !s.indentBudget);
+        const S0 = inTot.reduce((s, x) => ({ cost: s.cost + x.tot.cost, val: s.val + x.tot.val, n: s.n + x.tot.n }), { cost: 0, val: 0, n: 0 });
+        const r = (t, x) => [t, fmt(x.cost), fmt(x.val), fmt(x.cost - x.val), pct(x.val, x.cost), fmt(x.cost * res.months / 12), String(x.n)];
+        bar(`Indent vs AOP FY ${res.fy}`);
+        table(["Section", "AOP indent cost", "Indented", "Balance", "% used", `AOP pro-rata (${res.months}/12)`, "Indents"],
+          inTot.map(s => r(s.title, s.tot)).concat([bold(r("TOTAL", S0))], info2.map(s => r(s.title + " (consumption budget, not in total)", s.tot))),
+          { columnStyles: { 0: { halign: "left", cellWidth: detailed ? 260 : 200 } } });
+      }
+      if (res.hasCons) {
+        const secs = res.sections.filter(s => s.hasCons || s.tot.cv);
+        const S0 = secs.reduce((s, x) => ({ cc: s.cc + x.tot.cc, cv: s.cv + x.tot.cv, cn: s.cn + x.tot.cn }), { cc: 0, cv: 0, cn: 0 });
+        const r = (t, x) => { const pr = x.cc * res.cm / 12; return [t, fmt(x.cc), fmt(x.cv), fmt(x.cc - x.cv), pct(x.cv, x.cc), fmt(pr), (x.cv - pr > 0.5 ? "+" : "") + fmt(x.cv - pr), String(x.cn)]; };
+        bar(`Consumption vs AOP FY ${res.fy}`);
+        table(["Section", "AOP consumption cost", "Consumed", "Balance", "% used", `AOP pro-rata (${res.cm}/12)`, "Consumed vs pro-rata", "Issue lines"],
+          secs.map(s => r(s.title, s.tot)).concat([bold(r("TOTAL", S0))]), { columnStyles: { 0: { halign: "left", cellWidth: detailed ? 260 : 200 } }, didParseCell: colour([6]) });
+      }
+      const head = ["Item", "Code", "UM", "AOP rate"].concat(res.hasInd ? ["AOP indent cost", "Indent value", "Indent rate", "Rate diff", "Indent status"] : [],
+        res.hasCons ? ["AOP cons. cost", "Consumed qty", "Consumed value", "Issue rate", "Rate diff", "Consumption status"] : []);
+      const line = (r, withSec) => [withSec ? `${r.it.name}\n(${r.sec})` : r.it.name, r.it.code || "-", r.it.um || "", r.it.isNew ? "-" : fmt(r.it.rate, 2)].concat(
+        res.hasInd ? [fmt(r.it.cost) || "-", fmt(r.iv), r.ir === null ? "" : fmt(r.ir, 2), sgn(r.id), r.status] : [],
+        res.hasCons ? [fmt(r.it.cc) || "-", r.cqv === null ? "" : fmt(r.cqv, 2), fmt(r.cvv), r.cr === null ? "" : fmt(r.cr, 2), sgn(r.cd), r.cstatus] : []);
+      const statusCols = head.map((h, i) => /status|Rate diff/.test(h) ? i : -1).filter(i => i >= 0);
+      const cs = { 0: { halign: "left", cellWidth: detailed ? 190 : 150 }, 1: { halign: "center" }, 2: { halign: "center" } };
+      head.forEach((h, i) => { if (/status/.test(h)) cs[i] = { halign: "left", cellWidth: detailed ? 95 : 75 }; });
+      if (!detailed) {
+        const att = [].concat(...res.sections.map(s => s.rows.filter(r => bad(r.status) || bad(r.cstatus) || (r.id !== null && r.id > 0.005) || (r.cd !== null && r.cd > 0.005))
+          .map(r => Object.assign({ sec: s.title }, r))));
+        bar(`Items needing attention (${att.length}) - over AOP / above pro-rata / new / costlier than the AOP rate`);
+        if (att.length) table(head, att.map(r => line(r, true)), { columnStyles: cs, didParseCell: colour(statusCols), styles: Object.assign({}, T.styles, { fontSize: 6.5 }), headStyles: Object.assign({}, T.headStyles, { fontSize: 6.3 }) });
+      } else {
+        res.sections.forEach(s => {
+          if (!s.rows.length) return;
+          bar(`${s.title} (${s.rows.length} items)`);
+          const body = s.rows.map(r => line(r, false));
+          const tot = head.map(() => ""); tot[0] = "Total";
+          const ix = h => head.indexOf(h);
+          if (res.hasInd) { tot[ix("AOP indent cost")] = fmt(s.tot.cost); tot[ix("Indent value")] = fmt(s.tot.val); }
+          if (res.hasCons) { tot[ix("AOP cons. cost")] = fmt(s.tot.cc); tot[ix("Consumed value")] = fmt(s.tot.cv); }
+          table(head, body.concat([bold(tot)]), { columnStyles: cs, didParseCell: colour(statusCols) });
+        });
+      }
+      const n = doc.internal.getNumberOfPages(), today = new Date().toLocaleDateString("en-GB");
+      const ttl = `AOP FY ${res.fy} vs ${res.hasInd && res.hasCons ? "Indent & Consumption" : (res.hasCons ? "Consumption" : "Indent")}${detailed ? " - detailed" : " - summary"}`;
+      for (let p = 1; p <= n; p++) {
+        doc.setPage(p);
+        coDrawLogo(doc, M, 12, 150, 30);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(...NAVY); doc.text(ttl, pw / 2, 26, { align: "center" });
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(70, 70, 70); doc.text(res.dept, pw / 2, 41, { align: "center" });
+        if (COMPANY.name) { doc.setFontSize(9); doc.text(COMPANY.name, pw - M, 22, { align: "right" }); }
+        doc.setDrawColor(...GOLD); doc.setLineWidth(1); doc.line(M, 52, pw - M, 52);
+        doc.setFontSize(7.5); doc.setTextColor(120, 120, 120);
+        doc.text(`Generated ${today}  ·  red = over AOP / costlier, green = within / cheaper`, M, ph - 14); doc.text(`Page ${p} of ${n}`, pw - M, ph - 14, { align: "right" });
+      }
+      showPdfPreview(doc, `AOP_FY${res.fy}_vs_${res.hasInd && res.hasCons ? "Indent_Consumption" : (res.hasCons ? "Consumption" : "Indent")}_${detailed ? "detailed" : "summary"}.pdf`, "AOP vs Indent");
+      st.className = "ok"; st.textContent = `PDF (${detailed ? "detailed" : "summary"}) ready.`;
+    } catch (e) { st.className = "err"; st.textContent = "PDF error: " + e.message; }
+  }
+
+  /* ---------- indents / requisitions added in the app (OneDrive -> AOP -> Manual -> entries.json) ---------- */
+  // An entry is left out on its own once the ERP indent report / consumption file has the same indent / slip number for that item.
+  const MAN_URL = `${AOP_ROOT}/Manual/entries.json:/content`;
+  async function manLoad() {
+    const token = await getToken(); if (!token) throw new Error("not signed in");
+    const r = await fetch(MAN_URL, { headers: { Authorization: "Bearer " + token } });
+    if (r.status === 404) return [];
+    if (!r.ok) throw new Error("could not read the app entries (" + r.status + ")");
+    const j = await r.json().catch(() => []);
+    return Array.isArray(j) ? j : (j.entries || []);
+  }
+  async function manSave(list) {
+    const token = await getToken(); if (!token) throw new Error("not signed in");
+    const r = await fetch(MAN_URL, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(list, null, 1) });
+    if (!r.ok) throw new Error("OneDrive save failed (" + r.status + ")");
+  }
+  const isoTo = (iso, upper) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ""); if (!m) return ""; const mo = MON[+m[2] - 1]; return `${m[3]}-${upper ? mo.toUpperCase() : mo}-${m[1]}`; };
+  // merges the app entries of this department into the indent / consumption data (file lines win)
+  function manMerge(list, dept, ind, cons) {
+    const mine = list.filter(e => norm(e.dept) === norm(dept));
+    const iKeys = new Set((ind ? ind.lines : []).map(l => norm(l.no) + "|" + norm(l.code)));
+    const cKeys = new Set((cons ? cons.lines : []).map(l => norm(l.slip) + "|" + norm(l.code)));
+    let nI = 0, nC = 0, dup = 0;
+    const iAdd = [], cAdd = [];
+    mine.forEach(e => {
+      const qty = num(e.qty), rate = num(e.rate), no = String(e.no || "").trim();
+      if (e.type === "indent") {
+        if (no && iKeys.has(norm(no) + "|" + norm(e.code))) { dup++; return; }
+        iAdd.push({ date: isoTo(e.date, true), no: no || "APP", code: e.code || "", name: e.name || "", um: e.um || "", qty, canc: 0, net: qty, rate, po: 0, val: qty * rate,
+          pono: "", vendor: "", grn: "", pend: qty, onlyIn: "", manual: true, remark: e.remark || "" }); nI++;
+      } else {
+        if (no && cKeys.has(norm(no) + "|" + norm(e.code))) { dup++; return; }
+        const m = /^(\d{4})-(\d{2})/.exec(e.date || "");
+        const mk = m ? +m[1] * 12 + +m[2] - 1 : null;
+        cAdd.push({ mk, month: mk == null ? "" : monName(mk), date: isoTo(e.date), slip: no || "APP", code: e.code || "", name: e.name || "", um: e.um || "", qty, rate, val: qty * rate,
+          remark: "added in app" + (e.remark ? ": " + e.remark : ""), manual: true }); nC++;
+      }
+    });
+    if (iAdd.length) ind = ind ? Object.assign({}, ind, { lines: ind.lines.concat(iAdd) }) : { lines: iAdd, period: "" };
+    if (cAdd.length) cons = cons ? Object.assign({}, cons, { lines: cons.lines.concat(cAdd) }) : { sheet: "app entries", lines: cAdd };
+    return { ind, cons, nI, nC, dup };
+  }
+  async function manAopItems() {   // AOP items for the item box
+    const an = $("aovAop").value; if (!an) return [];
+    if (!R.aopCache || R.aopCache.name !== an) R.aopCache = { name: an, aop: parseAop(await readFile(AOP_ROOT, an)) };
+    return [].concat(...R.aopCache.aop.sections.map(s => s.items.map(it => Object.assign({ secTitle: s.title }, it))));
+  }
+  const itemLabel = it => `${it.code || "-"} · ${it.name}`;
+  async function manFillItems() {
+    try { const items = await manAopItems(); $("aovMItems").innerHTML = items.map(it => `<option value="${_escH(itemLabel(it))}">${_escH(it.secTitle)}</option>`).join(""); R.manItems = items; }
+    catch (e) { $("status").className = "err"; $("status").textContent = "AOP items: " + e.message; }
+  }
+  async function manShow() {
+    const box = $("aovMList");
+    try {
+      const list = await manLoad(); R.man = list;
+      const mine = list.filter(e => norm(e.dept) === norm($("aovDept").value)).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+      box.innerHTML = mine.length ? `<div class="tableScroll"><table class="matrixTable stockTable"><tr><th>Date</th><th>Type</th><th>No.</th><th>Item</th><th>Qty</th><th>Rate</th><th>Value</th><th></th></tr>` +
+        mine.map(e => `<tr><td>${_escH(isoTo(e.date))}</td><td>${e.type === "indent" ? "Indent" : "Requisition"}</td><td>${_escH(e.no || "")}</td><td style="text-align:left">${_escH(e.name)}<br><small style="color:var(--muted)">${_escH(e.code || "no code")}${e.remark ? " · " + _escH(e.remark) : ""}</small></td>` +
+          `<td>${fmt(num(e.qty), 2)} ${_escH(e.um || "")}</td><td>${fmt(num(e.rate), 2)}</td><td>${fmt(num(e.qty) * num(e.rate))}</td><td><button class="secondary" type="button" data-del="${_escH(e.id)}" style="padding:4px 8px">🗑</button></td></tr>`).join("") + `</table></div>`
+        : `<p style="font-size:12.5px;color:var(--muted);">No indent / requisition added in the app yet for ${_escH($("aovDept").value)}.</p>`;
+    } catch (e) { box.innerHTML = `<p class="psvNeg" style="font-size:12.5px;">${_escH(e.message)}</p>`; }
+  }
+
   /* ---------- events ---------- */
   $("aovRun").addEventListener("click", async () => {
     const st = $("status");
     const an = $("aovAop").value, inn = $("aovInd").value, cn = $("aovCons").value;
-    if (!an || (!inn && !cn)) { st.className = "err"; st.textContent = "Choose an AOP file and an indent file and / or a consumption file (📥 Import)."; return; }
+    if (!an) { st.className = "err"; st.textContent = "Choose an AOP file."; return; }
     try {
       st.className = "wait"; st.textContent = "Reading the files...";
-      const [aw, iw, cw] = await Promise.all([readFile(AOP_ROOT, an), inn ? readFile(IND_DIR, inn) : null, cn ? readFile(CONS_DIR, cn) : null]);
+      const [aw, iw, cw, man] = await Promise.all([readFile(AOP_ROOT, an), inn ? readFile(IND_DIR, inn) : null, cn ? readFile(CONS_DIR, cn) : null, manLoad().catch(() => [])]);
       R.aopName = an; R.indName = inn; R.consName = cn;
-      const aop = parseAop(aw), ind = iw ? parseIndent(iw, $("aovDept").value.trim()) : null, cons = cw ? parseCons(cw) : null;
-      R.res = compare(aop, ind, cons);
+      const aop = parseAop(aw), dept = $("aovDept").value.trim();
+      const mm = manMerge(man, dept, iw ? parseIndent(iw, dept) : null, cw ? parseCons(cw) : null);
+      if (!mm.ind && !mm.cons) throw new Error("choose an indent file and / or a consumption file (📥 Import), or add an indent / requisition in the app");
+      R.res = compare(aop, mm.ind, mm.cons);
+      Object.assign(R.res, { manI: mm.nI, manC: mm.nC, manDup: mm.dup });
+      $("aovPdfS").disabled = false; $("aovPdfD").disabled = false;
       show(R.res); $("aovXlsx").disabled = false;
+      $("aovNext").disabled = !R.res.hasCons; $("aovNext").textContent = `🛠️ Make FY ${aop.fyStart + 1}-${aop.fyStart + 2} AOP (WIP)`;
       const nNew = R.res.sections[R.res.sections.length - 1].rows.length;
-      st.className = "ok"; st.textContent = `Compared ${[ind ? `${ind.lines.length} indent line(s)` : "", cons ? `${R.res.cLines.length} issue line(s)` : ""].filter(Boolean).join(" and ")} with ${[].concat(...aop.sections.map(s => s.items)).length} AOP item(s); ${nNew} new item(s).`;
+      st.className = "ok"; st.textContent = `Compared ${[mm.ind ? `${mm.ind.lines.length} indent line(s)` : "", mm.cons ? `${R.res.cLines.length} issue line(s)` : ""].filter(Boolean).join(" and ")}${mm.nI + mm.nC ? ` (${mm.nI + mm.nC} added in the app)` : ""} with ${[].concat(...aop.sections.map(s => s.items)).length} AOP item(s); ${nNew} new item(s).`;
     } catch (e) { st.className = "err"; st.textContent = "Compare error: " + e.message; }
   });
   $("aovXlsx").addEventListener("click", excel);
+  $("aovNext").addEventListener("click", nextAop);
+  $("aovPdfS").addEventListener("click", () => pdf(false));
+  $("aovPdfD").addEventListener("click", () => pdf(true));
+  $("aovAddBox").addEventListener("toggle", () => {
+    if (!$("aovAddBox").open) return;
+    if (!$("aovMDate").value) { const d = new Date(); $("aovMDate").value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+    manFillItems(); manShow();
+  });
+  $("aovAop").addEventListener("change", () => { if ($("aovAddBox").open) manFillItems(); });
+  $("aovMItem").addEventListener("input", () => {
+    const it = (R.manItems || []).find(x => itemLabel(x) === $("aovMItem").value.trim()); if (!it) return;
+    $("aovMCode").value = it.code || ""; $("aovMName").value = it.name; $("aovMUm").value = it.um || ""; $("aovMRate").value = it.rate ? String(Math.round(it.rate * 100) / 100) : "";
+  });
+  $("aovMAdd").addEventListener("click", async () => {
+    const st = $("status"), v = id => $(id).value.trim();
+    const qty = parseFloat(v("aovMQty").replace(/,/g, "")), rate = parseFloat(v("aovMRate").replace(/,/g, ""));
+    if (!v("aovMDate")) { st.className = "err"; st.textContent = "Enter the date."; return; }
+    if (!v("aovMName")) { st.className = "err"; st.textContent = "Choose an item (or type its name)."; return; }
+    if (!(qty > 0)) { st.className = "err"; st.textContent = "Enter the quantity."; return; }
+    if (!(rate >= 0)) { st.className = "err"; st.textContent = "Enter the rate."; return; }
+    try {
+      st.className = "wait"; st.textContent = "Adding...";
+      const list = await manLoad();
+      list.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), type: v("aovMType") === "issue" ? "issue" : "indent", dept: v("aovDept"), date: v("aovMDate"),
+        no: v("aovMNo"), code: v("aovMCode"), name: v("aovMName"), um: v("aovMUm"), qty, rate, remark: v("aovMRemark"), by: (account && account.username) || "", at: new Date().toISOString() });
+      await manSave(list);
+      ["aovMItem", "aovMCode", "aovMName", "aovMUm", "aovMQty", "aovMRate", "aovMNo", "aovMRemark"].forEach(id => { $(id).value = ""; });
+      await manShow();
+      st.className = "ok"; st.textContent = `Added. Press ⚖️ Compare to see it in the comparison.`;
+    } catch (e) { st.className = "err"; st.textContent = "Add error: " + e.message; }
+  });
+  $("aovMList").addEventListener("click", async ev => {
+    const b = ev.target.closest("[data-del]"); if (!b) return;
+    const st = $("status");
+    try {
+      const list = await manLoad(), e = list.find(x => x.id === b.dataset.del); if (!e) return;
+      if (!confirm(`Delete this ${e.type === "indent" ? "indent" : "requisition"}: ${e.name}, qty ${e.qty}?`)) return;
+      await manSave(list.filter(x => x.id !== e.id)); await manShow();
+      st.className = "ok"; st.textContent = "Deleted. Press ⚖️ Compare again.";
+    } catch (e2) { st.className = "err"; st.textContent = "Delete error: " + e2.message; }
+  });
   const importer = (btn, input, dir, check, label, keep) => {
     $(btn).addEventListener("click", () => { const f = $(input); f.value = ""; f.click(); });
     $(input).addEventListener("change", async ev => {
@@ -23645,7 +24013,7 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
   importer("aovIndImportBtn", "aovIndFile", IND_DIR, wb => parseIndent(wb, ""), "Indent", name => refresh(name, undefined));
   importer("aovConsImportBtn", "aovConsFile", CONS_DIR, wb => parseCons(wb), "Consumption", name => refresh(undefined, name));
   document.querySelectorAll('[data-subaop="vs"]').forEach(b => b.addEventListener("click", () => refresh()));
-  window._aovTest = { parseAop, parseIndent, parseCons, compare, R };
+  window._aovTest = { parseAop, parseIndent, parseCons, compare, manMerge, R };
 })();
 
 
