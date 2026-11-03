@@ -6709,9 +6709,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.03.3";
+const APP_VERSION = "2026.11.03.4";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "📦 Billet Stock Format next-day block now also makes the small summary block on the right (X:AA): same format, formulas carried on, typed numbers kept, \"As on\" date moved to the next day",
   "💬 Short heat message (\"No of Billets\" / \"STRIP MILL\", lines like 160×160MM=02pcs4mtr) is read too. If a heat's two messages have different pieces, the latest is entered and the Total Prod cell is coloured red with a MISMATCH note",
   "📈 Market: IND / US / Intraday tiles right under the header; the slogan is now on a sticky note below them, and a different slogan shows every day",
   "✍️ Signature boxes are all the same size with more room to sign (PDF: six equal boxes; Excel: two rows of three)",
@@ -17870,10 +17871,10 @@ function mostCommon(list) {
   return best;
 }
 
-async function readBlockFormats({ wb, sheetName, token, srcTop, nRows, lastColIdx, skipCell, label, useCache }) {
+async function readBlockFormats({ wb, sheetName, token, srcTop, nRows, lastColIdx, skipCell, label, useCache, colOff = 0 }) {
   const statusEl = document.getElementById("status");
   const sh = `${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')`;
-  const cacheKey = `nextDayFmt:${sheetName}:${nRows}:${lastColIdx}`;
+  const cacheKey = `nextDayFmt:${sheetName}:${nRows}:${lastColIdx}` + (colOff ? `:c${colOff}` : "");
   const skip = (r, c) => !!(skipCell && skipCell(r, c));
 
   let fmt = null;
@@ -17884,7 +17885,7 @@ async function readBlockFormats({ wb, sheetName, token, srcTop, nRows, lastColId
     for (let r = 0; r < nRows; r++) for (let c = 0; c <= lastColIdx; c++) if (!skip(r, c)) cells.push({ r, c });
     const reads = [];
     cells.forEach(({ r, c }) => {
-      const a = `${colLetter(c)}${srcTop + r}`;
+      const a = `${colLetter(colOff + c)}${srcTop + r}`;
       reads.push({ url: `${sh}/range(address='${a}')/format/fill` });
       reads.push({ url: `${sh}/range(address='${a}')/format/font` });
     });
@@ -17906,11 +17907,11 @@ async function readBlockFormats({ wb, sheetName, token, srcTop, nRows, lastColId
   return fmt;
 }
 
-async function copyBlockFormats({ wb, sheetName, token, srcTop, destTop, nRows, lastColIdx, skipCell, label, useCache }) {
+async function copyBlockFormats({ wb, sheetName, token, srcTop, destTop, nRows, lastColIdx, skipCell, label, useCache, colOff = 0 }) {
   const statusEl = document.getElementById("status");
   const sh = `${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')`;
   const skip = (r, c) => !!(skipCell && skipCell(r, c));
-  const fmt = await readBlockFormats({ wb, sheetName, token, srcTop, nRows, lastColIdx, skipCell, label, useCache });
+  const fmt = await readBlockFormats({ wb, sheetName, token, srcTop, nRows, lastColIdx, skipCell, label, useCache, colOff });
 
   // Build rectangles of identical value: first runs along each row, then
   // stack identical runs (same columns, same value) from consecutive rows.
@@ -17946,13 +17947,13 @@ async function copyBlockFormats({ wb, sheetName, token, srcTop, destTop, nRows, 
     });
     return out;
   };
-  const addr = (q) => `${colLetter(q.c1)}${destTop + q.r1}:${colLetter(q.c2)}${destTop + q.r2}`;
+  const addr = (q) => `${colLetter(colOff + q.c1)}${destTop + q.r1}:${colLetter(colOff + q.c2)}${destTop + q.r2}`;
 
   const baseW = [], writes = [];
   const fillW = (a, v) => v === "#FFFFFF"
     ? { method: "POST", url: `${sh}/range(address='${a}')/format/fill/clear`, body: {} }
     : { method: "PATCH", url: `${sh}/range(address='${a}')/format/fill`, body: { color: v } };
-  const whole = `A${destTop}:${colLetter(lastColIdx)}${destTop + nRows - 1}`;
+  const whole = `${colLetter(colOff)}${destTop}:${colLetter(colOff + lastColIdx)}${destTop + nRows - 1}`;
   if (baseFill !== null) baseW.push(fillW(whole, baseFill));
   if (baseFont !== null) baseW.push({ method: "PATCH", url: `${sh}/range(address='${whole}')/format/font`, body: JSON.parse(baseFont) });
   rects(f => f.fill, baseFill).forEach(q => writes.push(fillW(addr(q), q.v)));
@@ -17978,17 +17979,17 @@ async function copyBlockFormats({ wb, sheetName, token, srcTop, destTop, nRows, 
 // the top/right edge are only added to, so the block above / columns to the
 // right are never touched.
 const _BW = { None: 0, Hairline: 1, Thin: 2, Medium: 3, Thick: 4 };
-async function copyBlockBorders({ wb, sheetName, token, srcTop, destTop, nRows, lastColIdx, label, useCache }) {
+async function copyBlockBorders({ wb, sheetName, token, srcTop, destTop, nRows, lastColIdx, label, useCache, colOff = 0 }) {
   const statusEl = document.getElementById("status");
   const sh = `${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')`;
   const nCols = lastColIdx + 1;
-  const cacheKey = `nextDayBdr:v1:${sheetName}:${nRows}:${lastColIdx}`;
+  const cacheKey = `nextDayBdr:v1:${sheetName}:${nRows}:${lastColIdx}` + (colOff ? `:c${colOff}` : "");
   const cached = useCache ? layoutGet(cacheKey) : null;
   let H, V;
   if (cached && cached.H && cached.V) { H = cached.H; V = cached.V; } else {
   const reads = [];
   for (let r = 0; r < nRows; r++) for (let c = 0; c < nCols; c++)
-    reads.push({ url: `${sh}/range(address='${colLetter(c)}${srcTop + r}')/format/borders` });
+    reads.push({ url: `${sh}/range(address='${colLetter(colOff + c)}${srcTop + r}')/format/borders` });
   const got = await graphBatchRead(token, reads, (d, t) => {
     if (statusEl) statusEl.textContent = `${label}: reading borders... (${d}/${t})`;
   });
@@ -18043,15 +18044,15 @@ async function copyBlockBorders({ wb, sheetName, token, srcTop, destTop, nRows, 
     return line.map(k => (k === baseK) ? "" : (k || "NONE"));
   });
   const baseW = [], writes = [];
-  const lastCol = colLetter(lastColIdx), destBottom = destTop + nRows - 1;
+  const lastCol = colLetter(colOff + lastColIdx), destBottom = destTop + nRows - 1;
   const body = k => { if (!k || k === "NONE") return { style: "None" }; const [style, weight, color] = k.split("|"); return { style, weight, color }; };
-  const whole = `A${destTop}:${lastCol}${destBottom}`;
+  const whole = `${colLetter(colOff)}${destTop}:${lastCol}${destBottom}`;
   [["InsideHorizontal", domH], ["InsideVertical", domV], ["EdgeBottom", ""], ["EdgeLeft", ""]].forEach(([side, k]) => baseW.push({ method: "PATCH",
     url: `${sh}/range(address='${whole}')/format/borders('${side}')`, body: body(k) }));
   const add = (addr, side, k) => writes.push({ method: "PATCH", url: `${sh}/range(address='${addr}')/format/borders('${side}')`, body: body(k) });
   const lines = [];
   rects(diff(H, nRows, domH), nCols).forEach(q => {
-    const c1 = colLetter(q.i1), c2 = colLetter(q.i2);
+    const c1 = colLetter(colOff + q.i1), c2 = colLetter(colOff + q.i2);
     if (q.b1 === q.b2) {
       if (q.b1 < nRows) lines.push([`${c1}${destTop + q.b1}:${c2}${destTop + q.b1}`, "EdgeTop", q.k]);
       else lines.push([`${c1}${destBottom}:${c2}${destBottom}`, "EdgeBottom", q.k]);
@@ -18064,10 +18065,10 @@ async function copyBlockBorders({ wb, sheetName, token, srcTop, destTop, nRows, 
   rects(diff(V, nCols, domV), nRows).forEach(q => {
     const r1 = destTop + q.i1, r2 = destTop + q.i2;
     if (q.b1 === q.b2) {
-      if (q.b1 < nCols) lines.push([`${colLetter(q.b1)}${r1}:${colLetter(q.b1)}${r2}`, "EdgeLeft", q.k]);
+      if (q.b1 < nCols) lines.push([`${colLetter(colOff + q.b1)}${r1}:${colLetter(colOff + q.b1)}${r2}`, "EdgeLeft", q.k]);
       else lines.push([`${lastCol}${r1}:${lastCol}${r2}`, "EdgeRight", q.k]);
     } else {
-      const a = `${colLetter(q.b1)}${r1}:${colLetter(q.b2 - 1)}${r2}`;
+      const a = `${colLetter(colOff + q.b1)}${r1}:${colLetter(colOff + q.b2 - 1)}${r2}`;
       lines.push([a, "EdgeLeft", q.k], [a, "EdgeRight", q.k]);
       if (q.b2 - q.b1 > 1) lines.push([a, "InsideVertical", q.k]);
     }
@@ -18084,12 +18085,12 @@ async function copyBlockBorders({ wb, sheetName, token, srcTop, destTop, nRows, 
 
 // override(rowOffset, colIdx) -> undefined (copy from previous block),
 // { blank: true } (leave empty), or { value: X } (write X).
-async function cloneNextDayBlock({ wb, sheetName, token, srcTop, destTop, nRows, lastColIdx, override, label, collapseConst }) {
+async function cloneNextDayBlock({ wb, sheetName, token, srcTop, destTop, nRows, lastColIdx, override, label, collapseConst, colOff = 0, copyAlign = false }) {
   const statusEl = document.getElementById("status");
   const sh = `${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')`;
-  const lastCol = colLetter(lastColIdx);
-  const srcAddr = `A${srcTop}:${lastCol}${srcTop + nRows - 1}`;
-  const destAddr = `A${destTop}:${lastCol}${destTop + nRows - 1}`;
+  const firstCol = colLetter(colOff), lastCol = colLetter(colOff + lastColIdx);   // colOff: block that does not start in column A
+  const srcAddr = `${firstCol}${srcTop}:${lastCol}${srcTop + nRows - 1}`;
+  const destAddr = `${firstCol}${destTop}:${lastCol}${destTop + nRows - 1}`;
   const rowDelta = destTop - srcTop;
 
   const [src, dest] = await Promise.all([   // two reads at once (reads don't clash)
@@ -18109,7 +18110,7 @@ async function cloneNextDayBlock({ wb, sheetName, token, srcTop, destTop, nRows,
     for (let c = 0; c <= lastColIdx; c++) {
       if (filled(r, c)) { fr.push(null); nr.push(null); skipped++; continue; }
       nr.push(src.numberFormat[r][c]);
-      const ov = override ? override(r, c) : undefined;
+      const ov = override ? override(r, c, src.formulas[r][c]) : undefined;
       if (ov && ov.blank) fr.push(null);
       else if (ov && "value" in ov) fr.push(ov.value);
       else {
@@ -18126,9 +18127,28 @@ async function cloneNextDayBlock({ wb, sheetName, token, srcTop, destTop, nRows,
     { method: "PATCH", body: JSON.stringify({ numberFormat: numFmt, formulas }) });
 
   // ---- copy background + font from the previous block, cell by cell ----
-  await copyBlockFormats({ wb, sheetName, token, srcTop, destTop, nRows, lastColIdx, label, useCache: true,
+  await copyBlockFormats({ wb, sheetName, token, srcTop, destTop, nRows, lastColIdx, label, useCache: true, colOff,
     skipCell: (r, c) => filled(r, c) });
-  await copyBlockBorders({ wb, sheetName, token, srcTop, destTop, nRows, lastColIdx, label, useCache: true });
+  await copyBlockBorders({ wb, sheetName, token, srcTop, destTop, nRows, lastColIdx, label, useCache: true, colOff });
+  if (copyAlign) {   // alignment / wrap, cell by cell (only cells that are not "General")
+    const reads = [];
+    for (let r = 0; r < nRows; r++) for (let c = 0; c <= lastColIdx; c++)
+      reads.push({ url: `${sh}/range(address='${colLetter(colOff + c)}${srcTop + r}')/format?$select=horizontalAlignment,verticalAlignment,wrapText` });
+    const got = await graphBatchRead(token, reads, (d, t) => { if (statusEl) statusEl.textContent = `${label}: reading alignment... (${d}/${t})`; });
+    const writes = [];
+    got.forEach((g, k) => {
+      const b = g && g.body; if (!b) return;
+      const r = Math.floor(k / (lastColIdx + 1)), c = k % (lastColIdx + 1);
+      if (filled(r, c)) return;
+      const o = {};
+      if (b.horizontalAlignment && b.horizontalAlignment !== "General") o.horizontalAlignment = b.horizontalAlignment;
+      if (b.verticalAlignment && b.verticalAlignment !== "Bottom") o.verticalAlignment = b.verticalAlignment;
+      if (b.wrapText) o.wrapText = true;
+      if (Object.keys(o).length) writes.push({ method: "PATCH", url: `${sh}/range(address='${colLetter(colOff + c)}${destTop + r}')/format`, body: o });
+    });
+    const bad = await graphBatchWrite(token, writes, (d) => { if (statusEl) statusEl.textContent = `${label}: alignment... (${d}/${writes.length})`; });
+    bad.forEach(m => _nextDayWarn.push(`${label} alignment ${m}`));
+  }
 
   return { skipped };
 }
@@ -18254,7 +18274,18 @@ async function createNextDayBilletStockFromSheet(wb, token) {
     },
     collapseConst: (ro, c) => c === 4 && ro >= 6 && ro <= 23
   });
-  return { sheetName, nextDateText, newTitleRow, skipped: r.skipped };
+  // the small summary block on the right (X:AA, same rows): copied like the main block - formulas shifted to the
+  // new day's rows, typed numbers kept as they are, colours / borders / alignment the same; its "As on" date moves on
+  let small = null;
+  try {
+    small = await cloneNextDayBlock({
+      wb, sheetName, token, label: "Billet Stock Format (X:AA)",
+      srcTop: lastTitleRow, destTop: newTitleRow, nRows: PERIOD, colOff: 23, lastColIdx: 3, copyAlign: true,   // X:AA
+      override: (ro, c, src) => (typeof src === "string" && !src.startsWith("=") && /as\s*on\s*\d{1,2}[.\/]\d{1,2}[.\/]\d{4}/i.test(src))
+        ? { value: src.replace(/\d{1,2}[.\/]\d{1,2}[.\/]\d{4}/, nextDateText.replace(/^As on\s*/i, "")) } : undefined
+    });
+  } catch (e) { _nextDayWarn.push(`Billet Stock Format X:AA block: ${e.message}`); }
+  return { sheetName, nextDateText, newTitleRow, skipped: r.skipped + (small ? small.skipped : 0) };
 }
 
 // Daily Stock: the date line of a block is one merged cell across A:S.
@@ -27799,7 +27830,7 @@ async function downloadAndroidApk() {
       let row = -1, txt = ""; a.text.forEach((r, i) => { if (/as on/i.test(r[0] || "")) { row = i + 1; txt = r[0]; } });
       const m = String(txt).match(/(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/);
       if (row < 0 || !m) throw new Error("Billet Stock Format: no 'As on' date found.");
-      return { label: "Billet Stock Format", name, top: row - 1, n: 32, lastCol: "I", iso: dmyISO(m[1], m[2], m[3]) };
+      return { label: "Billet Stock Format", name, top: row - 1, n: 32, lastCol: "I", extra: "X:AA", iso: dmyISO(m[1], m[2], m[3]) };
     }
     if (choice === "dailyprodformat") {
       const name = $("rmSheetName").value.trim() || "Daily Prod Format";
@@ -27841,6 +27872,11 @@ async function downloadAndroidApk() {
       await nextDayJobStart(wb, token); started = true;
       try { await graphFetch(`${sh(wb, b.name)}/range(address='${addr}')/unmerge`, token, { method: "POST" }); } catch (e) { /* nothing merged */ }
       await graphFetch(`${sh(wb, b.name)}/range(address='${addr}')/clear`, token, { method: "POST", body: JSON.stringify({ applyTo: "All" }) });
+      if (b.extra) {   // Billet Stock Format: the small block X:AA of the same rows
+        const [c1, c2] = b.extra.split(":"), a2 = `${c1}${b.top}:${c2}${b.top + b.n - 1}`;
+        try { await graphFetch(`${sh(wb, b.name)}/range(address='${a2}')/unmerge`, token, { method: "POST" }); } catch (e) {}
+        await graphFetch(`${sh(wb, b.name)}/range(address='${a2}')/clear`, token, { method: "POST", body: JSON.stringify({ applyTo: "All" }) });
+      }
       try { if (typeof _colBCache !== "undefined") _colBCache.delete(`${wb}|${b.name}`); } catch (e) {}
       st.className = "ok";
       st.textContent = `🗑️ ${b.label}: block of ${dWant} deleted (rows ${b.top}-${b.top + b.n - 1}). The last block is now the day before. To make it again: Create Next Day Block.`;
