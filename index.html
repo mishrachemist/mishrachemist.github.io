@@ -6928,9 +6928,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.05.10";
+const APP_VERSION = "2026.11.05.11";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🛑 ERP Upload (Durgesh): an ERP report in list form (one line per Tnature) is a wrong file - it is now stopped with a message and nothing in the Excel is changed; the usual ERP stock report (Opening / Receipt / Issue / Closing) works as always",
   "🛠️ ERP Upload (Durgesh): an ERP report in list form (one line per Tnature) is turned into the usual table, so FC Report and the stock formulas work; a wrong earlier ERP adjustment in Daily Stock Q is replaced (not added to); a 4-CLOSING column without numbers no longer zeroes the ERP stock",
   "⚠️ AOP vs Indent: an indent / issue line whose item code belongs to one AOP item but whose name is quite different (a wrong code in the ERP) is now pointed out on that item, in Needs a look, the Excel and the PDF",
   "🛠️ Calibration upload reads other certificate layouts too (e.g. Shimadzu spectrometer: Ref. no., Date, Validity Period) and finds the log line by model / instrument name when the certificate has no MIPPL ID",
@@ -29904,7 +29905,9 @@ async function downloadAndroidApk() {
     say("⏳ Reading " + esc(file.name) + "…");
     const erp = readErp(new Uint8Array(await file.arrayBuffer()), file.name);
     if (!erp.rows.length) throw new Error("the ERP file is empty");
-    if (target === "Durgesh") { const lw = longToWide(erp.rows); if (lw) { erp.rows = lw.rows; erp.cols = lw.cols; erp.converted = lw.items; } }
+    // Durgesh always gets the usual table (Opening / Receipt / Issue / Closing columns). A list-form report (one line per Tnature)
+    // is a different ERP report chosen by mistake -> stop before anything in the file is changed.
+    if (target === "Durgesh" && longToWide(erp.rows)) throw new Error("this ERP file is in list form (one line per item and Tnature: Tnature Group | Tnature | Qty). The Durgesh sheet needs the usual ERP stock report with the Opening / Receipt / Issue / Closing columns - please choose that file. Nothing was changed.");
     const guess = erpDateGuess(erp.rows);
     if (guess && guess !== $("erpDate").value && confirm(`The ERP file says ${guess.split("-").reverse().join(".")}.\n\nUse this date for the Daily Stock / Reports file?\n(Cancel = keep ${$("erpDate").value.split("-").reverse().join(".")})`)) $("erpDate").value = guess;
     const iso = $("erpDate").value; if (!iso) throw new Error("pick the date first");
