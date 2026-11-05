@@ -6158,6 +6158,9 @@ window.__gmFS = {
               .calCertGrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0 10px; }
               .calCertGrid input{ width:100%; box-sizing:border-box; }
               .calWarn{ color:#e0a030; font-weight:700; } .calOk{ color:#3fae6a; font-weight:700; }
+              .calSaveBar{ position:fixed; left:12px; right:12px; bottom:80px; z-index:60; margin:0 !important; padding:10px; border-radius:12px; background:var(--navy,#1b2a4a); border:1px solid var(--gold,#d4a72c); box-shadow:0 4px 16px rgba(0,0,0,.45); }
+              .calUpBox:not(.hidden){ padding-bottom:90px; }
+              @media (min-width:900px){ .calSaveBar{ left:auto; right:24px; width:420px; } }
               .calZoom{ position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,.85); overflow:auto; padding:12px; text-align:center; cursor:zoom-out; }
               .calZoom canvas{ background:#fff; max-width:100%; height:auto; }
             </style>
@@ -6910,9 +6913,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.05.4";
+const APP_VERSION = "2026.11.05.5";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🛠️ Calibration upload: certificates read but not saved yet are kept - after a refresh the app offers ↩ Continue; the ✅ Save button stays on screen; an older OneDrive copy of the log can no longer replace newer entries",
   "✨ Calibration certificates are saved clear - dark text, pure white paper, scan dots removed - so the download looks like the original; ✨ button makes certificates saved earlier clear too (scans kept)",
   "🛠️ Calibration Log: 📥 upload the certificates PDF (one or many merged) - the app reads every certificate, you check the details and they go into the log; 📄 downloads a certificate. The log is now kept in OneDrive too, with instrument IDs as on the certificates",
   "🔕 ISO 9001 pack reminder turned off - no more popup or notification; prepare it any time from ISO 9001 → Monthly ISO Pack",
@@ -7683,7 +7687,10 @@ document.getElementById("ncrPdfBtn").addEventListener("click", () => {
 function getCalList() {
   try { return JSON.parse(localStorage.getItem("iso9001_cal") || "[]"); } catch (e) { return []; }
 }
-function saveCalList(list, localOnly) { localStorage.setItem("iso9001_cal", JSON.stringify(list)); if (!localOnly) calQueuePush(); }   // a change you make is copied to OneDrive
+function saveCalList(list, localOnly) {   // a change you make is copied to OneDrive
+  localStorage.setItem("iso9001_cal", JSON.stringify(list));
+  if (!localOnly) { try { localStorage.setItem("calSavedAt", new Date().toISOString()); } catch (e) {} calQueuePush(); }
+}
 function calStatusFor(dueDate) {
   if (!dueDate) return { text: "⚪ Date not entered", cls: "" };
   const days = (new Date(dueDate) - new Date(todayISO())) / 86400000;
@@ -7845,7 +7852,8 @@ function calQueuePush() {
 async function calCloudPush() {
   if (!account || isViewer()) return;
   const token = await getToken(); if (!token) return;
-  const body = JSON.stringify({ v: 1, mig: [CAL_MIG_TAG], savedAt: new Date().toISOString(), list: getCalList() });
+  const savedAt = localStorage.getItem("calSavedAt") || new Date().toISOString();
+  const body = JSON.stringify({ v: 1, mig: [CAL_MIG_TAG], savedAt, list: getCalList() });
   const r = await fetch(CAL_LOG_URL, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body });
   if (!r.ok) throw new Error("OneDrive save failed (" + r.status + ")");
   try { localStorage.removeItem("calDirty"); } catch (e) {}
@@ -7855,11 +7863,16 @@ async function calCloudSync() {
   try {
     if (!isViewer() && localStorage.getItem("calDirty")) { await calCloudPush(); return; }
     const token = await getToken(); if (!token) return;
-    const r = await fetch(CAL_LOG_URL, { headers: { Authorization: "Bearer " + token } });
+    const r = await fetch(CAL_LOG_URL, { headers: { Authorization: "Bearer " + token }, cache: "no-store" });
     if (r.status === 404) { if (!isViewer()) await calCloudPush(); return; }
     if (!r.ok) return;
     const j = await r.json();
     const list = Array.isArray(j) ? j : (j.list || []);
+    // never let an older OneDrive copy replace newer entries on this device
+    const mine = localStorage.getItem("calSavedAt") || "", theirs = (!Array.isArray(j) && j.savedAt) || "";
+    const certs = l => l.filter(x => x.certFile || x.certNo || x.lastDate).length;
+    if (!isViewer() && (mine > theirs || (!theirs && certs(getCalList()) > certs(list)))) { await calCloudPush(); return; }
+    if (theirs) try { localStorage.setItem("calSavedAt", theirs); } catch (e) {}
     const migrated = !Array.isArray(j) && (j.mig || []).includes(CAL_MIG_TAG);
     if (!migrated) calMigrate(list);
     localStorage.setItem("iso9001_cal", JSON.stringify(list));
@@ -8042,6 +8055,40 @@ function calMatchRow(list, id) {
   return best;
 }
 const CAL_UP = { bytes: null, name: "", certs: [], pdf: null };
+const calDraftDb = () => new Promise((res, rej) => { const q = indexedDB.open("calUpload", 1); q.onupgradeneeded = () => q.result.createObjectStore("d"); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+async function calDraftPut(withBytes) {
+  try {
+    const db = await calDraftDb(), tx = db.transaction("d", "readwrite"), st = tx.objectStore("d");
+    st.put({ name: CAL_UP.name, certs: CAL_UP.certs, at: Date.now() }, "meta");
+    if (withBytes) st.put(CAL_UP.bytes, "bytes");
+    await new Promise(r => { tx.oncomplete = r; tx.onerror = r; });
+  } catch (e) {}
+}
+async function calDraftGet() {
+  try { const db = await calDraftDb(), st = db.transaction("d").objectStore("d"), g = k => new Promise(r => { const q = st.get(k); q.onsuccess = () => r(q.result); q.onerror = () => r(null); });
+    const meta = await g("meta"); if (!meta || !meta.certs || !meta.certs.length) return null; return { meta, bytes: await g("bytes") }; } catch (e) { return null; }
+}
+async function calDraftClear() { try { const db = await calDraftDb(), tx = db.transaction("d", "readwrite"); tx.objectStore("d").clear(); await new Promise(r => { tx.oncomplete = r; tx.onerror = r; }); } catch (e) {} }
+let _calDraftT = null;
+const calDraftSoon = () => { clearTimeout(_calDraftT); _calDraftT = setTimeout(() => calDraftPut(false), 600); };
+// on opening the Calibration Log: an upload that was read but not saved yet is offered again
+async function calDraftOffer() {
+  const box = document.getElementById("calUpBox");
+  if (!box || CAL_UP.certs.length) return;
+  const d = await calDraftGet(); if (!d || !d.bytes) return;
+  box.classList.remove("hidden");
+  box.innerHTML = `<div class="calUpMsg">⚠️ ${htmlEsc(d.meta.name)}: ${d.meta.certs.length} certificate(s) were read but <b>not saved yet</b>.</div>` +
+    `<div class="btnRow"><button class="primary" id="calDraftGo" type="button">↩ Continue checking &amp; save</button><button class="secondary" id="calDraftDrop" type="button">🗑 Discard</button></div>`;
+  document.getElementById("calDraftGo").onclick = async () => {
+    try {
+      const pdfjsLib = await loadPdfJs(); await calLoadPdfLib();
+      Object.assign(CAL_UP, { name: d.meta.name, certs: d.meta.certs, bytes: d.bytes, pdf: await pdfjsLib.getDocument({ data: new Uint8Array(d.bytes.slice(0)) }).promise });
+      calUpRender();
+    } catch (e) { const st = document.getElementById("status"); st.className = "err"; st.textContent = "Could not open the saved upload: " + e.message; }
+  };
+  document.getElementById("calDraftDrop").onclick = async () => { if (!confirm("Discard these certificates? (Nothing was saved in the log.)")) return; await calDraftClear(); box.classList.add("hidden"); box.innerHTML = ""; };
+}
+window.addEventListener("beforeunload", e => { if (CAL_UP.certs.length) { e.preventDefault(); e.returnValue = ""; } });
 async function calUploadPdf(file) {
   const st = document.getElementById("status"), box = document.getElementById("calUpBox");
   const say = (t, cls) => { st.className = cls || "wait"; st.textContent = t; const p = document.getElementById("calUpMsg"); if (p) p.textContent = t; };
@@ -8085,7 +8132,8 @@ async function calUploadPdf(file) {
       else CAL_UP.certs.push({ pages: [pg.p], r: pg.r, thumb: pg.thumb });
     });
     calUpRender();
-    say(`${CAL_UP.certs.length} certificate(s) read from ${pdf.numPages} page(s). Please check every value below, then press ✅ Save.`, "ok");
+    await calDraftPut(true);
+    say(`${CAL_UP.certs.length} certificate(s) read from ${pdf.numPages} page(s). Not saved yet - check the values, then press ✅ Save (the button stays at the bottom of the screen).`, "ok");
   } catch (e) { say("Certificate upload: " + e.message, "err"); }
 }
 function calParseBest(T) {   // grey halves + whole width first; the black & white halves (if read) only fill what is still missing
@@ -8113,7 +8161,7 @@ function calUpRender() {
         `<label>Log line<select data-k="row">${opts(c.row)}</select></label></div></div>` +
         `<div class="calCertGrid">` + F.map(([k, l, t]) => `<label>${l}<input type="${t || "text"}" data-k="${k}" value="${e(c.v[k] || "")}"></label>`).join("") + `</div></div>`;
     }).join("") +
-    `<div class="btnRow"><button class="primary" id="calUpSave" type="button">✅ Save ${CAL_UP.certs.length} certificate(s)</button><button class="secondary" id="calUpCancel" type="button">✖ Cancel</button></div>`;
+    `<div class="btnRow halfRow calSaveBar"><button class="primary" id="calUpSave" type="button">✅ Save ${CAL_UP.certs.length} certificate(s)</button><button class="secondary" id="calUpCancel" type="button">✖ Cancel</button></div>`;
 }
 async function calUpSave() {
   const st = document.getElementById("status");
@@ -8149,7 +8197,7 @@ async function calUpSave() {
     await calCloudPush();
     renderCalTable(); checkCalibrationReminders();
     document.getElementById("calUpBox").classList.add("hidden"); document.getElementById("calUpBox").innerHTML = "";
-    CAL_UP.certs = []; CAL_UP.bytes = null;
+    CAL_UP.certs = []; CAL_UP.bytes = null; await calDraftClear();
     say(`✅ ${todo.length} certificate(s) saved: details in the Calibration Log, PDFs in OneDrive → Apps → Calibration → Certificates (📄 in the log to download).`, "ok");
   } catch (e) { say("Save error: " + e.message, "err"); }
 }
@@ -8166,10 +8214,11 @@ document.getElementById("calUpBox").addEventListener("input", ev => {
     if (r) ["id", "name", "make", "model", "range"].forEach(f => { const inp = card.querySelector(`[data-k="${f}"]`); if (r[f] && inp) { inp.value = r[f]; c.v[f] = r[f]; } });   // that line's instrument details
   }
   else if (k) c.v[k] = t.value.trim();
+  calDraftSoon();
 });
 document.getElementById("calUpBox").addEventListener("click", async ev => {
   if (ev.target.id === "calUpSave") return calUpSave();
-  if (ev.target.id === "calUpCancel") { const b = document.getElementById("calUpBox"); b.classList.add("hidden"); b.innerHTML = ""; CAL_UP.certs = []; return; }
+  if (ev.target.id === "calUpCancel") { if (!confirm("Cancel? These certificates will not be saved.")) return; const b = document.getElementById("calUpBox"); b.classList.add("hidden"); b.innerHTML = ""; CAL_UP.certs = []; await calDraftClear(); return; }
   const z = ev.target.closest("[data-zoom]"); if (!z) return;
   // the page, bigger
   const c = CAL_UP.certs[+z.dataset.zoom]; if (!c || !CAL_UP.pdf) return;
@@ -10032,7 +10081,7 @@ document.querySelectorAll("#iso9001SubNav .navItem").forEach(btn => {
     window.scrollTo({ top: 0, behavior: "instant" });
     // Refresh whichever list is being shown, in case it was updated elsewhere.
     if (btn.dataset.subiso === "ncr") renderNcrTable();
-    if (btn.dataset.subiso === "calibration") { renderCalTable(); calCloudSync(); }
+    if (btn.dataset.subiso === "calibration") { renderCalTable(); calCloudSync(); calDraftOffer(); }
     if (btn.dataset.subiso === "vendor") renderVenTable();
   });
 });
