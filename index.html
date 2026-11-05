@@ -2938,8 +2938,6 @@
   /* ===== easier to use on a phone (all tiles) ===== */
   @media (max-width:600px){
     .card > select, .card > input[type=date], .card > input[type=month], .card > input[type=number]{ width:100%; }
-    .sidebar.subNav:not([data-ico="cards"]){ grid-template-columns:repeat(3, minmax(0,1fr)) !important; gap:10px !important; }
-    .sidebar.subNav:not([data-ico="cards"]) > .navItem .subLabel{ font-size:12px !important; }
     .card h2{ font-size:14px; }
   }
   /* long help text: two lines, the rest behind "More" */
@@ -6930,9 +6928,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.05.6";
+const APP_VERSION = "2026.11.05.7";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "↩ Sub-tiles back to their earlier shape (4 in a row)",
   "✨ Easier on the phone everywhere: long help text folded to two lines (ℹ️ More), boxes and dates full width, bigger sub-tile names, an old message no longer shows in the next tile; Calibration Log: the table comes first, adding an instrument by hand is folded",
   "🛠️ Calibration upload: certificates read but not saved yet are kept - after a refresh the app offers ↩ Continue; the ✅ Save button stays on screen; an older OneDrive copy of the log can no longer replace newer entries",
   "✨ Calibration certificates are saved clear - dark text, pure white paper, scan dots removed - so the download looks like the original; ✨ button makes certificates saved earlier clear too (scans kept)",
