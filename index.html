@@ -6135,9 +6135,32 @@ window.__gmFS = {
           <div class="sub-sectionPanel hidden" id="subiso-calibration">
           <div class="card">
             <h2>Equipment Calibration Log</h2>
-            <p style="font-size:13px;color:var(--muted);margin:0 0 14px;">
-              Saved on this device/browser only (ISO 9001 Clause 7.1.5).
+            <p style="font-size:13px;color:var(--muted);margin:0 0 10px;">
+              ISO 9001 Clause 7.1.5. Kept in your OneDrive (Apps → Calibration) and on this device. Certificates: 📥 upload the PDF (one or many certificates merged) -
+              the app reads every certificate, you check the details, and they go into the log; 📄 in the log downloads a certificate, made clear like the original print
+              (the scan as it came is kept in Certificates → Scans).
             </p>
+            <div class="btnRow" style="margin:0 0 12px;">
+              <button class="primary" id="calUploadBtn" type="button">📥 Upload certificates (PDF)</button>
+              <button class="secondary" id="calEnhanceBtn" type="button">✨ Make saved certificates clear</button>
+              <input type="file" id="calUploadFile" accept="application/pdf,.pdf" style="display:none">
+            </div>
+            <div id="calUpBox" class="calUpBox hidden"></div>
+            <style>
+              .calUpBox{ border:1px solid var(--gold,#d4a72c); border-radius:12px; padding:10px; margin:0 0 14px; }
+              .calUpMsg{ font-size:13px; font-weight:700; margin:2px 0 6px; }
+              .calCert{ border:1px solid rgba(127,127,127,.35); border-radius:12px; padding:9px; margin:9px 0; background:rgba(127,127,127,.06); }
+              .calCertTop{ display:flex; gap:10px; align-items:flex-start; font-size:13px; }
+              .calCertTop img{ width:92px; border-radius:6px; border:1px solid rgba(127,127,127,.4); cursor:zoom-in; flex:0 0 auto; background:#fff; }
+              .calCertTop > div{ flex:1 1 auto; min-width:0; }
+              .calCertTop label, .calCertGrid label{ display:flex; flex-direction:column; gap:3px; font-size:11.5px; color:var(--muted); margin:6px 0 0; }
+              .calCertTop select{ width:100%; }
+              .calCertGrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0 10px; }
+              .calCertGrid input{ width:100%; box-sizing:border-box; }
+              .calWarn{ color:#e0a030; font-weight:700; } .calOk{ color:#3fae6a; font-weight:700; }
+              .calZoom{ position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,.85); overflow:auto; padding:12px; text-align:center; cursor:zoom-out; }
+              .calZoom canvas{ background:#fff; max-width:100%; height:auto; }
+            </style>
             <label for="calEquipName">Equipment Name</label>
             <input type="text" id="calEquipName" placeholder="e.g. Spectrometer">
             <label for="calEquipId">Equipment ID / Serial No.</label>
@@ -6164,7 +6187,7 @@ window.__gmFS = {
             <div id="calListWrap" style="margin-top:20px;">
               <div class="tableScroll">
                 <table class="matrixTable stockTable" id="calTable">
-                  <tr><th>Sl.</th><th>Equipment</th><th>ID</th><th>Make</th><th>Model</th><th>Range / Accuracy</th><th>Last Cal.</th><th>Due Date</th><th>Agency</th><th>Cert No.</th><th>Status</th><th></th></tr>
+                  <tr><th>Sl.</th><th>Equipment</th><th>ID</th><th>Make</th><th>Model</th><th>Range / Accuracy</th><th>Last Cal.</th><th>Due Date</th><th>Agency</th><th>Cert No.</th><th>Certificate</th><th>Status</th><th></th></tr>
                 </table>
               </div>
             </div>
@@ -6887,9 +6910,12 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.05.1";
+const APP_VERSION = "2026.11.05.4";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "✨ Calibration certificates are saved clear - dark text, pure white paper, scan dots removed - so the download looks like the original; ✨ button makes certificates saved earlier clear too (scans kept)",
+  "🛠️ Calibration Log: 📥 upload the certificates PDF (one or many merged) - the app reads every certificate, you check the details and they go into the log; 📄 downloads a certificate. The log is now kept in OneDrive too, with instrument IDs as on the certificates",
+  "🔕 ISO 9001 pack reminder turned off - no more popup or notification; prepare it any time from ISO 9001 → Monthly ISO Pack",
   "🔒 Final AOPs are locked - view and download only. 📊 AOP vs Indent: simpler screen (steps 1-2-3), a tab for each section (Consumables, Minimax, SRN, Spares, New items) with item cards and filters",
   "📄 AOP vs Indent & Consumption: PDF summary (with the items that need attention) and PDF detailed (every item), and ➕ add a new indent or requisition right in the app - it is counted in the comparison, Excel, PDF and next FY AOP",
   "🛠️ Next FY AOP made automatically: AOP vs Indent & Consumption → Compare → Make next FY AOP. Same AOP format one year on; this year's consumption so far + estimate of the remaining months, rate from the latest issue / indent, budget qty = this year's estimated total; [WIP] working columns are dropped on Move to final",
@@ -7657,7 +7683,7 @@ document.getElementById("ncrPdfBtn").addEventListener("click", () => {
 function getCalList() {
   try { return JSON.parse(localStorage.getItem("iso9001_cal") || "[]"); } catch (e) { return []; }
 }
-function saveCalList(list) { localStorage.setItem("iso9001_cal", JSON.stringify(list)); }
+function saveCalList(list, localOnly) { localStorage.setItem("iso9001_cal", JSON.stringify(list)); if (!localOnly) calQueuePush(); }   // a change you make is copied to OneDrive
 function calStatusFor(dueDate) {
   if (!dueDate) return { text: "⚪ Date not entered", cls: "" };
   const days = (new Date(dueDate) - new Date(todayISO())) / 86400000;
@@ -7681,7 +7707,7 @@ const CAL_SEED = [{"sl": 1, "name": "Analog Vernier Caliper", "id": "MIPPL-VC/SM
       else list.push({ sl: e.sl, name: e.name, id: e.id, make: e.make, model: e.model, range: e.range, lastDate: "", dueDate: "", agency: e.agency, certNo: "" });
     });
     list.sort((a, b) => (a.sl || 9999) - (b.sl || 9999));
-    saveCalList(list);
+    saveCalList(list, true);
     localStorage.setItem(CAL_SEED_KEY, String(Date.now()));
   } catch (e) {}
 })();
@@ -7692,10 +7718,10 @@ function renderCalTable() {
   const table = document.getElementById("calTable");
   const e = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => "&#" + c.charCodeAt(0) + ";");
   const d = iso => iso ? iso.split("-").reverse().join("-") : "-";
-  table.innerHTML = "<tr><th>Sl.</th><th>Equipment</th><th>ID</th><th>Make</th><th>Model</th><th>Range / Accuracy</th><th>Last Cal.</th><th>Due Date</th><th>Agency</th><th>Cert No.</th><th>Status</th><th></th></tr>" +
+  table.innerHTML = "<tr><th>Sl.</th><th>Equipment</th><th>ID</th><th>Make</th><th>Model</th><th>Range / Accuracy</th><th>Last Cal.</th><th>Due Date</th><th>Agency</th><th>Cert No.</th><th>Certificate</th><th>Status</th><th></th></tr>" +
     list.map((r, idx) => `<tr${idx === calEditIdx ? ' style="outline:2px solid var(--gold);"' : ""}>
       <td>${e(r.sl || "")}</td><td>${e(r.name)}</td><td style="white-space:nowrap;">${e(r.id)}</td><td>${e(r.make || "")}</td><td>${e(r.model || "")}</td><td>${e(r.range || "")}</td>
-      <td style="white-space:nowrap;">${d(r.lastDate)}</td><td style="white-space:nowrap;">${d(r.dueDate)}</td><td>${e(r.agency)}</td><td>${e(r.certNo)}</td><td style="white-space:nowrap;">${calStatusFor(r.dueDate).text}</td>
+      <td style="white-space:nowrap;">${d(r.lastDate)}</td><td style="white-space:nowrap;">${d(r.dueDate)}</td><td>${e(r.agency)}</td><td>${e(r.certNo)}</td><td>${r.certFile ? `<button class="secondary" onclick="calDownloadCert(${idx})" style="padding:4px 8px;font-size:11px;" title="Download ${e(r.certFile)}">📄 PDF</button>` : "-"}</td><td style="white-space:nowrap;">${calStatusFor(r.dueDate).text}</td>
       <td style="white-space:nowrap;"><button class="secondary" onclick="editCalEntry(${idx})" style="padding:4px 8px;font-size:11px;">Edit</button>
         <button class="secondary" onclick="deleteCalEntry(${idx})" style="padding:4px 8px;font-size:11px;">Remove</button></td>
     </tr>`).join("");
@@ -7757,6 +7783,404 @@ document.getElementById("calPdfBtn").addEventListener("click", () => {
   stampLogoOnAllPages(doc);
   showPdfPreview(doc, "Equipment_Calibration_Log.pdf", "Equipment Calibration Log");
 });
+
+/* ===================== CALIBRATION: instrument IDs from the certificates, OneDrive copy, certificate upload ===================== */
+// Instrument IDs / names / makes / ranges as written on the Aug-2026 calibration certificates (the certificate is the record).
+// Where a certificate leaves make / model blank, the log's value is kept. TI (Thermotech TIC-4000) = the Muffle Furnace
+// controller -> one line (MF). Tube Furnace added. Runs once per log (device copy and OneDrive copy).
+const CAL_MIG_TAG = "2026_11";
+const CAL_MIG = [
+  ["MIPPL-VC/SMS/01", "MIPPL/VC/SMS/01", "Vernier Caliper", "Mitutoyo", "", "(0-300) mm / 0.02 mm"],
+  ["MIPPL-SS/SMS/01", "MIPPL/SS/SMS/01", "Steel Scale", "Ajanta", "", "(0-300) mm / 1 mm"],
+  ["MIPPL-MT/SMS/01", "MIPPL/MT/SMS/01", "Measuring Tape", "Freemans", "", "(0-10000) mm / 1 mm"],
+  ["MIPPL-MC1/SMS/01", "MIPPL/MC/SMS/03", "Measuring Cylinder", "Borosil", "", "500 ml / 10 ml"],
+  ["MIPPL-MC2/SMS/01", "MIPPL/MC/SMS/02", "Measuring Cylinder", "Borosil", "", "100 ml / 1 ml"],
+  ["MIPPL-MC3/SMS/01", "MIPPL/MC/SMS/01", "Measuring Cylinder", "", "", "50 ml / 1 ml"],
+  ["MIPPL-BP1/SMS/01", "MIPPL/BP/SMS/01", "One Mark Pipette", "Borosil", "", "50 ml"],
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map(k => [`MIPPL-VF1/SMS/0${k}`, `MIPPL/VF/SMS/${String(k + 6).padStart(2, "0")}`, "Volumetric Flask", k === 5 ? "" : "Glassco", "", "500 ml"]),
+  ...["Fisherbrand", "Glassco", "Fisherbrand", "Glassco", "Glassco", "Borosilicate"].map((mk, k) => [`MIPPL-VF2/SMS/0${k + 1}`, `MIPPL/VF/SMS-0${k + 1}`, "Volumetric Flask", mk, "", "1000 ml"]),
+  ...[1, 2, 3, 4, 5, 6].map(k => [`MIPPL-BU1/SMS/0${k}`, `MIPPL/BU/SMS/0${k}`, "Burette", "Borosil", "", "50 ml / 0.1 ml"]),
+  ["MIPPL-TM/SMS/01", "MIPPL/TM/SMS/01", "Glass Thermometer", "", "", "(-10 to 50) °C / 1 °C"],
+  ["MIPPL-WB/SMS/03", "MIPPL/DB/SMS/01", "Digital Balance", "Prime", "PS-TT", "30000 g / 2 g"],
+  ["MIPPL-WB/SMS/02", "MIPPL/DWB/SMS/02", "Digital Weighing Balance", "Saffron", "SES 224", "220 g / 0.0001 g"],
+  ["MIPPL-HAO/SMS/01", "MIPPL/HAO/SMS/01", "Digital Temperature Controller with Sensor of Hot Air Oven", "i-Therm", "AI-7781", "Upto 250 °C / 1 °C"],
+  ["MIPPL-HP/SMS/01", "MIPPL/HP/SMS/01", "Thermostatic Controller with Sensor of Hot Plate", "Kishore", "", "Upto 300 °C / 10 °C"],
+  ["MIPPL-MF/SMS/01", "MIPPL/MF/SMS/01", "Digital Temperature Controller with Sensor of Muffle Furnace", "Thermotech", "TIC-4000", "Upto 1000 °C / 1 °C"]
+];
+const calNid = t => String(t || "").replace(/\s+/g, "").toUpperCase();
+function calMigrate(list) {
+  let changed = false;
+  CAL_MIG.forEach(([from, id, name, make, model, range]) => {
+    const r = list.find(x => calNid(x.id) === calNid(from)); if (!r) return;
+    Object.assign(r, { id, name, range }); if (make) r.make = make; if (model) r.model = model; changed = true;
+  });
+  const ti = list.findIndex(x => calNid(x.id) === "MIPPL-TI/SMS/01"), mf = list.find(x => calNid(x.id) === "MIPPL/MF/SMS/01");
+  if (ti >= 0 && mf) { const t = list[ti]; ["lastDate", "dueDate", "agency", "certNo"].forEach(k => { if (!mf[k] && t[k]) mf[k] = t[k]; }); list.splice(ti, 1); changed = true; }
+  if (!list.some(x => calNid(x.id) === "MIPPL/TF/SMS/01")) {
+    const at = list.findIndex(x => calNid(x.id) === "MIPPL/MF/SMS/01");
+    const row = { sl: 38, name: "Tube Furnace", id: "MIPPL/TF/SMS/01", make: "", model: "", range: "1200 °C (Fixed)", lastDate: "", dueDate: "", agency: "", certNo: "" };
+    if (at >= 0) list.splice(at + 1, 0, row); else list.push(row);
+    changed = true;
+  }
+  return changed;
+}
+(function calMigrateLocal() {
+  try {
+    if (localStorage.getItem("calMigrate_" + CAL_MIG_TAG)) return;
+    const list = getCalList();
+    if (list.length && calMigrate(list)) saveCalList(list, true);
+    localStorage.setItem("calMigrate_" + CAL_MIG_TAG, String(Date.now()));
+  } catch (e) {}
+})();
+
+/* ---- OneDrive copy of the log (Apps -> Calibration), so every device and the certificates stay together ---- */
+const CAL_DIR = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/Calibration";
+const CAL_LOG_URL = `${CAL_DIR}/calibration_log.json:/content`;
+let _calPushT = null;
+function calQueuePush() {
+  try { localStorage.setItem("calDirty", "1"); } catch (e) {}
+  clearTimeout(_calPushT);
+  _calPushT = setTimeout(() => { calCloudPush().catch(() => {}); }, 1200);
+}
+async function calCloudPush() {
+  if (!account || isViewer()) return;
+  const token = await getToken(); if (!token) return;
+  const body = JSON.stringify({ v: 1, mig: [CAL_MIG_TAG], savedAt: new Date().toISOString(), list: getCalList() });
+  const r = await fetch(CAL_LOG_URL, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body });
+  if (!r.ok) throw new Error("OneDrive save failed (" + r.status + ")");
+  try { localStorage.removeItem("calDirty"); } catch (e) {}
+}
+async function calCloudSync() {
+  if (!account) return;
+  try {
+    if (!isViewer() && localStorage.getItem("calDirty")) { await calCloudPush(); return; }
+    const token = await getToken(); if (!token) return;
+    const r = await fetch(CAL_LOG_URL, { headers: { Authorization: "Bearer " + token } });
+    if (r.status === 404) { if (!isViewer()) await calCloudPush(); return; }
+    if (!r.ok) return;
+    const j = await r.json();
+    const list = Array.isArray(j) ? j : (j.list || []);
+    const migrated = !Array.isArray(j) && (j.mig || []).includes(CAL_MIG_TAG);
+    if (!migrated) calMigrate(list);
+    localStorage.setItem("iso9001_cal", JSON.stringify(list));
+    if (!migrated && !isViewer()) await calCloudPush();
+    renderCalTable(); checkCalibrationReminders();
+  } catch (e) {}
+}
+
+/* ---- certificate files: Apps -> Calibration -> Certificates ---- */
+const calSafe = t => String(t || "").replace(/[^A-Za-z0-9-]+/g, "_").replace(/^_+|_+$/g, "");
+async function calPutFile(name, bytes) {
+  const token = await getToken(); if (!token) throw new Error("not signed in");
+  const path = `${CAL_DIR}/Certificates/${name.split("/").map(encodeURIComponent).join("/")}`;
+  if (bytes.byteLength <= 3.5 * 1024 * 1024) {
+    const r = await fetch(`${path}:/content`, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/pdf" }, body: bytes });
+    if (!r.ok) throw new Error("OneDrive upload failed (" + r.status + ")");
+    return;
+  }
+  const s = await fetch(`${path}:/createUploadSession`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ item: { "@microsoft.graph.conflictBehavior": "replace" } }) });
+  if (!s.ok) throw new Error("OneDrive upload failed (" + s.status + ")");
+  const { uploadUrl } = await s.json(), CH = 10 * 327680, u8 = new Uint8Array(bytes);
+  for (let o = 0; o < u8.length; o += CH) {
+    const part = u8.subarray(o, Math.min(o + CH, u8.length));
+    const r = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Range": `bytes ${o}-${o + part.length - 1}/${u8.length}` }, body: part });
+    if (!r.ok && r.status !== 202) throw new Error("OneDrive upload failed (" + r.status + ")");
+  }
+}
+async function calDownloadCert(idx) {
+  const r0 = getCalList()[idx], st = document.getElementById("status");
+  if (!r0 || !r0.certFile) return;
+  try {
+    st.className = "wait"; st.textContent = `Getting the certificate of ${r0.name}...`;
+    const token = await getToken(); if (!token) return;
+    const r = await fetch(`${CAL_DIR}/Certificates/${encodeURIComponent(r0.certFile)}:/content`, { headers: { Authorization: "Bearer " + token } });
+    if (!r.ok) throw new Error(r.status === 404 ? "the certificate file is not in OneDrive (Apps → Calibration → Certificates)" : "OneDrive read failed (" + r.status + ")");
+    const blob = new Blob([await r.arrayBuffer()], { type: "application/pdf" });
+    const u = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = u; a.download = r0.certFile; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 15000);
+    st.className = "ok"; st.textContent = `Downloaded ${r0.certFile}`;
+  } catch (e) { st.className = "err"; st.textContent = "Certificate: " + e.message; }
+}
+
+/* ---- certificates as clear as the original print: text darkened, paper pure white, scan dots removed ---- */
+// Levels (60 -> black, 215 -> white, gamma 1.35) on every colour channel, so stamps and logos keep their colour;
+// then a dark dot with fewer than 8 dark pixels around it (7 x 7) is a scan speck and is made white.
+function calEnhanceCanvas(cv) {
+  const w = cv.width, h = cv.height, ctx = cv.getContext("2d"), id = ctx.getImageData(0, 0, w, h), d = id.data;
+  const B = 60, W = 215, G = 1.35, lut = new Uint8ClampedArray(256);
+  for (let v = 0; v < 256; v++) { const t = Math.min(1, Math.max(0, (v - B) / (W - B))); lut[v] = Math.round(Math.pow(t, G) * 255); }
+  const dark = new Uint8Array(w * h);
+  for (let i = 0, q = 0; i < w * h; i++, q += 4) { const r = lut[d[q]], g = lut[d[q + 1]], b = lut[d[q + 2]]; d[q] = r; d[q + 1] = g; d[q + 2] = b; dark[i] = (0.299 * r + 0.587 * g + 0.114 * b) < 200 ? 1 : 0; }
+  const W1 = w + 1, I = new Int32Array(W1 * (h + 1));
+  for (let y = 0; y < h; y++) { let row = 0; for (let x = 0; x < w; x++) { row += dark[y * w + x]; I[(y + 1) * W1 + x + 1] = I[y * W1 + x + 1] + row; } }
+  const R = 3, MIN = 8;
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.max(0, y - R), y1 = Math.min(h, y + R + 1);
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x; if (!dark[i]) continue;
+      const x0 = Math.max(0, x - R), x1 = Math.min(w, x + R + 1);
+      if (I[y1 * W1 + x1] - I[y0 * W1 + x1] - I[y1 * W1 + x0] + I[y0 * W1 + x0] < MIN) { const q = 4 * i; d[q] = d[q + 1] = d[q + 2] = 255; }
+    }
+  }
+  ctx.putImageData(id, 0, 0);
+}
+// pages of a pdf.js document -> one clear PDF (same page size), as bytes
+async function calMakeCleanPdf(pdf, pageNums) {
+  const { jsPDF } = window.jspdf;
+  let doc = null;
+  for (const n of pageNums) {
+    const pg = await pdf.getPage(n), base = pg.getViewport({ scale: 1 }), vp = pg.getViewport({ scale: 2400 / Math.min(base.width, base.height) });   // about 280 dpi on A4
+    const cv = document.createElement("canvas"); cv.width = Math.floor(vp.width); cv.height = Math.floor(vp.height);
+    const cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
+    await pg.render({ canvasContext: cx, viewport: vp }).promise;
+    calEnhanceCanvas(cv);
+    const jpg = new Uint8Array(await (await new Promise(res => cv.toBlob(res, "image/jpeg", 0.82))).arrayBuffer());
+    const ori = base.width > base.height ? "l" : "p";
+    if (!doc) doc = new jsPDF({ unit: "pt", format: [base.width, base.height], orientation: ori, compress: true });
+    else doc.addPage([base.width, base.height], ori);
+    doc.addImage(jpg, "JPEG", 0, 0, base.width, base.height, undefined, "FAST");
+    cv.width = cv.height = 0;
+  }
+  return doc.output("arraybuffer");
+}
+// certificates saved before (scans as they came) -> clear copies; the scan is kept in Certificates/Scans
+async function calEnhanceSaved() {
+  const st = document.getElementById("status"), say = (t, c) => { st.className = c || "wait"; st.textContent = t; };
+  if (isViewer()) { say("👁️ View-only account - certificates can't be changed.", "err"); return; }
+  const list = getCalList(), todo = list.filter(r => r.certFile && !r.certEnh);
+  if (!todo.length) { say("✅ All saved certificates are already clear.", "ok"); return; }
+  if (!confirm(`Make ${todo.length} saved certificate(s) clear (dark text, white paper)? The scanned copies are kept in OneDrive → Apps → Calibration → Certificates → Scans.`)) return;
+  try {
+    const pdfjsLib = await loadPdfJs();
+    let n = 0;
+    for (const r of todo) {
+      n++; say(`Making certificate ${n} of ${todo.length} clear (${r.id})...`);
+      const token = await getToken(); if (!token) return;
+      const g = await fetch(`${CAL_DIR}/Certificates/${encodeURIComponent(r.certFile)}:/content`, { headers: { Authorization: "Bearer " + token } });
+      if (!g.ok) continue;
+      const bytes = await g.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(bytes.slice(0)) }).promise;
+      const pages = []; for (let p = 1; p <= pdf.numPages; p++) pages.push(p);
+      const clean = await calMakeCleanPdf(pdf, pages);
+      await calPutFile("Scans/" + r.certFile, bytes);
+      await calPutFile(r.certFile, clean);
+      r.certEnh = 1;
+      saveCalList(list, true);
+    }
+    await calCloudPush(); renderCalTable();
+    say(`✅ ${n} certificate(s) are now clear - 📄 in the log downloads the clear copy.`, "ok");
+  } catch (e) { say("Certificate clean-up: " + e.message, "err"); }
+}
+/* ---- upload: one PDF (several certificates merged) -> pages read (OCR) -> check -> saved ---- */
+// The certificates are scans, so the text is read with OCR (Tesseract, in the browser). Every value is shown for checking
+// before anything is saved; a value that could not be read stays empty.
+const CAL_PDFLIB = "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js";
+function calLoadPdfLib() {
+  if (window.PDFLib) return Promise.resolve();
+  return new Promise((res, rej) => { const s = document.createElement("script"); s.src = CAL_PDFLIB; s.integrity = "sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI"; s.crossOrigin = "anonymous"; s.onload = res; s.onerror = () => rej(new Error("PDF library could not load (internet needed)")); document.head.appendChild(s); });
+}
+// Reads the certificate fields out of the OCR text (left half, right half, whole width). Empty string = not found.
+function calParse(texts) {
+  const all = texts.filter(Boolean).join("\n").replace(/[|\[\]{}]/g, " ").replace(/[ \t]+/g, " ");
+  const MON = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const DATE = "(?:[lIH|]\\s*|1\\s+)?(\\d{1,2})\\s*[.\\-\\/,:]\\s*(\\d{1,2}|[A-Za-z]{3})\\s*[.\\-\\/,:]\\s*(\\d{4})(?!\\d)";
+  const iso = m => { if (!m) return ""; const d = +m[1]; let mo = /^\d+$/.test(m[2]) ? +m[2] : MON.indexOf(m[2].toLowerCase()) + 1; let y = +m[3]; if (y < 100) y += 2000;
+    if (!(d >= 1 && d <= 31 && mo >= 1 && mo <= 12 && y >= 2000 && y <= 2100)) return ""; return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`; };
+  const date = re => iso(new RegExp(re + "[^\\d\\n]{0,8}?(?:\\n[^\\d\\n]{0,40}){0,2}?" + DATE, "i").exec(all));
+  const line = re => { const m = new RegExp("(?:^|\\n)[^\\S\\n]*" + re + "[^\\S\\n]*[:;.,+©t]*[^\\S\\n]*:?[^\\S\\n]*([^\\n]*)", "i").exec(all); return m ? m[1].trim() : ""; };
+  const cut = (v, re) => { const m = re.exec(v); return (m ? v.slice(0, m.index) : v).replace(/^[\s:;.,+©~\-–—_]+|[\s:;.,|\-–—_]+$/g, "").trim(); };
+  const STOP = /\s+(?:[1lI]D\s*No|Envi\w*|Environmental|During|Calibration|Condition|Range|Resolution|Recommended|Receipt|Issue|ULR|Water|\(Comparison|\(Gravimetric|Sr\.?\s*No|Class|Discipline|Frequency)\b/i;
+  const junk = v => !v || !/[A-Za-z]{3,}/.test(v) || /^[-–—_.:;|\s'"`~]*$/.test(v) || (/^[A-Za-z]{1,4}$/.test(v)) || /^(?:dees|tees|tenn|women|wo+men|hes?|hr)$/i.test(v);
+  const r = {};
+  let m = /Certificate\s*No\.?[\s:;.,+©\-]*((?:MTC|NCL)[-\/][^\s]*)/i.exec(all) || /Certificate\s*No\.?\s*[:;.,+©]?\s*([A-Z0-9][A-Z0-9\/\-.]{5,})/i.exec(all);
+  r.certNo = m ? m[1].replace(/[.,;:]+$/, "").toUpperCase().replace(/O(?=\d)/g, "0") : "";
+  m = /\b(M[I1l]PPL\s*[\/\-]\s*[A-Z0-9]{1,4}\s*[\/\-]\s*SMS\s*[\/\-]\s*\d{1,2})/i.exec(all);
+  r.id = m ? m[1].toUpperCase().replace(/\s+/g, "").replace(/^M[1L]PPL/, "MIPPL") : "";
+  r.calDate = date("(?:Calibration\\s*Date|Date\\s*of\\s*Calibration)");
+  r.dueDate = date("(?:Recommended\\s*Date(?:[^\\S\\n]*for\\s*Next\\s*Calibration)?|Calibration\\s*Due\\s*On|Due\\s*On)") || date("Next\\s*Calibration");
+  r.issueDate = date("Issue\\s*Date");
+  let name = line("Item\\s*Description") || line("Name");
+  name = cut(name, /\s+(?:Envi|Issue|Receipt|Calib|ULR)/i).replace(/(\S{3,})\s+[A-Za-z]{1,2}\.?$/, "$1");
+  const nm = /Item\s*Description[^\n]*\n[^\S\n]*([A-Z][A-Z ]{3,})(?:\n|$)/.exec(all);   // second line in capitals (e.g. "WITH SENSOR OF HOT AIR OVEN")
+  if (nm && /^[A-Z ]+$/.test(name) && !/^(ID|MAKE|MODEL)\b/.test(nm[1].trim())) name += " " + nm[1].trim();
+  r.name = name.replace(/\s+/g, " ").trim();
+  let v = cut(line("Make"), STOP).replace(/(\S{3,})\s+[A-Za-z]{1,4}\.?$/, "$1"); r.make = junk(v) ? "" : v;
+  v = cut(line("Model"), STOP); r.model = /\d/.test(v) && !junk(v) ? v.replace(/^Al-/, "AI-") : "";
+  v = cut(line("Range") || line("Max\\S*\\s*Capacity\\s*:?"), STOP); v = v.replace(/^[1lI|!]\s+(?=[\d(])/, ""); r.range = /\d/.test(v) ? v : "";
+  v = cut(line("Least\\s*Count") || line("Resolution"), STOP); r.lc = /\d/.test(v) && /[a-z°%]/i.test(v) ? v : "";
+  r.agency = /M[I1]?AINTECH|^MTC-/i.test(all + "\n" + r.certNo) || /^MTC-/.test(r.certNo) ? "Maintech Calibrators Pvt. Ltd." : (/NEWTECH|NUTECH/i.test(all) || /^NCL\//.test(r.certNo) ? "Newtech Calibration Laboratory" : "");
+  if (r.calDate && r.issueDate && r.calDate > r.issueDate) r.calDate = "";
+  if (r.calDate && r.dueDate && (r.dueDate <= r.calDate || +r.dueDate.slice(0, 4) - +r.calDate.slice(0, 4) > 3)) r.dueDate = "";
+  return r;
+}
+// header of a page -> canvases for OCR: whole width, and left / right of the table's middle line (grey and black & white)
+function calHeaderCanvases(page) {
+  const W = page.width, H = page.height, y0 = Math.round(H * 0.06), h = Math.round(H * 0.36);
+  const g = page.getContext("2d").getImageData(0, y0, W, h).data, lum = new Uint8ClampedArray(W * h);
+  for (let i = 0; i < W * h; i++) lum[i] = 0.299 * g[4 * i] + 0.587 * g[4 * i + 1] + 0.114 * g[4 * i + 2];
+  let best = -1, bx = Math.round(W * 0.52);
+  for (let x = Math.round(W * 0.45); x < Math.round(W * 0.58); x++) { let d = 0; for (let y = 0; y < h; y += 2) if (lum[y * W + x] < 110) d++; if (d > best) { best = d; bx = x; } }
+  const make = (x0, x1, bw) => {
+    const w = x1 - x0, c = document.createElement("canvas"); c.width = w; c.height = h;
+    const cx = c.getContext("2d"), id = cx.createImageData(w, h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let v = lum[y * W + x0 + x]; if (bw) v = v > 160 ? 255 : 0; const k = 4 * (y * w + x); id.data[k] = id.data[k + 1] = id.data[k + 2] = v; id.data[k + 3] = 255; }
+    cx.putImageData(id, 0, 0); return c;
+  };
+  return { GL: make(0, bx - 3, false), GR: make(bx + 3, W, false), L: make(0, bx - 3, true), R: make(bx + 3, W, true), F: make(0, W, false) };
+}
+function calLev(a, b) {
+  const m = a.length, n = b.length, d = Array.from({ length: m + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[m][n];
+}
+// which log line a certificate belongs to: same ID (one wrong letter allowed, e.g. VE / VF)
+function calMatchRow(list, id) {
+  const k = String(id || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); if (!k) return -1;
+  let best = -1, bd = 2;
+  list.forEach((r, i) => { const d = calLev(k, String(r.id || "").toUpperCase().replace(/[^A-Z0-9]/g, "")); if (d < bd) { bd = d; best = i; } });
+  return best;
+}
+const CAL_UP = { bytes: null, name: "", certs: [], pdf: null };
+async function calUploadPdf(file) {
+  const st = document.getElementById("status"), box = document.getElementById("calUpBox");
+  const say = (t, cls) => { st.className = cls || "wait"; st.textContent = t; const p = document.getElementById("calUpMsg"); if (p) p.textContent = t; };
+  try {
+    if (!/\.pdf$/i.test(file.name)) throw new Error("please choose a PDF file");
+    box.classList.remove("hidden");
+    box.innerHTML = `<div id="calUpMsg" class="calUpMsg">Opening ${htmlEsc(file.name)}...</div>`;
+    CAL_UP.bytes = await file.arrayBuffer(); CAL_UP.name = file.name; CAL_UP.certs = [];
+    say("Loading the PDF and OCR tools (first time takes a little longer)...");
+    const [pdfjsLib] = await Promise.all([loadPdfJs(), rmLoadOcr(), calLoadPdfLib()]);
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(CAL_UP.bytes.slice(0)) }).promise;
+    CAL_UP.pdf = pdf;
+    const worker = await Tesseract.createWorker("eng");
+    const pages = [];
+    try {
+      for (let p = 1; p <= pdf.numPages; p++) {
+        say(`Reading page ${p} of ${pdf.numPages}...`);
+        const pg = await pdf.getPage(p), base = pg.getViewport({ scale: 1 }), vp = pg.getViewport({ scale: 1700 / base.width });
+        const cv = document.createElement("canvas"); cv.width = Math.floor(vp.width); cv.height = Math.floor(vp.height);
+        await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise;
+        const C = calHeaderCanvases(cv), T = {};
+        await worker.setParameters({ tessedit_pageseg_mode: "6" });
+        for (const k of ["GL", "GR"]) T[k] = (await worker.recognize(C[k])).data.text;
+        await worker.setParameters({ tessedit_pageseg_mode: "3" });
+        T.F = (await worker.recognize(C.F)).data.text;
+        let r = calParseBest(T);
+        if (!r.certNo || !r.id || !r.calDate || !r.dueDate || !r.issueDate) {   // something missing: read it once more in black & white
+          await worker.setParameters({ tessedit_pageseg_mode: "6" });
+          for (const k of ["L", "R"]) T[k] = (await worker.recognize(C[k])).data.text;
+          r = calParseBest(T);
+        }
+        const th = document.createElement("canvas"); th.width = 260; th.height = Math.round(260 * cv.height / cv.width);
+        th.getContext("2d").drawImage(cv, 0, 0, th.width, th.height);
+        pages.push({ p, r, thumb: th.toDataURL("image/jpeg", 0.7) });
+      }
+    } finally { try { await worker.terminate(); } catch (e) {} }
+    // pages -> certificates: a page with no certificate no. and no ID belongs to the certificate before it
+    pages.forEach(pg => {
+      const last = CAL_UP.certs[CAL_UP.certs.length - 1];
+      if (last && (!pg.r.certNo && !pg.r.id || (pg.r.certNo && pg.r.certNo === last.r.certNo))) last.pages.push(pg.p);
+      else CAL_UP.certs.push({ pages: [pg.p], r: pg.r, thumb: pg.thumb });
+    });
+    calUpRender();
+    say(`${CAL_UP.certs.length} certificate(s) read from ${pdf.numPages} page(s). Please check every value below, then press ✅ Save.`, "ok");
+  } catch (e) { say("Certificate upload: " + e.message, "err"); }
+}
+function calParseBest(T) {   // grey halves + whole width first; the black & white halves (if read) only fill what is still missing
+  const a = calParse([T.GL, T.GR, T.F]), f = calParse([T.F]);
+  if (T.L !== undefined) { const b = calParse([T.L, T.R, T.GL, T.GR, T.F]); Object.keys(b).forEach(k => { if (!a[k]) a[k] = b[k]; }); }
+  return Object.assign({}, a, { id: f.id || a.id });
+}
+function calUpRender() {
+  const box = document.getElementById("calUpBox"), list = getCalList(), e = htmlEsc;
+  const opts = sel => `<option value="new"${sel === -1 ? " selected" : ""}>➕ New line in the log</option><option value="skip">— Don't save —</option>` +
+    list.map((r, i) => `<option value="${i}"${sel === i ? " selected" : ""}>${e(r.id)} · ${e(r.name)}</option>`).join("");
+  const F = [["certNo", "Certificate No."], ["id", "Equipment ID"], ["name", "Equipment"], ["make", "Make"], ["model", "Model"], ["range", "Range / Accuracy"],
+    ["calDate", "Calibration date", "date"], ["dueDate", "Next due date", "date"], ["issueDate", "Issue date", "date"], ["agency", "Calibrated by / Agency"]];
+  box.innerHTML = `<div id="calUpMsg" class="calUpMsg"></div><h3 style="margin:8px 0;font-size:15px;">📄 ${e(CAL_UP.name)} - ${CAL_UP.certs.length} certificate(s)</h3>` +
+    CAL_UP.certs.map((c, i) => {
+      const r = c.r, row = calMatchRow(list, r.id);
+      if (c.row === undefined) {
+        c.row = row; c.v = Object.assign({}, r, { range: [r.range, r.lc].filter(Boolean).join(" / ") });
+        if (row >= 0) ["id", "name", "make", "model", "range"].forEach(k => { if (list[row][k]) c.v[k] = list[row][k]; });   // the log line already has the instrument's details
+      }
+      const miss = F.filter(([k]) => ["certNo", "id", "calDate", "dueDate"].includes(k) && !c.v[k]).map(f => f[1]);
+      const yr = c.v.calDate && c.v.dueDate && (+c.v.calDate.slice(0, 4) + 1) + c.v.calDate.slice(4) !== c.v.dueDate;
+      return `<div class="calCert" data-i="${i}"><div class="calCertTop"><img src="${c.thumb}" alt="page ${c.pages[0]}" data-zoom="${i}" title="Tap to see the page bigger">` +
+        `<div><b>Page ${c.pages.join(", ")}</b><br>${miss.length ? `<span class="calWarn">⚠️ Not read: ${e(miss.join(", "))}</span>` : `<span class="calOk">✅ Main details read - please check</span>`}` + (yr ? `<br><span class="calWarn">⚠️ Due date is not 12 months after the calibration date - check it on the page</span>` : "") +
+        `<label>Log line<select data-k="row">${opts(c.row)}</select></label></div></div>` +
+        `<div class="calCertGrid">` + F.map(([k, l, t]) => `<label>${l}<input type="${t || "text"}" data-k="${k}" value="${e(c.v[k] || "")}"></label>`).join("") + `</div></div>`;
+    }).join("") +
+    `<div class="btnRow"><button class="primary" id="calUpSave" type="button">✅ Save ${CAL_UP.certs.length} certificate(s)</button><button class="secondary" id="calUpCancel" type="button">✖ Cancel</button></div>`;
+}
+async function calUpSave() {
+  const st = document.getElementById("status");
+  const say = (t, cls) => { st.className = cls || "wait"; st.textContent = t; const p = document.getElementById("calUpMsg"); if (p) p.textContent = t; };
+  const todo = CAL_UP.certs.filter(c => c.row !== "skip");
+  const bad = todo.filter(c => !c.v.certNo || !c.v.calDate || !c.v.dueDate);
+  if (bad.length && !confirm(`${bad.length} certificate(s) have no certificate no. / calibration date / due date. Save them anyway?`)) return;
+  const dup = {}; todo.forEach(c => { if (c.row !== "new" && c.row >= 0) dup[c.row] = (dup[c.row] || 0) + 1; });
+  const twice = Object.keys(dup).filter(k => dup[k] > 1);
+  if (twice.length) { say(`Two certificates are set to the same log line (${twice.map(k => getCalList()[k].id).join(", ")}) - please choose the right line.`, "err"); return; }
+  try {
+    const src = await PDFLib.PDFDocument.load(CAL_UP.bytes.slice(0), { ignoreEncryption: true });
+    const list = getCalList();
+    let n = 0;
+    for (const c of todo) {
+      n++; say(`Saving certificate ${n} of ${todo.length} to OneDrive...`);
+      const d = await PDFLib.PDFDocument.create();
+      (await d.copyPages(src, c.pages.map(p => p - 1))).forEach(pg => d.addPage(pg));
+      const bytes = await d.save();
+      const v = c.v, fileName = `${calSafe(v.id || v.name) || "certificate"}_${calSafe(v.certNo) || c.pages[0]}.pdf`;
+      await calPutFile("Scans/" + fileName, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));   // the scan as it came
+      say(`Saving certificate ${n} of ${todo.length}: making it clear...`);
+      await calPutFile(fileName, await calMakeCleanPdf(CAL_UP.pdf, c.pages));                                               // the clear copy (📄 downloads this)
+      let row;
+      if (c.row === "new" || c.row < 0) { row = { sl: (Math.max(0, ...list.map(x => +x.sl || 0)) + 1), lastDate: "", dueDate: "", agency: "", certNo: "" }; list.push(row); }
+      else row = list[c.row];
+      if (row.certFile && row.certNo && row.certNo !== v.certNo) (row.history = row.history || []).push({ certNo: row.certNo, lastDate: row.lastDate, dueDate: row.dueDate, agency: row.agency, certFile: row.certFile });
+      // the certificate's details go into the log; an empty value keeps what the log had
+      ["id", "name", "make", "model", "range"].forEach(k => { if (v[k]) row[k] = v[k]; });
+      Object.assign(row, { lastDate: v.calDate || row.lastDate, dueDate: v.dueDate || row.dueDate, agency: v.agency || row.agency, certNo: v.certNo || row.certNo, issueDate: v.issueDate || row.issueDate || "", certFile: fileName, certEnh: 1 });
+    }
+    saveCalList(list);
+    await calCloudPush();
+    renderCalTable(); checkCalibrationReminders();
+    document.getElementById("calUpBox").classList.add("hidden"); document.getElementById("calUpBox").innerHTML = "";
+    CAL_UP.certs = []; CAL_UP.bytes = null;
+    say(`✅ ${todo.length} certificate(s) saved: details in the Calibration Log, PDFs in OneDrive → Apps → Calibration → Certificates (📄 in the log to download).`, "ok");
+  } catch (e) { say("Save error: " + e.message, "err"); }
+}
+document.getElementById("calEnhanceBtn").addEventListener("click", calEnhanceSaved);
+document.getElementById("calUploadBtn").addEventListener("click", () => { const f = document.getElementById("calUploadFile"); f.value = ""; f.click(); });
+document.getElementById("calUploadFile").addEventListener("change", ev => { const f = ev.target.files && ev.target.files[0]; if (f) calUpUploadGuard(f); });
+function calUpUploadGuard(f) { if (isViewer()) { const st = document.getElementById("status"); st.className = "err"; st.textContent = "👁️ View-only account - certificates can't be added."; return; } calUploadPdf(f); }
+document.getElementById("calUpBox").addEventListener("input", ev => {
+  const t = ev.target, card = t.closest(".calCert"); if (!card) return;
+  const c = CAL_UP.certs[+card.dataset.i], k = t.dataset.k;
+  if (k === "row") {
+    c.row = t.value === "new" || t.value === "skip" ? t.value : +t.value;
+    const r = typeof c.row === "number" ? getCalList()[c.row] : null;
+    if (r) ["id", "name", "make", "model", "range"].forEach(f => { const inp = card.querySelector(`[data-k="${f}"]`); if (r[f] && inp) { inp.value = r[f]; c.v[f] = r[f]; } });   // that line's instrument details
+  }
+  else if (k) c.v[k] = t.value.trim();
+});
+document.getElementById("calUpBox").addEventListener("click", async ev => {
+  if (ev.target.id === "calUpSave") return calUpSave();
+  if (ev.target.id === "calUpCancel") { const b = document.getElementById("calUpBox"); b.classList.add("hidden"); b.innerHTML = ""; CAL_UP.certs = []; return; }
+  const z = ev.target.closest("[data-zoom]"); if (!z) return;
+  // the page, bigger
+  const c = CAL_UP.certs[+z.dataset.zoom]; if (!c || !CAL_UP.pdf) return;
+  const pg = await CAL_UP.pdf.getPage(c.pages[0]), base = pg.getViewport({ scale: 1 }), w = Math.min(window.innerWidth - 24, 900);
+  const vp = pg.getViewport({ scale: (w / base.width) * Math.min(window.devicePixelRatio || 1, 2) });
+  const cv = document.createElement("canvas"); cv.width = vp.width; cv.height = vp.height; cv.style.width = w + "px";
+  await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise;
+  const ov = document.createElement("div"); ov.className = "calZoom"; ov.title = "Tap to close"; ov.appendChild(cv);
+  ov.addEventListener("click", () => ov.remove()); document.body.appendChild(ov);
+});
+
 
 /* ===================== ISO 9001 - VENDOR PERFORMANCE EVALUATION ===================== */
 function getVenList() {
@@ -9608,7 +10032,7 @@ document.querySelectorAll("#iso9001SubNav .navItem").forEach(btn => {
     window.scrollTo({ top: 0, behavior: "instant" });
     // Refresh whichever list is being shown, in case it was updated elsewhere.
     if (btn.dataset.subiso === "ncr") renderNcrTable();
-    if (btn.dataset.subiso === "calibration") renderCalTable();
+    if (btn.dataset.subiso === "calibration") { renderCalTable(); calCloudSync(); }
     if (btn.dataset.subiso === "vendor") renderVenTable();
   });
 });
@@ -10109,7 +10533,7 @@ function showSignedIn() {
   checkTodayOutOfSpec(); // background, non-blocking - lights up the red dot if needed
   loadHomeMonthProd();   // only when the "Cards" icon style is on
   setTimeout(maybeShowChangelog, 800); // slight delay so it doesn't collide with the sign-in transition
-  setTimeout(() => { if (window.isoPackAutoCheck) window.isoPackAutoCheck(); }, 6000);   // last month's ISO pack
+  // ISO 9001 pack: no automatic reminder (popup / notification) - turned off on request; prepare it from ISO 9001 → Monthly ISO Pack
 }
 
 /* ===================== QUICK INSIGHTS (home screen banner) ===================== */
