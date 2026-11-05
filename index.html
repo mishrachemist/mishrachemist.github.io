@@ -6928,9 +6928,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.05.9";
+const APP_VERSION = "2026.11.05.10";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🛠️ ERP Upload (Durgesh): an ERP report in list form (one line per Tnature) is turned into the usual table, so FC Report and the stock formulas work; a wrong earlier ERP adjustment in Daily Stock Q is replaced (not added to); a 4-CLOSING column without numbers no longer zeroes the ERP stock",
   "⚠️ AOP vs Indent: an indent / issue line whose item code belongs to one AOP item but whose name is quite different (a wrong code in the ERP) is now pointed out on that item, in Needs a look, the Excel and the PDF",
   "🛠️ Calibration upload reads other certificate layouts too (e.g. Shimadzu spectrometer: Ref. no., Date, Validity Period) and finds the log line by model / instrument name when the certificate has no MIPPL ID",
   "↩ Sub-tiles back to their earlier shape (4 in a row)",
@@ -29680,6 +29681,51 @@ async function downloadAndroidApk() {
     return found;
   }
 
+  // ---- ERP report in list form (one line per item and Tnature: Division | Item Code | Item Name | Division | Tnature Group | Tnature | Qty)
+  //      -> the usual table (one line per item: Opening, Receipts, Issues, Closing), the same columns as before, so FC Report,
+  //      Billet Stock and the Daily Stock ERP weight read it as always. Tnatures not in the usual list go after TOTAL.
+  const DUR_COLS = [["1-OPENING", ""], ["2-RECIEPT", "GOODS RECEPIET NOTE"], ["2-RECIEPT", "INTER DIV STOCK TRANSFER"], ["2-RECIEPT", "INTER STOCK TRANSFER"],
+    ["2-RECIEPT", "MATERIAL TO MATERIAL TRANSFER"], ["2-RECIEPT", "PRODUCTION"], ["3-ISSUE", "INTER STOCK TRANSFER"], ["3-ISSUE", "ISSUE"],
+    ["3-ISSUE", "MATERIAL TO MATERIAL TRANSFER"], ["3-ISSUE", "PRODUCTION"], ["3-ISSUE", "SALE"], ["4-CLOSING", ""]];
+  function longToWide(rows) {
+    const T = v => String(v == null ? "" : v).trim();
+    const U = v => T(v).toUpperCase().replace(/\s+/g, " ");
+    let hr = -1;
+    for (let r = 0; r < Math.min(rows.length, 15) && hr < 0; r++) if (rows[r].some(v => /^TNATURE\s*GROUP$/i.test(T(v))) && rows[r].some(v => /^QTY$/i.test(T(v)))) hr = r;
+    if (hr < 0) return null;
+    const H = rows[hr].map(U), ix = re => H.findIndex(h => re.test(h));
+    const cG = ix(/^TNATURE GROUP$/), cT = ix(/^TNATURE$/), cQ = ix(/^QTY$/), cCode = ix(/^ITEM CODE$/), cName = ix(/^ITEM NAME$/), cDiv = ix(/^DIVISION CODE$/);
+    if (cG < 0 || cQ < 0 || cName < 0) return null;
+    const tn = v => { const t = U(v); return t === "0" ? "" : t; };
+    const cols = DUR_COLS.map(c => c.slice()), extra = [], items = new Map();
+    for (let r = hr + 1; r < rows.length; r++) {
+      const row = rows[r], g = U(row[cG]); if (!g) continue;
+      const t = cT >= 0 ? tn(row[cT]) : "", q = num(row[cQ]);
+      const key = (cCode >= 0 ? T(row[cCode]) : "") + "|" + T(row[cName]);
+      if (!items.has(key)) items.set(key, { div: cDiv >= 0 ? T(row[cDiv]) : "", code: cCode >= 0 ? T(row[cCode]) : "", name: T(row[cName]), v: new Map() });
+      let k = cols.findIndex(c => c[0] === g && c[1] === t);
+      if (k < 0) { let e = extra.findIndex(c => c[0] === g && c[1] === t); if (e < 0) { extra.push([g, t]); e = extra.length - 1; } k = 100 + e; }
+      const it = items.get(key); it.v.set(k, (it.v.get(k) || 0) + (q || 0));
+    }
+    if (!items.size) return null;
+    const title = rows.slice(0, hr).map(r => r.map(T).filter(Boolean).join(" ")).filter(Boolean);
+    const n = cols.length, w = 4 + n + 1 + extra.length;
+    const line = a => { const o = a.slice(); while (o.length < w) o.push(""); return o; };
+    const out = [line([title[0] || "Durgesh stock report"]), line([title[1] || ""]),
+      line(["", "", "", "Tnature Group", ...cols.map(c => c[0]), " ", ...extra.map(c => c[0])]),
+      line(["", "", "", "Tnature", ...cols.map(c => c[1]), "", ...extra.map(c => c[1])]),
+      line(["Division  Code", "Item Code", "Item Name", "Division  Code", ...cols.map(() => "   Qty"), "TOTAL", ...extra.map(() => "   Qty")])];
+    const sums = new Array(n + extra.length).fill(0), r3x = x => Math.round(x * 1000) / 1000;
+    items.forEach(it => {
+      const vals = cols.map((c, k) => r3x(it.v.get(k) || 0)), ex = extra.map((c, e) => r3x(it.v.get(100 + e) || 0));
+      vals.forEach((v, k) => { sums[k] += v; }); ex.forEach((v, e) => { sums[n + e] += v; });
+      out.push(line([it.div, it.code, it.name, it.div, ...vals, r3x([...vals, ...ex].reduce((a, b) => a + b, 0)), ...ex]));
+    });
+    out.push(line([]));
+    out.push(line(["", "", "", "Total", ...sums.slice(0, n).map(r3x), "", ...sums.slice(n).map(r3x)]));
+    return { rows: out, cols: w, items: items.size };
+  }
+
   // ---- Durgesh: "4-CLOSING" column and the item list ----
   function durgeshItems(rows) {
     let hr = -1, cc = -1;
@@ -29708,6 +29754,7 @@ async function downloadAndroidApk() {
       const nm = all.filter(v => v !== codeLike).sort((x, y) => y.length - x.length)[0] || "";
       items.push({ key, label: codeLike && nm ? `${nm} (${codeLike})` : (nm || codeLike || key), value: val, row: r + 1 });
     }
+    if (items.length && !items.some(it => it.value != null)) return { error: 'the "4-CLOSING" column of the ERP file has no numbers - its layout is not the usual one, so the ERP weight (Q) is not changed' };
     return { headerRow: hr + 1, col: cc, colName: String(rows[hr][cc]), items, billetTotal: r3(billetTotal), billetCount, billetSkipped, billetSkippedWt: r3(billetSkippedWt) };
   }
   // best guess of the ERP item(s) for a Daily Stock size like "130 X 6", "RAN 160", "110X 5.25"
@@ -29777,6 +29824,7 @@ async function downloadAndroidApk() {
   function previewHtml() {
     const j = job, show = j.erp.rows.slice(0, 8), more = j.erp.rows.length - show.length;
     let h = `<div class="erpBox"><h4>📄 ${esc(j.fileName)}${j.erp.wsName ? " · " + esc(j.erp.wsName) : ""}</h4>
+      ${j.erp.converted ? `<div>🔄 The ERP file is in list form (one line per item and Tnature) - turned into the usual table (${j.erp.converted} items: Opening, Receipts, Issues, Closing), so FC Report, Billet Stock and the ERP weight read it as always.</div>` : ""}
       <div>${j.erp.rows.length} rows × ${j.erp.cols} columns → <b>${esc(j.fileLabel)}</b> → sheet <b>${esc(target)}</b> (whole sheet cleared, then written from A1).</div>
       <div class="erpScroll" style="margin-top:8px;"><table class="erpT"><tr><th></th>${Array.from({ length: Math.min(j.erp.cols, 26) }, (_, c) => `<th>${colL(c)}</th>`).join("")}</tr>
       ${show.map((r, i) => `<tr><th>${i + 1}</th>${r.slice(0, 26).map(v => `<td>${esc(v)}</td>`).join("")}</tr>`).join("")}</table></div>
@@ -29827,6 +29875,12 @@ async function downloadAndroidApk() {
     const cur = typeof r.q === "number" ? r.q : (String(r.q == null ? "" : r.q).trim() === "" ? null : NaN);
     if (cur !== null && isNaN(cur)) { r.qErr = "Q is not a number - left as it is"; return null; }
     if (cur === null && f === "") return r.newQ === 0 ? null : r.newQ;   // empty cell -> just the ERP value (stays empty when ERP is 0)
+    const sm = /^(=.*\))\s*([+-])\s*(\d+(?:\.\d+)?)\s*$/.exec(f);
+    if (sm && cur !== null) {                                          // =(Q68+K86+M86)-(G86+I86)-339.791 : the earlier adjustment is replaced
+      const base = cur - (sm[2] === "-" ? -1 : 1) * +sm[3], d2 = r3(r.newQ - base);
+      const nf = sm[1] + (Math.abs(d2) >= 0.0005 ? (d2 > 0 ? "+" : "-") + String(+Math.abs(d2).toFixed(3)) : "");
+      return nf === f ? null : nf;
+    }
     const diff = r3(r.newQ - cur);
     if (Math.abs(diff) < 0.0005) return null;                         // already equal -> untouched
     const d = (diff > 0 ? "+" : "-") + String(+Math.abs(diff).toFixed(3));
@@ -29850,6 +29904,7 @@ async function downloadAndroidApk() {
     say("⏳ Reading " + esc(file.name) + "…");
     const erp = readErp(new Uint8Array(await file.arrayBuffer()), file.name);
     if (!erp.rows.length) throw new Error("the ERP file is empty");
+    if (target === "Durgesh") { const lw = longToWide(erp.rows); if (lw) { erp.rows = lw.rows; erp.cols = lw.cols; erp.converted = lw.items; } }
     const guess = erpDateGuess(erp.rows);
     if (guess && guess !== $("erpDate").value && confirm(`The ERP file says ${guess.split("-").reverse().join(".")}.\n\nUse this date for the Daily Stock / Reports file?\n(Cancel = keep ${$("erpDate").value.split("-").reverse().join(".")})`)) $("erpDate").value = guess;
     const iso = $("erpDate").value; if (!iso) throw new Error("pick the date first");
@@ -29979,7 +30034,7 @@ async function downloadAndroidApk() {
   $("erpApplyBtn").addEventListener("click", apply);
   $("erpCancelBtn").addEventListener("click", () => { job = null; render(); say("Cancelled - nothing was written."); });
   $("erpUndoBtn").addEventListener("click", doUndo);
-  window._erpTest = { readErp, durgeshItems, guessFor, erpDateGuess };
+  window._erpTest = { readErp, durgeshItems, guessFor, erpDateGuess, longToWide, qFormula };
 })();
 </script>
 <script>
