@@ -2935,6 +2935,20 @@
   .ptStage img{ display:block; width:100%; height:auto; }
   .scErr{ margin-top:10px; font-size:13px; color:#e5533d; font-weight:600; }
   .scWarn{ margin-top:10px; font-size:12.5px; padding:8px 10px; border-radius:8px; background:rgba(229,83,61,.12); border:1px solid rgba(229,83,61,.4); }
+  /* ===== easier to use on a phone (all tiles) ===== */
+  @media (max-width:600px){
+    .card > select, .card > input[type=date], .card > input[type=month], .card > input[type=number]{ width:100%; }
+    .sidebar.subNav:not([data-ico="cards"]){ grid-template-columns:repeat(3, minmax(0,1fr)) !important; gap:10px !important; }
+    .sidebar.subNav:not([data-ico="cards"]) > .navItem .subLabel{ font-size:12px !important; }
+    .card h2{ font-size:14px; }
+  }
+  /* long help text: two lines, the rest behind "More" */
+  p.uxClamp{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-bottom:2px !important; }
+  button.uxMore{ display:inline-block; width:auto !important; background:none; border:none; padding:0 0 10px; margin:0; color:var(--gold,#d4a72c); font-size:12.5px; font-weight:700; cursor:pointer; box-shadow:none; }
+  /* main action buttons a little taller - easier to tap */
+  .card button.primary{ min-height:44px; }
+  details.uxForm{ margin:0 0 14px; border:1px solid rgba(212,167,44,.55); border-radius:12px; padding:8px 12px; }
+  details.uxForm > summary{ cursor:pointer; font-weight:800; color:var(--gold,#d4a72c); padding:4px 0; }
 </style>
 
 <style>
@@ -6143,6 +6157,7 @@ window.__gmFS = {
             <div class="btnRow" style="margin:0 0 12px;">
               <button class="primary" id="calUploadBtn" type="button">📥 Upload certificates (PDF)</button>
               <button class="secondary" id="calEnhanceBtn" type="button">✨ Make saved certificates clear</button>
+              <button class="secondary" id="calPdfBtn" type="button">📄 Download log (PDF)</button>
               <input type="file" id="calUploadFile" accept="application/pdf,.pdf" style="display:none">
             </div>
             <div id="calUpBox" class="calUpBox hidden"></div>
@@ -6164,6 +6179,8 @@ window.__gmFS = {
               .calZoom{ position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,.85); overflow:auto; padding:12px; text-align:center; cursor:zoom-out; }
               .calZoom canvas{ background:#fff; max-width:100%; height:auto; }
             </style>
+            <details class="uxForm" id="calFormBox">
+              <summary>➕ Add / edit an instrument by hand</summary>
             <label for="calEquipName">Equipment Name</label>
             <input type="text" id="calEquipName" placeholder="e.g. Spectrometer">
             <label for="calEquipId">Equipment ID / Serial No.</label>
@@ -6185,8 +6202,8 @@ window.__gmFS = {
             <div class="btnRow">
               <button class="primary" id="calAddBtn">Add Equipment</button>
               <button class="secondary hidden" id="calCancelEditBtn">Cancel Edit</button>
-              <button class="secondary" id="calPdfBtn">Download PDF</button>
             </div>
+            </details>
             <div id="calListWrap" style="margin-top:20px;">
               <div class="tableScroll">
                 <table class="matrixTable stockTable" id="calTable">
@@ -6913,9 +6930,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.05.5";
+const APP_VERSION = "2026.11.05.6";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "✨ Easier on the phone everywhere: long help text folded to two lines (ℹ️ More), boxes and dates full width, bigger sub-tile names, an old message no longer shows in the next tile; Calibration Log: the table comes first, adding an instrument by hand is folded",
   "🛠️ Calibration upload: certificates read but not saved yet are kept - after a refresh the app offers ↩ Continue; the ✅ Save button stays on screen; an older OneDrive copy of the log can no longer replace newer entries",
   "✨ Calibration certificates are saved clear - dark text, pure white paper, scan dots removed - so the download looks like the original; ✨ button makes certificates saved earlier clear too (scans kept)",
   "🛠️ Calibration Log: 📥 upload the certificates PDF (one or many merged) - the app reads every certificate, you check the details and they go into the log; 📄 downloads a certificate. The log is now kept in OneDrive too, with instrument IDs as on the certificates",
@@ -7752,6 +7770,7 @@ function editCalEntry(idx) {
   calEditIdx = idx;
   Object.entries(CAL_FORM).forEach(([k, id]) => { document.getElementById(id).value = r[k] || ""; });
   document.getElementById("calAddBtn").textContent = "Save Changes";
+  document.getElementById("calFormBox").open = true;
   document.getElementById("calCancelEditBtn").classList.remove("hidden");
   renderCalTable();
   document.getElementById("calEquipName").scrollIntoView({ behavior: "smooth", block: "center" });
@@ -7791,6 +7810,29 @@ document.getElementById("calPdfBtn").addEventListener("click", () => {
   showPdfPreview(doc, "Equipment_Calibration_Log.pdf", "Equipment Calibration Log");
 });
 
+/* ===================== EASIER TO USE (all tiles) ===================== */
+(function uxPolish() {
+  // 1. a message from one tile is not left showing in the next one
+  const navSel = "[data-section],[data-subdash],[data-subelem],[data-subgs],[data-subiso],[data-submkt],[data-subreport],[data-substock],[data-subtrend],[data-subwhatsapp],[data-subaop],.backBtn,.bottomTabItem";
+  document.addEventListener("click", e => {
+    if (!e.target.closest || !e.target.closest(navSel)) return;
+    const st = document.getElementById("status");
+    if (st && st.className !== "wait") { st.className = ""; st.textContent = ""; }
+  }, true);
+  // 2. long help text at the top of a card: two lines + "More"
+  const clamp = () => document.querySelectorAll(".card > p").forEach(p => {
+    if (p.dataset.ux || p.closest(".hidden.keepOpen")) return;
+    const card = p.parentElement, kids = [...card.children], at = kids.indexOf(p);
+    const firstCtl = kids.findIndex(k => k.matches("input,select,textarea,button,label,.btnRow,.psvGrid,table,.tableScroll,details") || k.querySelector("input,select,textarea,button"));
+    if (firstCtl >= 0 && at > firstCtl) return;            // only the description above the form
+    if (p.querySelector("input,select,button,a") || p.textContent.trim().length < 170) return;
+    p.dataset.ux = "1"; p.classList.add("uxClamp");
+    const b = document.createElement("button"); b.type = "button"; b.className = "uxMore"; b.textContent = "ℹ️ More";
+    b.addEventListener("click", () => { const open = p.classList.toggle("uxClamp"); b.textContent = open ? "ℹ️ More" : "▲ Less"; });
+    p.after(b);
+  });
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", clamp); else clamp();
+})();
 /* ===================== CALIBRATION: instrument IDs from the certificates, OneDrive copy, certificate upload ===================== */
 // Instrument IDs / names / makes / ranges as written on the Aug-2026 calibration certificates (the certificate is the record).
 // Where a certificate leaves make / model blank, the log's value is kept. TI (Thermotech TIC-4000) = the Muffle Furnace
