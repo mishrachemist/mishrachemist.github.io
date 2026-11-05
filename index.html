@@ -4801,7 +4801,7 @@ window.__gmFS = {
         <div class="sectionPanel hidden ownerOnly" id="section-aop">
           <div class="sidebar subNav" id="aopSubNav">
             <button class="navItem" data-subaop="app"><span class="navIcon">📑</span> AOP</button>
-            <button class="navItem" data-subaop="vs"><span class="navIcon">📊</span> AOP vs Indent &amp; Consumption</button>
+            <button class="navItem" data-subaop="vs"><span class="navIcon">📊</span> AOP vs Indent</button>
             <button class="navItem" data-subaop="next"><span class="navIcon">🛠️</span> Next FY AOP (WIP)</button>
           </div>
           <div class="contentArea hidden" id="aopSubContent">
@@ -4811,77 +4811,127 @@ window.__gmFS = {
           <div class="sub-sectionPanel hidden" id="subaop-app">
           <div class="card">
             <h2>📑 AOP (Annual Operating Plan)</h2>
-            <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">Every AOP you keep - FY 26-27 as you gave it, and each one made later. The file stays in your OneDrive (Apps → AOP), not in the app. Change the typed numbers here and every formula is worked out again at once; 💾 Save writes them into the same Excel, 📊 Excel / 📄 PDF download it in exactly its own format.</p>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">🔒 Final AOPs - locked: view and download only (📊 Excel / 📄 PDF, in exactly their own format). Nothing here can be changed. A new AOP is made in 🛠️ Next FY AOP (WIP) and comes here with ✅ Move to final AOP. The files stay in your OneDrive (Apps → AOP).</p>
             <div class="psvGrid">
               <div><label for="aopFile">AOP file</label><select id="aopFile"><option value="">…</option></select></div>
               <div style="display:none"><label for="aopSheet">Sheet</label><select id="aopSheet"></select></div>
             </div>
             <div class="btnRow">
-              <button class="secondary" id="aopImportBtn" type="button">📥 Import Excel</button>
               <button class="secondary" id="aopReloadBtn" type="button">🔄 Refresh</button>
-              <input type="file" id="aopImportFile" accept=".xlsx" style="display:none">
             </div>
             <div id="aopInfo" style="font-size:13px;margin:8px 0;"></div>
             <div id="aopBody"></div>
             <div class="btnRow" style="margin-top:14px;">
-              <button class="primary" id="aopSaveBtn" type="button">💾 Save</button>
               <button class="secondary" id="aopXlsxBtn" type="button">📊 Excel</button>
               <button class="secondary" id="aopPdfBtn" type="button">📄 PDF</button>
-              <button class="secondary" id="aopUndoBtn" type="button">↩ Undo changes</button>
             </div>
           </div>
           </div>
           <div class="sub-sectionPanel hidden" id="subaop-vs">
-          <div class="card">
-            <h2>📊 AOP vs Indent &amp; Consumption</h2>
-            <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">
-              Pick an AOP, the ERP "Master Indent Report" Excel and / or the store-issue (consumption) Excel. Every AOP item is matched with its
-              indents and issues (by item code, or by name where the AOP has no code); items indented or issued but not in the AOP are listed as new
-              items in the same format. Indent: Net Indent Qty and "Indent Val for Budget" (cancelled quantity left out). Consumption: Qty and Value
-              of the issue sheet (e.g. QAD_Issue), months of the AOP year only, against the AOP's Annual Consumption Budget.
-              Files are kept in OneDrive → Apps → AOP → Indent / Consumption.
-            </p>
-            <div class="psvGrid">
-              <div><label for="aovAop">AOP file</label><select id="aovAop"><option value="">…</option></select></div>
-              <div><label for="aovInd">Indent file</label><select id="aovInd"><option value="">…</option></select></div>
-              <div><label for="aovCons">Consumption file</label><select id="aovCons"><option value="">…</option></select></div>
-              <div><label for="aovDept">Department</label><input type="text" id="aovDept" value="QAD-SMS"></div>
-            </div>
-            <div class="btnRow">
-              <button class="secondary" id="aovIndImportBtn" type="button">📥 Import indent Excel</button>
-              <input type="file" id="aovIndFile" accept=".xlsx,.xls" style="display:none">
-              <button class="secondary" id="aovConsImportBtn" type="button">📥 Import consumption Excel</button>
-              <input type="file" id="aovConsFile" accept=".xlsx,.xlsm,.xls" style="display:none">
-              <button class="primary" id="aovRun" type="button">⚖️ Compare</button>
-            </div>
+          <div class="card aov">
+            <h2>📊 AOP vs Indent</h2>
+            <p class="aovLead">See how much of the AOP is already indented and consumed - section by section, item by item.</p>
+            <details class="aovHelp">
+              <summary>ℹ️ How it works</summary>
+              <p>Every AOP item is matched with its indents (ERP "Master Indent Report": Net Indent Qty and "Indent Val for Budget", cancelled quantity left out)
+                and its store issues (consumption Excel, e.g. QAD_Issue sheet: Qty and Value, months of the AOP year only) - by item code, or by name where the AOP has no code.
+                Items indented or issued but not in the AOP are shown as new items. Files are kept in OneDrive → Apps → AOP → Indent / Consumption.</p>
+            </details>
+
+            <div class="aovStep"><span class="aovNum">1</span>Choose the files</div>
+            <div class="aovField"><label for="aovAop">📑 AOP</label><select id="aovAop"><option value="">…</option></select></div>
+            <div class="aovField"><label for="aovInd">🧾 Indent report</label>
+              <div class="aovFileRow"><select id="aovInd"><option value="">…</option></select><button class="secondary aovImp" id="aovIndImportBtn" type="button" title="Import a new indent Excel">📥 New</button></div>
+              <input type="file" id="aovIndFile" accept=".xlsx,.xls" style="display:none"></div>
+            <div class="aovField"><label for="aovCons">📦 Consumption (store issues)</label>
+              <div class="aovFileRow"><select id="aovCons"><option value="">…</option></select><button class="secondary aovImp" id="aovConsImportBtn" type="button" title="Import a new consumption Excel">📥 New</button></div>
+              <input type="file" id="aovConsFile" accept=".xlsx,.xlsm,.xls" style="display:none"></div>
+            <div class="aovField"><label for="aovDept">🏷️ Department</label><input type="text" id="aovDept" value="QAD-SMS"></div>
+
+            <div class="aovStep"><span class="aovNum">2</span>Compare</div>
+            <button class="primary aovBig" id="aovRun" type="button">⚖️ Compare</button>
             <details class="aopSec" id="aovAddBox" style="margin-top:12px;">
-              <summary>➕ Add indent / requisition in the app</summary>
-              <p style="font-size:12.5px;color:var(--muted);margin:6px 0 8px;">For an indent or a requisition (store issue) made after the last ERP report: add it here and it is counted in ⚖️ Compare,
-                the Excel / PDF and the next FY AOP. Kept in OneDrive → Apps → AOP → Manual. Once the ERP indent report / consumption file has the same indent / slip no. for that item, the file's line is used and this one is left out (so put the indent / slip no. if you have it).</p>
-              <div class="psvGrid">
-                <div><label for="aovMType">Type</label><select id="aovMType" style="width:100%"><option value="indent">Indent</option><option value="issue">Requisition (store issue)</option></select></div>
+              <summary>➕ Add a new indent / requisition</summary>
+              <p class="aovNote" style="margin:6px 0 8px;">For an indent or a requisition (store issue) made after the last ERP report. It is counted in ⚖️ Compare,
+                the Excel / PDF and the next FY AOP, and kept in OneDrive → Apps → AOP → Manual. When the ERP file has the same indent / slip no. for that item,
+                the file's line is used and this one is left out - so put the indent / slip no. if you have it.</p>
+              <div class="aovForm">
+                <div><label for="aovMType">Type</label><select id="aovMType"><option value="indent">Indent</option><option value="issue">Requisition (store issue)</option></select></div>
                 <div><label for="aovMDate">Date</label><input type="date" id="aovMDate"></div>
-                <div><label for="aovMNo">Indent / slip no.</label><input type="text" id="aovMNo" placeholder="optional"></div>
-                <div style="grid-column:1/-1"><label for="aovMItem">Item - type code or name (AOP items are listed)</label><input type="text" id="aovMItem" list="aovMItems" autocomplete="off"><datalist id="aovMItems"></datalist></div>
+                <div class="full"><label for="aovMItem">Item - type code or name</label><input type="text" id="aovMItem" list="aovMItems" autocomplete="off" placeholder="e.g. S22010002 or Ammonia"><datalist id="aovMItems"></datalist></div>
                 <div><label for="aovMCode">Item code</label><input type="text" id="aovMCode"></div>
-                <div><label for="aovMName">Item name</label><input type="text" id="aovMName"></div>
                 <div><label for="aovMUm">UM</label><input type="text" id="aovMUm"></div>
+                <div class="full"><label for="aovMName">Item name</label><input type="text" id="aovMName"></div>
                 <div><label for="aovMQty">Qty</label><input type="text" id="aovMQty" inputmode="decimal"></div>
-                <div><label for="aovMRate">Rate (Rs)</label><input type="text" id="aovMRate" inputmode="decimal"></div>
+                <div><label for="aovMRate">Rate (₹)</label><input type="text" id="aovMRate" inputmode="decimal"></div>
+                <div><label for="aovMNo">Indent / slip no.</label><input type="text" id="aovMNo" placeholder="optional"></div>
                 <div><label for="aovMRemark">Remark</label><input type="text" id="aovMRemark"></div>
               </div>
-              <div class="btnRow"><button class="primary" id="aovMAdd" type="button">➕ Add</button></div>
+              <button class="primary aovBig" id="aovMAdd" type="button" style="margin-top:10px;">➕ Add</button>
               <div id="aovMList" style="margin-top:8px;"></div>
             </details>
+
             <div id="aovOut" style="margin-top:12px;"></div>
-            <div class="btnRow" style="margin-top:10px;">
-              <button class="secondary" id="aovXlsx" type="button" disabled>📊 Excel</button>
-              <button class="secondary" id="aovPdfS" type="button" disabled>📄 PDF summary</button>
-              <button class="secondary" id="aovPdfD" type="button" disabled>📄 PDF detailed</button>
-              <button class="primary" id="aovNext" type="button" disabled title="Needs a consumption file">🛠️ Make next FY AOP (WIP)</button>
+
+            <div id="aovDlBox" class="hidden">
+              <div class="aovStep"><span class="aovNum">3</span>Download</div>
+              <div class="aovDl">
+                <button class="secondary" id="aovXlsx" type="button" disabled>📊 Excel</button>
+                <button class="secondary" id="aovPdfS" type="button" disabled>📄 PDF summary</button>
+                <button class="secondary" id="aovPdfD" type="button" disabled>📄 PDF detailed</button>
+                <button class="primary" id="aovNext" type="button" disabled title="Needs a consumption file">🛠️ Make next FY AOP</button>
+              </div>
             </div>
           </div>
           </div>
+        <style>
+          .aov .aovLead{ font-size:13.5px; color:var(--muted); margin:0 0 8px; }
+          .aov .aovHelp{ font-size:12.5px; color:var(--muted); margin:0 0 6px; }
+          .aov .aovHelp > summary{ cursor:pointer; color:var(--gold,#d4a72c); font-weight:700; }
+          .aov .aovHelp p{ margin:6px 0 0; }
+          .aov .aovStep{ display:flex; align-items:center; gap:8px; font-weight:800; font-size:14.5px; margin:16px 0 8px; color:var(--gold,#d4a72c); }
+          .aov .aovNum{ display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--gold,#d4a72c); color:#1b2a4a; font-size:12.5px; }
+          .aov .aovField{ margin:0 0 10px; }
+          .aov .aovField label, .aov .aovForm label{ display:block; font-size:12.5px; color:var(--muted); margin:0 0 4px; }
+          .aov select, .aov input[type=text], .aov input[type=date]{ width:100%; box-sizing:border-box; }
+          .aov .aovFileRow{ display:flex; gap:8px; align-items:stretch; }
+          .aov .aovFileRow select{ flex:1 1 auto; min-width:0; }
+          .aov button.aovImp{ flex:0 0 auto; width:auto !important; padding:8px 12px; white-space:nowrap; }
+          .aov button.aovBig{ width:100%; padding:13px; font-size:16px; }
+          .aov .aovForm{ display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; }
+          .aov .aovForm .full{ grid-column:1/-1; }
+          .aov .aovDl{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+          .aov .aovDl button{ width:100%; padding:11px 6px; }
+          .aov .aovInfo{ font-size:12.5px; line-height:1.6; padding:8px 10px; border-radius:10px; background:rgba(127,127,127,.10); margin-bottom:6px; }
+          .aov .aovNote{ font-size:12.5px; color:var(--muted); margin:4px 0; }
+          .aov .aovWarn{ color:#e0a030; }
+          .aov .aovTabs{ display:flex; gap:6px; overflow-x:auto; padding:8px 0 6px; margin:6px 0; -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
+          .aov button.aovTab{ flex:0 0 auto; width:auto !important; border:1px solid var(--gold,#d4a72c); background:transparent; color:inherit; border-radius:999px; padding:7px 12px; font-size:13px; font-weight:700; white-space:nowrap; cursor:pointer; }
+          .aov button.aovTab.on{ background:var(--gold,#d4a72c); color:#1b2a4a; }
+          .aov .aovBadge{ display:inline-block; min-width:18px; padding:0 5px; border-radius:9px; background:rgba(127,127,127,.35); font-size:11px; text-align:center; }
+          .aov .aovBadge.bad{ background:#c0392b; color:#fff; }
+          .aov .aovH3{ margin:10px 0 6px; font-size:15px; }
+          .aov .aovList{ font-size:12.5px; color:var(--muted); padding-left:18px; }
+          .aov .aovTotRow{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin:4px 0 8px; }
+          .aov .aovTotBox{ border-radius:12px; padding:8px 10px; background:rgba(212,167,44,.14); display:flex; flex-direction:column; gap:2px; }
+          .aov .aovTotBox span{ font-size:12px; color:var(--muted); }
+          .aov .aovTotBox b{ font-size:17px; }
+          .aov .aovTotBox small{ font-size:11.5px; color:var(--muted); }
+          .aov .aovFilters{ display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 8px; }
+          .aov button.aovChip{ width:auto !important; border:1px solid rgba(212,167,44,.55); background:transparent; color:inherit; border-radius:999px; padding:5px 10px; font-size:12.5px; cursor:pointer; }
+          .aov button.aovChip.on{ border-color:var(--gold,#d4a72c); background:rgba(212,167,44,.22); font-weight:700; }
+          .aov .aovItem{ border:1px solid rgba(127,127,127,.35); border-radius:12px; padding:9px 11px; margin:8px 0; background:rgba(127,127,127,.06); }
+          .aov .aovItem.look{ border-left:4px solid #c0392b; }
+          .aov .aovItemHead{ display:flex; flex-direction:column; gap:1px; margin-bottom:4px; }
+          .aov .aovItemHead b{ font-size:14px; }
+          .aov .aovItemHead small{ font-size:11.5px; color:var(--muted); }
+          .aov .aovLine{ display:flex; flex-wrap:wrap; align-items:center; gap:3px 10px; font-size:12.5px; padding:4px 0; border-top:1px dashed rgba(127,127,127,.3); }
+          .aov .aovLbl{ font-weight:700; min-width:105px; }
+          .aov .aovSt{ margin-left:auto; padding:2px 8px; border-radius:999px; font-size:11.5px; font-weight:700; background:rgba(127,127,127,.25); }
+          .aov .aovSt.bad{ background:rgba(192,57,43,.85); color:#fff; }
+          .aov .aovSt.ok{ background:rgba(63,174,106,.85); color:#fff; }
+          .aov .aovRem{ font-size:11.5px; color:var(--muted); margin-top:3px; word-break:break-word; }
+        </style>
           <div class="sub-sectionPanel hidden" id="subaop-next">
           <div class="card">
             <h2>🛠️ Next FY AOP (work in progress)</h2>
@@ -6837,9 +6887,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.03.12";
+const APP_VERSION = "2026.11.05.1";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🔒 Final AOPs are locked - view and download only. 📊 AOP vs Indent: simpler screen (steps 1-2-3), a tab for each section (Consumables, Minimax, SRN, Spares, New items) with item cards and filters",
   "📄 AOP vs Indent & Consumption: PDF summary (with the items that need attention) and PDF detailed (every item), and ➕ add a new indent or requisition right in the app - it is counted in the comparison, Excel, PDF and next FY AOP",
   "🛠️ Next FY AOP made automatically: AOP vs Indent & Consumption → Compare → Make next FY AOP. Same AOP format one year on; this year's consumption so far + estimate of the remaining months, rate from the latest issue / indent, budget qty = this year's estimated total; [WIP] working columns are dropped on Move to final",
   "💱 AOP vs Indent & Consumption: rate columns too - AOP rate, indent rate and issue (consumption) rate, and the difference from the AOP rate (red = costlier than AOP, green = cheaper), on screen and in the Excel",
@@ -9396,7 +9447,7 @@ mkSloganShow();
 document.querySelectorAll('.navItem[data-section="marketdash"]').forEach(b => b.addEventListener("click", mkSloganShow));
 document.addEventListener("visibilitychange", () => { if (!document.hidden) mkSloganShow(); });
 
-/* ===================== AOP SUB-NAV (AOP / AOP vs Indent & Consumption / Next FY AOP) ===================== */
+/* ===================== AOP SUB-NAV (AOP / AOP vs Indent / Next FY AOP) ===================== */
 document.querySelectorAll("#aopSubNav .navItem").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll("#aopSubNav .navItem").forEach(b => b.classList.remove("active"));
@@ -22823,7 +22874,7 @@ function aopEditor(P, AOP_DIR, opts) {
         sm.rows.map(r => `<tr>` + sm.cols.map(c => {
           const a = enc(r, c), x = S.ws[a];
           if (x && x.f) return `<td class="aopCalc" data-a="${a}">${fmtN(cellNum(a), isMoney(sm.head[c]))}</td>`;
-          if (sm.input.has(c)) return `<td><input class="aopIn" data-a="${a}" inputmode="decimal" value="${_escH(shown(a))}"></td>`;
+          if (sm.input.has(c)) return opts.locked ? `<td>${lockedVal(a, sm.head[c])}</td>` : `<td><input class="aopIn" data-a="${a}" inputmode="decimal" value="${_escH(shown(a))}"></td>`;
           return `<td style="text-align:left">${_escH(txt(x))}</td>`;
         }).join("") + `</tr>`).join("") + `</table></div></details>`;
     }
@@ -22843,7 +22894,7 @@ function aopEditor(P, AOP_DIR, opts) {
           if (c === 0 || c === nameCol || c === umCol) return;
           const a = enc(r, c), x = S.ws[a], lab = _escH(sec.head[c] || XLSX.utils.encode_col(c));
           if (x && x.f) h += `<label>${lab}<span class="aopCalc" data-a="${a}">${fmtN(cellNum(a), isMoney(sec.head[c]))}</span></label>`;
-          else if (sec.input.has(c)) h += `<label>${lab}<input class="aopIn" data-a="${a}" inputmode="decimal" value="${_escH(shown(a))}"></label>`;
+          else if (sec.input.has(c)) h += opts.locked ? `<label>${lab}<span>${lockedVal(a, sec.head[c])}</span></label>` : `<label>${lab}<input class="aopIn" data-a="${a}" inputmode="decimal" value="${_escH(shown(a))}"></label>`;
           else if (txt(x)) h += `<label>${lab}<span>${_escH(txt(x))}</span></label>`;
         });
         h += `</div></details>`;
@@ -22876,11 +22927,12 @@ function aopEditor(P, AOP_DIR, opts) {
   function status() {
     const n = Object.keys(S.edits).length;
     $("aopInfo").innerHTML = S.name ? `📄 <b>${_escH(S.name)}</b> · sheet <b>${_escH(S.sheet)}</b>` +
-      (n ? ` · <span style="color:#d4a72c">✏️ ${n} change(s) not saved yet</span>` : ` · <span class="psvMuted" style="font-style:normal">saved</span>`) : "";
+      (opts.locked ? ` · <span style="color:#d4a72c">🔒 locked - view / download only</span>` : (n ? ` · <span style="color:#d4a72c">✏️ ${n} change(s) not saved yet</span>` : ` · <span class="psvMuted" style="font-style:normal">saved</span>`)) : "";
   }
   const EDIT_PREFIX = P === "aop" ? "aopEdits:" : P + "Edits:";
   const editKey = () => EDIT_PREFIX + S.name + ":" + S.sheet;
-  const saveEditsLocal = () => { try { localStorage.setItem(editKey(), JSON.stringify(S.edits)); } catch (e) {} };
+  const saveEditsLocal = () => { if (opts.locked) return; try { localStorage.setItem(editKey(), JSON.stringify(S.edits)); } catch (e) {} };
+  const lockedVal = (a, head) => { const v = shown(a); return typeof v === "number" ? fmtN(v, isMoney(head)) : _escH(String(v)); };
 
   /* ---------- write the numbers into the xlsx (only <v> of changed cells + cached results) ---------- */
   async function buildXlsx(opt) {
@@ -23001,7 +23053,7 @@ function aopEditor(P, AOP_DIR, opts) {
   }
   function useSheet(sheet) {
     S.sheet = sheet; S.ws = S.wb.Sheets[sheet];
-    try { S.edits = JSON.parse(localStorage.getItem(editKey()) || "{}") || {}; } catch (e) { S.edits = {}; }
+    try { S.edits = opts.locked ? {} : (JSON.parse(localStorage.getItem(editKey()) || "{}") || {}); } catch (e) { S.edits = {}; }
     S.model = buildModel();
     $("aopSheet").value = sheet;
     render();
@@ -23146,15 +23198,16 @@ function aopEditor(P, AOP_DIR, opts) {
     if (t.value.trim() === orig.trim()) delete S.edits[a]; else S.edits[a] = t.value.trim();
     saveEditsLocal(); refreshCalc();
   });
-  $("aopImportBtn").addEventListener("click", () => { const f = $("aopImportFile"); f.value = ""; f.click(); });
-  $("aopImportFile").addEventListener("change", ev => { const f = ev.target.files && ev.target.files[0]; if (f) importFile(f); });
+  const on = (id, ev, fn) => { const e = $(id); if (e) e.addEventListener(ev, fn); };   // the locked (final) AOP has no import / save / undo buttons
+  on("aopImportBtn", "click", () => { const f = $("aopImportFile"); f.value = ""; f.click(); });
+  on("aopImportFile", "change", ev => { const f = ev.target.files && ev.target.files[0]; if (f) importFile(f); });
   $("aopFile").addEventListener("change", e => { if (e.target.value) openFile(e.target.value); });
   $("aopSheet").addEventListener("change", e => useSheet(e.target.value));
   $("aopReloadBtn").addEventListener("click", () => listFiles(S.name));
-  $("aopSaveBtn").addEventListener("click", saveToCloud);
+  on("aopSaveBtn", "click", saveToCloud);
   $("aopXlsxBtn").addEventListener("click", download);
   $("aopPdfBtn").addEventListener("click", pdf);
-  $("aopUndoBtn").addEventListener("click", () => { if (!Object.keys(S.edits).length || !confirm("Undo all changes not saved yet?")) return; S.edits = {}; saveEditsLocal(); render(); });
+  on("aopUndoBtn", "click", () => { if (!Object.keys(S.edits).length || !confirm("Undo all changes not saved yet?")) return; S.edits = {}; saveEditsLocal(); render(); });
   // the file list is read when its tile is opened
   document.querySelectorAll(`[data-subaop="${opts.tile}"]`).forEach(b => b.addEventListener("click", () => { if (!S.name) listFiles(); }));
   // WIP: copy the finished AOP (with any unsaved changes) into the AOP folder
@@ -23165,8 +23218,9 @@ function aopEditor(P, AOP_DIR, opts) {
       const token = await getToken(); if (!token) return;
       const dest = `${AOP_ROOT}/${encodeURIComponent(S.name)}:/content`;
       const ex = await fetch(dest, { method: "HEAD", headers: { Authorization: "Bearer " + token } }).catch(() => null);
+      if (ex && ex.ok) { st.className = "err"; st.textContent = `🔒 ${S.name} is already a final AOP and final AOPs are locked - it was not changed. Give this WIP file another name (📥 Import it again under a new name) if it should be kept as well.`; return; }
       const hasWip = S.model && S.model.sections.some(sec => sec.head.some(h => /^\[WIP\]/.test(h)));
-      if (!confirm((ex && ex.ok ? `${S.name} is already in the AOP tile. Replace it with this one?` : `Move ${S.name} to the AOP tile as a final AOP?`) + (hasWip ? "\n\nThe [WIP] working columns are left out of the final AOP (kept in the WIP copy)." : ""))) return;
+      if (!confirm(`Move ${S.name} to the AOP tile as a final AOP? Once moved it is locked (view and download only).` + (hasWip ? "\n\nThe [WIP] working columns are left out of the final AOP (kept in the WIP copy)." : ""))) return;
       st.className = "wait"; st.textContent = "Copying to the AOP tile...";
       const blob = await buildXlsx({ stripWip: true });
       const r = await fetch(dest, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": blob.type }, body: blob });
@@ -23177,7 +23231,7 @@ function aopEditor(P, AOP_DIR, opts) {
   });
   return { evalFormula: f => { S.memo = new Map(); return evalFormula(f); }, S, openFile, buildXlsx, zipRead, zipText, listFiles };
 }
-window._aopMain = aopEditor("aop", AOP_ROOT, { tile: "app" });
+window._aopMain = aopEditor("aop", AOP_ROOT, { tile: "app", locked: true });
 window._aopTest = window._aopMain;
 window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: "Annual Operating Plan (work in progress)" });
 
@@ -23444,21 +23498,36 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
       hasInd: ind.lines.length > 0, hasCons: !!cons, cSheet: cons ? cons.sheet : "", cLines, cOut, cm, cPeriod, cMonthsWith: mList.map(k => MON[k % 12]), cMissing: missing };
   }
 
-  /* ---------- show ---------- */
+  /* ---------- show: a Summary tab + one tab per AOP section (Consumables, Minimax, SRN ...), items as cards ---------- */
+  const isBad = s => /Over|Above|New item \(|new item/.test(s || "");
+  const needsLook = r => isBad(r.status) || isBad(r.cstatus) || (r.id !== null && r.id > 0.005) || (r.cd !== null && r.cd > 0.005);
+  const isActive = r => !!(r.a || r.c);
   function show(res) {
     const pct = (a, b) => b ? (a / b * 100).toFixed(1) + "%" : "–";
-    let h = `<div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">AOP FY ${res.fy} · ${_escH(res.dept)}` +
-      (res.hasInd ? ` · indents ${_escH(res.period || "")} (${res.lines.length} line(s))` : " · no indent file") +
-      (res.hasCons ? ` · issues ${_escH(res.cPeriod)} (${res.cLines.length} line(s))` : " · no consumption file") +
-      (res.manI || res.manC ? ` · app entries: ${res.manI} indent(s), ${res.manC} requisition(s)` : "") + `</div>`;
-    if (res.manDup) h += `<div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">${res.manDup} app entr${res.manDup > 1 ? "ies are" : "y is"} now in the ERP file (same indent / slip no.) - counted once, from the file.</div>`;
-    if (res.hasCons && res.cMissing.length) h += `<div style="font-size:12.5px;color:var(--warn,#b45309);margin-bottom:6px;">⚠️ The consumption file has no issue lines for ${_escH(res.cMissing.join(", "))}. If those months had issues, add them to the file and compare again.</div>`;
-    if (res.hasCons && res.cOut) h += `<div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">${res.cOut} issue line(s) outside FY ${res.fy} (or without a month) left out.</div>`;
+    if (!R.tab || (R.tab !== "sum" && !res.sections[+R.tab.slice(1)])) R.tab = "sum";
+    R.filter = R.filter || "act";
+    // what was compared
+    let h = `<div class="aovInfo">📑 AOP FY ${res.fy} · ${_escH(res.dept)}<br>` +
+      (res.hasInd ? `🧾 Indents ${_escH(res.period || "")} · ${res.lines.length} line(s)` : "🧾 No indent file") + "<br>" +
+      (res.hasCons ? `📦 Issues ${_escH(res.cPeriod)} · ${res.cLines.length} line(s)` : "📦 No consumption file") +
+      (res.manI || res.manC ? `<br>➕ Added in the app: ${res.manI} indent(s), ${res.manC} requisition(s)` : "") + `</div>`;
+    if (res.manDup) h += `<div class="aovNote">${res.manDup} app entr${res.manDup > 1 ? "ies are" : "y is"} now in the ERP file (same indent / slip no.) - counted once, from the file.</div>`;
+    if (res.hasCons && res.cMissing.length) h += `<div class="aovNote aovWarn">⚠️ No issue lines for ${_escH(res.cMissing.join(", "))} in the consumption file. If those months had issues, add them and compare again.</div>`;
+    if (res.hasCons && res.cOut) h += `<div class="aovNote">${res.cOut} issue line(s) outside FY ${res.fy} (or without a month) left out.</div>`;
+    // tabs
+    const tabs = [{ k: "sum", t: "📋 Summary" }].concat(res.sections.map((s, i) => ({ k: "s" + i, t: s.isNew ? "🆕 New items" : s.title, n: s.rows.filter(isActive).length, m: s.rows.filter(needsLook).length })));
+    h += `<div class="aovTabs" role="tablist">` + tabs.map(t => `<button type="button" role="tab" class="aovTab${R.tab === t.k ? " on" : ""}" data-tab="${t.k}">${_escH(t.t)}` +
+      (t.n !== undefined ? ` <span class="aovBadge">${t.n}</span>` : "") + (t.m ? ` <span class="aovBadge bad">${t.m}</span>` : "") + `</button>`).join("") + `</div>`;
+    h += `<div class="aovPanel">${R.tab === "sum" ? sumPanel(res, pct) : secPanel(res, res.sections[+R.tab.slice(1)], pct)}</div>`;
+    $("aovOut").innerHTML = h;
+  }
+  function sumPanel(res, pct) {
+    let h = "";
     if (res.hasInd) {
       const inTot = res.sections.filter(s => s.indentBudget), info = res.sections.filter(s => !s.indentBudget);
       const T = inTot.reduce((s, x) => ({ cost: s.cost + x.tot.cost, val: s.val + x.tot.val, n: s.n + x.tot.n }), { cost: 0, val: 0, n: 0 });
       const row = (title, t, bold) => `<tr${bold ? ' class="rowTotal"' : ""}><td style="text-align:left">${_escH(title)}</td><td>${fmt(t.cost)}</td><td>${fmt(t.val)}</td><td>${fmt(t.cost - t.val)}</td><td>${pct(t.val, t.cost)}</td><td>${fmt(t.cost * res.months / 12)}</td><td>${t.n}</td></tr>`;
-      h += `<h3 style="margin:6px 0 6px;font-size:15px;">Indent</h3><div class="tableScroll"><table class="matrixTable stockTable"><tr><th>Section</th><th>AOP indent cost</th><th>Indented</th><th>Balance</th><th>% used</th><th>AOP pro-rata (${res.months}/12)</th><th>Indents</th></tr>`;
+      h += `<h3 class="aovH3">🧾 Indent vs AOP</h3><div class="tableScroll"><table class="matrixTable stockTable"><tr><th>Section</th><th>AOP indent cost</th><th>Indented</th><th>Balance</th><th>% used</th><th>AOP pro-rata (${res.months}/12)</th><th>Indents</th></tr>`;
       inTot.forEach(s => { h += row(s.title, s.tot); });
       h += row("TOTAL", T, true);
       info.forEach(s => { h += row(s.title + " (consumption budget, not in total)", s.tot); });
@@ -23469,25 +23538,41 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
       const T = secs.reduce((s, x) => ({ cc: s.cc + x.tot.cc, cv: s.cv + x.tot.cv, cn: s.cn + x.tot.cn }), { cc: 0, cv: 0, cn: 0 });
       const row = (title, t, bold) => { const pr = t.cc * res.cm / 12;
         return `<tr${bold ? ' class="rowTotal"' : ""}><td style="text-align:left">${_escH(title)}</td><td>${fmt(t.cc)}</td><td>${fmt(t.cv)}</td><td>${fmt(t.cc - t.cv)}</td><td>${pct(t.cv, t.cc)}</td><td>${fmt(pr)}</td><td class="${t.cv > pr + 0.5 ? "psvNeg" : ""}">${fmt(t.cv - pr)}</td><td>${t.cn}</td></tr>`; };
-      h += `<h3 style="margin:14px 0 6px;font-size:15px;">Consumption (store issues)</h3><div class="tableScroll"><table class="matrixTable stockTable"><tr><th>Section</th><th>AOP consumption cost</th><th>Consumed</th><th>Balance</th><th>% used</th><th>AOP pro-rata (${res.cm}/12)</th><th>Consumed vs pro-rata</th><th>Issue lines</th></tr>`;
+      h += `<h3 class="aovH3">📦 Consumption vs AOP</h3><div class="tableScroll"><table class="matrixTable stockTable"><tr><th>Section</th><th>AOP consumption cost</th><th>Consumed</th><th>Balance</th><th>% used</th><th>AOP pro-rata (${res.cm}/12)</th><th>Consumed vs pro-rata</th><th>Issue lines</th></tr>`;
       secs.forEach(s => { h += row(s.title, s.tot); });
       h += row("TOTAL", T, true) + `</table></div>`;
     }
-    const hit = [].concat(...res.sections.map(s => s.rows.filter(r => r.a || r.c).map(r => Object.assign({ sec: s.title }, r))));
-    const cls = st => /Over|Above|New item \(|new item/.test(st) ? "psvNeg" : (/Within/.test(st) ? "psvPos" : "");
-    const dcell = d => d === null ? "<td></td>" : `<td class="${d > 0.005 ? "psvNeg" : (d < -0.005 ? "psvPos" : "")}">${Math.abs(d) < 0.005 ? "0.00" : (d > 0 ? "+" : "") + fmt(d, 2)}</td>`;
-    h += `<h3 style="margin:14px 0 6px;font-size:15px;">Items indented or consumed (${hit.length})</h3><div class="tableScroll"><table class="matrixTable stockTable"><tr><th>Item</th><th>AOP rate</th>` +
-      (res.hasInd ? `<th>AOP indent cost</th><th>Indent value</th><th>Indent rate</th><th>Indent rate − AOP rate</th><th>Indent status</th>` : "") +
-      (res.hasCons ? `<th>AOP consumption cost</th><th>Consumed qty</th><th>Consumed value</th><th>Issue rate</th><th>Issue rate − AOP rate</th><th>Consumption status</th>` : "") + `</tr>` +
-      hit.map(r => `<tr><td style="text-align:left">${_escH(r.it.name)}<br><small style="color:var(--muted)">${_escH(r.sec)} · ${_escH(r.it.code || "no code")}</small></td><td>${r.it.isNew ? "–" : fmt(r.it.rate, 2)}</td>` +
-        (res.hasInd ? `<td>${fmt(r.it.cost) || "–"}</td><td>${fmt(r.iv)}</td><td>${r.ir === null ? "" : fmt(r.ir, 2)}</td>${dcell(r.id)}<td class="${cls(r.status)}">${_escH(r.status)}</td>` : "") +
-        (res.hasCons ? `<td>${fmt(r.it.cc) || "–"}</td><td>${r.cqv === null ? "" : fmt(r.cqv, 2)}</td><td>${fmt(r.cvv)}</td><td>${r.cr === null ? "" : fmt(r.cr, 2)}</td>${dcell(r.cd)}<td class="${cls(r.cstatus)}">${_escH(r.cstatus)}</td>` : "") + `</tr>`).join("") + `</table></div>`;
-    const rowsAll = [].concat(...res.sections.map(s => s.rows));
-    const notes = [];
-    if (res.hasInd) notes.push(`${rowsAll.filter(r => r.status === "Not indented yet").length} AOP item(s) with an indent budget are not indented yet`);
-    if (res.hasCons) notes.push(`${rowsAll.filter(r => r.cstatus === "Not consumed yet").length} AOP item(s) with a consumption budget are not consumed yet`);
-    h += `<p style="font-size:12.5px;color:var(--muted);">${notes.join("; ")} - all items are in the Excel.</p>`;
-    $("aovOut").innerHTML = h;
+    const all = [].concat(...res.sections.map(s => s.rows));
+    const notes = [`⚠️ <b>${all.filter(needsLook).length}</b> item(s) need a look (over AOP / above pro-rata / new / costlier than the AOP rate) - red number on each tab`];
+    if (res.hasInd) notes.push(`${all.filter(r => r.status === "Not indented yet").length} AOP item(s) with an indent budget are not indented yet`);
+    if (res.hasCons) notes.push(`${all.filter(r => r.cstatus === "Not consumed yet").length} AOP item(s) with a consumption budget are not consumed yet`);
+    h += `<ul class="aovList">${notes.map(n => `<li>${n}</li>`).join("")}</ul>`;
+    return h;
+  }
+  function secPanel(res, sec, pct) {
+    const rows = sec.rows, nAct = rows.filter(isActive).length, nLook = rows.filter(needsLook).length;
+    const list = R.filter === "all" ? rows : (R.filter === "look" ? rows.filter(needsLook) : rows.filter(isActive));
+    const t = sec.tot;
+    let h = `<div class="aovTotRow">` +
+      (res.hasInd ? `<div class="aovTotBox"><span>🧾 Indent</span><b>₹${fmt(t.val)}</b><small>of AOP ₹${fmt(t.cost)} · ${pct(t.val, t.cost)}${sec.indentBudget ? "" : " · consumption budget"}</small></div>` : "") +
+      (res.hasCons ? `<div class="aovTotBox"><span>📦 Consumption</span><b>₹${fmt(t.cv)}</b><small>of AOP ₹${fmt(t.cc)} · ${pct(t.cv, t.cc)} · pro-rata ₹${fmt(t.cc * res.cm / 12)}</small></div>` : "") + `</div>`;
+    h += `<div class="aovFilters">` + [["act", `Indented / consumed (${nAct})`], ["look", `⚠️ Needs a look (${nLook})`], ["all", `All items (${rows.length})`]]
+      .map(([k, l]) => `<button type="button" class="aovChip${R.filter === k ? " on" : ""}" data-flt="${k}">${l}</button>`).join("") + `</div>`;
+    if (!list.length) return h + `<p class="aovNote">No item here.</p>`;
+    const chip = s => s ? `<span class="aovSt ${isBad(s) ? "bad" : (/Within/.test(s) ? "ok" : "")}">${_escH(s)}</span>` : "";
+    const diff = d => d === null ? "" : ` <b class="${d > 0.005 ? "psvNeg" : (d < -0.005 ? "psvPos" : "")}">(${Math.abs(d) < 0.005 ? "same as AOP" : (d > 0 ? "+" : "") + fmt(d, 2)})</b>`;
+    const q = (v, um) => v === null ? "" : `${fmt(v, 2)} ${_escH(um || "")}`;
+    h += list.map(r => {
+      const it = r.it;
+      let x = `<div class="aovItem${needsLook(r) ? " look" : ""}"><div class="aovItemHead"><b>${_escH(it.name)}</b><small>${_escH(it.code || "no code")}${it.um ? " · " + _escH(it.um) : ""}${it.isNew ? "" : ` · AOP rate ₹${fmt(it.rate, 2)}`}</small></div>`;
+      if (res.hasInd) x += `<div class="aovLine"><span class="aovLbl">🧾 Indent</span><span>AOP ₹${fmt(it.cost || 0)}${it.qty ? ` (${q(it.qty, it.um)})` : ""}</span>` +
+        (r.a ? `<span>Indented ₹${fmt(r.iv)} (${q(r.iq, it.um)})</span>${r.ir !== null ? `<span>Rate ₹${fmt(r.ir, 2)}${diff(r.id)}</span>` : ""}` : "") + chip(r.status) + `</div>`;
+      if (res.hasCons) x += `<div class="aovLine"><span class="aovLbl">📦 Consumption</span><span>AOP ₹${fmt(it.cc || 0)}${it.cq ? ` (${q(it.cq, it.um)})` : ""}</span>` +
+        (r.c ? `<span>Consumed ₹${fmt(r.cvv)} (${q(r.cqv, it.um)})</span>${r.cr !== null ? `<span>Rate ₹${fmt(r.cr, 2)}${diff(r.cd)}</span>` : ""}` : "") + chip(r.cstatus) + `</div>`;
+      if (r.remark) x += `<div class="aovRem">${_escH(r.remark)}</div>`;
+      return x + `</div>`;
+    }).join("");
+    return h;
   }
 
   /* ---------- Excel, in the AOP's look ---------- */
@@ -23943,7 +24028,7 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
       if (!mm.ind && !mm.cons) throw new Error("choose an indent file and / or a consumption file (📥 Import), or add an indent / requisition in the app");
       R.res = compare(aop, mm.ind, mm.cons);
       Object.assign(R.res, { manI: mm.nI, manC: mm.nC, manDup: mm.dup });
-      $("aovPdfS").disabled = false; $("aovPdfD").disabled = false;
+      $("aovPdfS").disabled = false; $("aovPdfD").disabled = false; $("aovDlBox").classList.remove("hidden");
       show(R.res); $("aovXlsx").disabled = false;
       $("aovNext").disabled = !R.res.hasCons; $("aovNext").textContent = `🛠️ Make FY ${aop.fyStart + 1}-${aop.fyStart + 2} AOP (WIP)`;
       const nNew = R.res.sections[R.res.sections.length - 1].rows.length;
@@ -23951,6 +24036,11 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
     } catch (e) { st.className = "err"; st.textContent = "Compare error: " + e.message; }
   });
   $("aovXlsx").addEventListener("click", excel);
+  $("aovOut").addEventListener("click", ev => {
+    const t = ev.target.closest("[data-tab],[data-flt]"); if (!t || !R.res) return;
+    if (t.dataset.tab) { R.tab = t.dataset.tab; R.filter = "act"; show(R.res); const on = $("aovOut").querySelector(".aovTab.on"); if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest", inline: "center" }); }
+    else { R.filter = t.dataset.flt; show(R.res); }
+  });
   $("aovNext").addEventListener("click", nextAop);
   $("aovPdfS").addEventListener("click", () => pdf(false));
   $("aovPdfD").addEventListener("click", () => pdf(true));
