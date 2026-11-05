@@ -6928,9 +6928,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.05.8";
+const APP_VERSION = "2026.11.05.9";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "⚠️ AOP vs Indent: an indent / issue line whose item code belongs to one AOP item but whose name is quite different (a wrong code in the ERP) is now pointed out on that item, in Needs a look, the Excel and the PDF",
   "🛠️ Calibration upload reads other certificate layouts too (e.g. Shimadzu spectrometer: Ref. no., Date, Validity Period) and finds the log line by model / instrument name when the certificate has no MIPPL ID",
   "↩ Sub-tiles back to their earlier shape (4 in a row)",
   "✨ Easier on the phone everywhere: long help text folded to two lines (ℹ️ More), boxes and dates full width, bigger sub-tile names, an old message no longer shows in the next tile; Calibration Log: the table comes first, adding an instrument by hand is folded",
@@ -23772,6 +23773,16 @@ window._aopMain = aopEditor("aop", AOP_ROOT, { tile: "app", locked: true });
 window._aopTest = window._aopMain;
 window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: "Annual Operating Plan (work in progress)" });
 
+// do two item names mean the same thing? (at least one real word in common, or one inside the other)
+function calNameAlike(a, b) {
+  const STOPW = new Set(["FOR", "OF", "THE", "AND", "WITH", "IN", "TO", "NOS", "SIZE", "TYPE", "GRADE", "NO"]);
+  const w = t => new Set(String(t || "").toUpperCase().replace(/[^A-Z0-9 ]/g, " ").split(/\s+/).filter(x => x.length >= 3 && !STOPW.has(x)));
+  const A = w(a), B = w(b), na = [...A].join(""), nb = [...B].join("");
+  if (!A.size || !B.size) return true;
+  if (na.includes(nb) || nb.includes(na)) return true;
+  for (const x of A) for (const y of B) if (x === y || (x.length >= 5 && y.length >= 5 && (x.startsWith(y.slice(0, 5)) || y.startsWith(x.slice(0, 5))))) return true;
+  return false;
+}
 /* ===================== AOP vs INDENT & CONSUMPTION ===================== */
 // Reads an AOP Excel (the AOP tile's files), the ERP "Master Indent Report" Excel and the QAD store-issue (consumption)
 // Excel, matches every AOP item with its indents and its issues, lists items that are not in the AOP as new items,
@@ -23959,6 +23970,8 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
         it = fresh.get(fk);
       }
       l.target = it; l.how = how;
+      // same item code but a quite different name in the ERP line -> shown, so a wrong code in the ERP is noticed
+      if (how === "item code" && l.name && it.name && !calNameAlike(l.name, it.name)) l.nameDiff = true;
       return it;
     };
     // indents
@@ -23968,6 +23981,7 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
       const a = agg.get(it) || { qty: 0, val: 0, n: 0, canc: 0, nos: [], notes: [] };
       a.qty += l.net; a.val += l.val; a.n++; a.canc += l.canc;
       a.nos.push(`${l.no} (${l.date.slice(0, 11)})`);
+      if (l.nameDiff) a.notes.push(`⚠️ indent ${l.no} has this item code but the name "${l.name}"`);
       if (l.onlyIn) a.notes.push(`${l.no} only in sheet ${l.onlyIn}`);
       agg.set(it, a);
     });
@@ -23979,8 +23993,9 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
     cLines.forEach(l => {
       const it = match(l);
       cMonths.add(l.mk);
-      const c = cAgg.get(it) || { qty: 0, val: 0, n: 0, months: new Set() };
+      const c = cAgg.get(it) || { qty: 0, val: 0, n: 0, months: new Set(), diff: [] };
       c.qty += l.qty; c.val += l.val; c.n++; c.months.add(l.mk);
+      if (l.nameDiff) c.diff.push(`⚠️ issue ${l.slip || ""} (${l.date}, ₹${Math.round(l.val).toLocaleString("en-IN")}) has this item code but the name "${l.name}"`);
       cAgg.set(it, c);
     });
     fresh.forEach(it => {
@@ -24010,12 +24025,12 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
         const rows = sec.items.map(it => {
           const a = agg.get(it), c = cAgg.get(it);
           const remark = [a ? a.nos.join(", ") : "", a && a.canc ? `cancelled qty ${a.canc}` : "", ...(a ? a.notes : []),
-            c ? `issued in ${[...c.months].sort((x, y) => x - y).map(k => MON[k % 12]).join(", ")}` : "",
+            c ? `issued in ${[...c.months].sort((x, y) => x - y).map(k => MON[k % 12]).join(", ")}` : "", ...(c && c.diff ? c.diff : []),
             it.byName ? "matched by item name (no item code in AOP)" : "", it.remark].filter(Boolean).join("; ");
           const ir = a && a.qty ? a.val / a.qty : null, cr = c && c.qty ? c.val / c.qty : null, ar = Math.round(it.rate * 1e4) / 1e4;
           return { it, a, c, iq: a ? a.qty : null, iv: a ? a.val : null, n: a ? a.n : null, cqv: c ? c.qty : null, cvv: c ? c.val : null, cn: c ? c.n : null,
             ir, cr, id: ir === null || it.isNew ? null : ir - ar, cd: cr === null || it.isNew ? null : cr - ar,
-            status: status(it, a), cstatus: cStatus(it, c), remark };
+            status: status(it, a), cstatus: cStatus(it, c), remark, nameDiff: !!((a && a.notes.some(x => /^⚠️/.test(x))) || (c && c.diff && c.diff.length)) };
         });
         const t = rows.reduce((s, r) => ({ cost: s.cost + (r.it.cost || 0), val: s.val + (r.iv || 0), n: s.n + (r.n || 0), cc: s.cc + (r.it.cc || 0), cv: s.cv + (r.cvv || 0), cn: s.cn + (r.cn || 0) }),
           { cost: 0, val: 0, n: 0, cc: 0, cv: 0, cn: 0 });
@@ -24037,7 +24052,7 @@ window._aopWip = aopEditor("aopw", AOP_ROOT + "/WIP", { tile: "next", pdfTitle: 
 
   /* ---------- show: a Summary tab + one tab per AOP section (Consumables, Minimax, SRN ...), items as cards ---------- */
   const isBad = s => /Over|Above|New item \(|new item/.test(s || "");
-  const needsLook = r => isBad(r.status) || isBad(r.cstatus) || (r.id !== null && r.id > 0.005) || (r.cd !== null && r.cd > 0.005);
+  const needsLook = r => r.nameDiff || isBad(r.status) || isBad(r.cstatus) || (r.id !== null && r.id > 0.005) || (r.cd !== null && r.cd > 0.005);
   const isActive = r => !!(r.a || r.c);
   function show(res) {
     const pct = (a, b) => b ? (a / b * 100).toFixed(1) + "%" : "–";
