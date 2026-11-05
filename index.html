@@ -6928,9 +6928,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.05.7";
+const APP_VERSION = "2026.11.05.8";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🛠️ Calibration upload reads other certificate layouts too (e.g. Shimadzu spectrometer: Ref. no., Date, Validity Period) and finds the log line by model / instrument name when the certificate has no MIPPL ID",
   "↩ Sub-tiles back to their earlier shape (4 in a row)",
   "✨ Easier on the phone everywhere: long help text folded to two lines (ℹ️ More), boxes and dates full width, bigger sub-tile names, an old message no longer shows in the next tile; Calibration Log: the table comes first, adding an instrument by hand is folded",
   "🛠️ Calibration upload: certificates read but not saved yet are kept - after a refresh the app offers ↩ Continue; the ✅ Save button stays on screen; an older OneDrive copy of the log can no longer replace newer entries",
@@ -8059,10 +8060,20 @@ function calParse(texts) {
   if (nm && /^[A-Z ]+$/.test(name) && !/^(ID|MAKE|MODEL)\b/.test(nm[1].trim())) name += " " + nm[1].trim();
   r.name = name.replace(/\s+/g, " ").trim();
   let v = cut(line("Make"), STOP).replace(/(\S{3,})\s+[A-Za-z]{1,4}\.?$/, "$1"); r.make = junk(v) ? "" : v;
-  v = cut(line("Model"), STOP); r.model = /\d/.test(v) && !junk(v) ? v.replace(/^Al-/, "AI-") : "";
+  v = cut(line("Model"), STOP); v = v.replace(/^No\.?\s*:?\s*/i, ""); r.model = /\d/.test(v) && !junk(v) ? v.replace(/^Al-/, "AI-") : "";
   v = cut(line("Range") || line("Max\\S*\\s*Capacity\\s*:?"), STOP); v = v.replace(/^[1lI|!]\s+(?=[\d(])/, ""); r.range = /\d/.test(v) ? v : "";
   v = cut(line("Least\\s*Count") || line("Resolution"), STOP); r.lc = /\d/.test(v) && /[a-z°%]/i.test(v) ? v : "";
-  r.agency = /M[I1]?AINTECH|^MTC-/i.test(all + "\n" + r.certNo) || /^MTC-/.test(r.certNo) ? "Maintech Calibrators Pvt. Ltd." : (/NEWTECH|NUTECH/i.test(all) || /^NCL\//.test(r.certNo) ? "Newtech Calibration Laboratory" : "");
+  // other layouts (e.g. Shimadzu: "Ref.:", "Date:", "Calibration Validity Period:", "Instrument:", "Model No.:", "Serial No.:")
+  const other = !/Certificate\s*No/i.test(all);
+  if (!r.certNo && other) { m = /\bRef(?:erence)?\.?\s*(?:No\.?)?\s*[:.]+\s*([A-Z0-9][A-Z0-9\/\-.]{4,})/i.exec(all); if (m) r.certNo = m[1].replace(/[.,;:]+$/, "").toUpperCase(); }
+  if (!r.calDate && other) r.calDate = date("\\bDate(?=\\s*[:.])");
+  if (!r.dueDate) r.dueDate = date("(?:Validity\\s*Period|Valid\\s*(?:up\\s*to|upto|till))");
+  if (!r.name) { m = /Instrument\s*(?:Name)?\s*:\s*([A-Za-z][^\n:]{3,60}?)(?=\s{2,}|\n|$)/.exec(all); if (m) r.name = m[1].trim(); }
+  if (!r.make) { m = /\bMake\s*:\s*([A-Za-z][A-Za-z0-9 .&-]{2,30}?)(?=\s{2,}|\n|$)/.exec(all); if (m && !junk(m[1].trim())) r.make = m[1].trim(); }
+  if (!r.model) { m = /\bModel\s*(?:No\.?)?\s*:\s*([A-Z0-9][A-Z0-9 .\-]{1,20}?)(?=\s{2,}|\s+Serial|\n|$)/i.exec(all); if (m && /\d/.test(m[1])) r.model = m[1].trim(); }
+  m = /\bSerial\s*No\.?\s*:?\s*([A-Z0-9][A-Z0-9\-\/]{4,}(?:\s[A-Z]{1,3}\b)?)/i.exec(all); r.serial = m ? m[1].trim() : "";
+  if (!r.range) { m = /Wavelength\s*Range\s*:\s*([^\n|]+?)(?=\s{2,}|\n|$)/i.exec(all); if (m) r.range = m[1].trim(); }
+  r.agency = /SHIMADZU/i.test(all) ? "Shimadzu Analytical (India) Pvt. Ltd." : /M[I1]?AINTECH|^MTC-/i.test(all + "\n" + r.certNo) || /^MTC-/.test(r.certNo) ? "Maintech Calibrators Pvt. Ltd." : (/NEWTECH|NUTECH/i.test(all) || /^NCL\//.test(r.certNo) ? "Newtech Calibration Laboratory" : "");
   if (r.calDate && r.issueDate && r.calDate > r.issueDate) r.calDate = "";
   if (r.calDate && r.dueDate && (r.dueDate <= r.calDate || +r.dueDate.slice(0, 4) - +r.calDate.slice(0, 4) > 3)) r.dueDate = "";
   return r;
@@ -8089,10 +8100,14 @@ function calLev(a, b) {
   return d[m][n];
 }
 // which log line a certificate belongs to: same ID (one wrong letter allowed, e.g. VE / VF)
-function calMatchRow(list, id) {
-  const k = String(id || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); if (!k) return -1;
+function calMatchRow(list, id, cert) {
+  const n = t => String(t || "").toUpperCase().replace(/[^A-Z0-9]/g, ""), k = n(id);
   let best = -1, bd = 2;
-  list.forEach((r, i) => { const d = calLev(k, String(r.id || "").toUpperCase().replace(/[^A-Z0-9]/g, "")); if (d < bd) { bd = d; best = i; } });
+  if (k) list.forEach((r, i) => { const d = calLev(k, n(r.id)); if (d < bd) { bd = d; best = i; } });
+  if (best < 0 && cert) {
+    if (n(cert.model).length >= 3) best = list.findIndex(r => n(r.model) && n(r.model) === n(cert.model));
+    if (best < 0 && n(cert.name).length >= 5) best = list.findIndex(r => n(r.name) === n(cert.name));
+  }
   return best;
 }
 const CAL_UP = { bytes: null, name: "", certs: [], pdf: null };
@@ -8161,6 +8176,13 @@ async function calUploadPdf(file) {
           for (const k of ["L", "R"]) T[k] = (await worker.recognize(C[k])).data.text;
           r = calParseBest(T);
         }
+        if (!r.certNo || !r.calDate || !r.dueDate) {   // another layout (e.g. Shimadzu): read the whole page
+          await worker.setParameters({ tessedit_pageseg_mode: "3" });
+          const pc = document.createElement("canvas"); pc.width = cv.width; pc.height = cv.height;
+          const px = pc.getContext("2d"); px.filter = "grayscale(1)"; px.drawImage(cv, 0, 0);
+          T.P = (await worker.recognize(pc)).data.text; pc.width = pc.height = 0;
+          r = calParseBest(T);
+        }
         const th = document.createElement("canvas"); th.width = 260; th.height = Math.round(260 * cv.height / cv.width);
         th.getContext("2d").drawImage(cv, 0, 0, th.width, th.height);
         pages.push({ p, r, thumb: th.toDataURL("image/jpeg", 0.7) });
@@ -8180,6 +8202,7 @@ async function calUploadPdf(file) {
 function calParseBest(T) {   // grey halves + whole width first; the black & white halves (if read) only fill what is still missing
   const a = calParse([T.GL, T.GR, T.F]), f = calParse([T.F]);
   if (T.L !== undefined) { const b = calParse([T.L, T.R, T.GL, T.GR, T.F]); Object.keys(b).forEach(k => { if (!a[k]) a[k] = b[k]; }); }
+  if (T.P !== undefined) { const c = calParse([T.P]); Object.keys(c).forEach(k => { if (!a[k]) a[k] = c[k]; }); }
   return Object.assign({}, a, { id: f.id || a.id });
 }
 function calUpRender() {
@@ -8190,7 +8213,7 @@ function calUpRender() {
     ["calDate", "Calibration date", "date"], ["dueDate", "Next due date", "date"], ["issueDate", "Issue date", "date"], ["agency", "Calibrated by / Agency"]];
   box.innerHTML = `<div id="calUpMsg" class="calUpMsg"></div><h3 style="margin:8px 0;font-size:15px;">📄 ${e(CAL_UP.name)} - ${CAL_UP.certs.length} certificate(s)</h3>` +
     CAL_UP.certs.map((c, i) => {
-      const r = c.r, row = calMatchRow(list, r.id);
+      const r = c.r, row = calMatchRow(list, r.id, r);
       if (c.row === undefined) {
         c.row = row; c.v = Object.assign({}, r, { range: [r.range, r.lc].filter(Boolean).join(" / ") });
         if (row >= 0) ["id", "name", "make", "model", "range"].forEach(k => { if (list[row][k]) c.v[k] = list[row][k]; });   // the log line already has the instrument's details
