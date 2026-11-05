@@ -6928,9 +6928,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.05.11";
+const APP_VERSION = "2026.11.05.12";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🔥 Two furnaces ready: a Reports file made from the 24-heat template (F-A 1-12 + F-B 1-12 per day) works everywhere - next-day blocks, Logsheet / Strip Mill PDF, dashboards, RHF, WhatsApp heats (write \"F-A\" or \"F-B\" in the message); the 12-heat files work as before",
   "🛑 ERP Upload (Durgesh): an ERP report in list form (one line per Tnature) is a wrong file - it is now stopped with a message and nothing in the Excel is changed; the usual ERP stock report (Opening / Receipt / Issue / Closing) works as always",
   "🛠️ ERP Upload (Durgesh): an ERP report in list form (one line per Tnature) is turned into the usual table, so FC Report and the stock formulas work; a wrong earlier ERP adjustment in Daily Stock Q is replaced (not added to); a 4-CLOSING column without numbers no longer zeroes the ERP stock",
   "⚠️ AOP vs Indent: an indent / issue line whose item code belongs to one AOP item but whose name is quite different (a wrong code in the ERP) is now pointed out on that item, in Needs a look, the Excel and the PDF",
@@ -12298,8 +12299,17 @@ async function refreshAccessToken(oldToken) {
 // box is used as an exact date, else today as an approximate date.
 // "01.10.06" / "1.10.6" / "1-10-6" -> "1.10.6" (numbers only, no leading zeros)
 function normalizeHeatKey(v) {
-  const m = /^\s*0*(\d{1,2})\s*[.\-\/]\s*0*(\d{1,2})\s*[.\-\/]\s*0*(\d{1,2})\s*$/.exec(String(v === null || v === undefined ? "" : v));
-  return m ? `${+m[1]}.${+m[2]}.${+m[3]}` : null;
+  // "5.11.3" -> "5.11.3"; with two furnaces the cell is "F-A-5.11.3" / "F-B-5.11.3" -> "A:5.11.3" / "B:5.11.3"
+  const m = /^\s*(?:F\s*-?\s*([AB])\s*-\s*)?0*(\d{1,2})\s*[.\-\/]\s*0*(\d{1,2})\s*[.\-\/]\s*0*(\d{1,2})\s*$/i.exec(String(v === null || v === undefined ? "" : v));
+  return m ? `${m[1] ? m[1].toUpperCase() + ":" : ""}${+m[2]}.${+m[3]}.${+m[4]}` : null;
+}
+// furnace named in a message: "F-A", "F-B", "Furnace A", "Furnace-2" ... ("" = not said)
+function furnaceOf(msg) {
+  const t = String(msg || "");
+  let m = /\bF\s*-\s*([AB])\b/i.exec(t) || /\bfurnace\s*[-:#]?\s*([AB12])\b/i.exec(t);
+  if (!m) return "";
+  const f = m[1].toUpperCase();
+  return f === "1" ? "A" : f === "2" ? "B" : f;
 }
 
 let heatDateHint = null; // { date: Date, exact: boolean, received?: boolean }
@@ -12538,7 +12548,8 @@ function parseMessage(msg) {
   }
 
   if (hotSz !== null) sz = hotSz;
-  return { heatKey, dateLine, hot, byp, grp130, hotout, gotHot, gotByp, got130, gotHotOut, chem, hotTotalStated, bypTotalStated, grp130TotalStated, hotoutTotalStated, sz, heatFixedFrom, heatIssue };
+  const furnace = furnaceOf(msg);
+  return { heatKey, furnace, dateLine, hot, byp, grp130, hotout, gotHot, gotByp, got130, gotHotOut, chem, hotTotalStated, bypTotalStated, grp130TotalStated, hotoutTotalStated, sz, heatFixedFrom, heatIssue };
 }
 
 /* ===================== GRAPH / EXCEL CALLS ===================== */
@@ -13017,19 +13028,35 @@ async function updateExcel(msgOverride, opts = {}) {
     // "01.10.06", "1.10.6 " and "1.10.6" are all the same heat. Also checks
     // the cell's displayed text, in case Excel stored it differently.
     const wantKey = normalizeHeatKey(parsed.heatKey);
+    // Two furnaces: the sheet has F-A-5.11.3 and F-B-5.11.3 - the message must say which furnace.
+    let bothFurnaces = false;
     const findRow = (d) => {
+      const furn = [];
       for (let i = 0; i < d.values.length; i++) {
         const raw = d.values[i] ? d.values[i][0] : "";
         const txt = d.text[i] ? d.text[i][0] : "";
-        if (normalizeHeatKey(raw) === wantKey || normalizeHeatKey(txt) === wantKey) return i + 1;
+        const k = normalizeHeatKey(raw) || normalizeHeatKey(txt);
+        if (!k) continue;
+        if (k === wantKey) return i + 1;                                   // one furnace (plain heat no.)
+        if (k.endsWith(":" + wantKey)) {
+          if (parsed.furnace && k === `${parsed.furnace}:${wantKey}`) return i + 1;
+          furn.push(i + 1);
+        }
       }
+      if (!parsed.furnace && furn.length === 1) return furn[0];
+      if (!parsed.furnace && furn.length > 1) bothFurnaces = true;
       return -1;
     };
     let rowIndex = findRow(colBData);
     // Not found in an older cached copy? The sheet may have changed since
     // (e.g. a new day's rows were added) - read column B again once.
-    if (rowIndex === -1 && fromCache) rowIndex = findRow(await loadColB());
+    if (rowIndex === -1 && fromCache && !bothFurnaces) rowIndex = findRow(await loadColB());
 
+    if (rowIndex === -1 && bothFurnaces) {
+      statusEl.className = "err";
+      statusEl.textContent = `Heat ${parsed.heatKey}: the sheet has this heat for both furnaces (F-A and F-B). Write the furnace in the message (e.g. "F-A" or "F-B") and send again.`;
+      return { ok: false, error: `Heat ${parsed.heatKey}: furnace (F-A / F-B) not given in the message` };
+    }
     if (rowIndex === -1) {
       statusEl.className = "err";
       const fileName = String(filePath || "").split("/").pop();
@@ -13041,7 +13068,7 @@ async function updateExcel(msgOverride, opts = {}) {
     // the entry still goes in (this message's pieces), and a difference is marked on the Total Prod cell
     const diffs = await pcsMismatch(wb, sheetName, rowIndex, parsed, token);
 
-    let log = `Heat ${parsed.heatKey} (row ${rowIndex}) updated:\n`;
+    let log = `Heat ${parsed.furnace ? "F-" + parsed.furnace + "-" : ""}${parsed.heatKey} (row ${rowIndex}) updated:\n`;
     if (parsed.heatFixedFrom) log += `ℹ️ Heat no. auto-corrected from "${parsed.heatFixedFrom}" to ${parsed.heatKey}\n`;
     if (monthNote) log += monthNote;
     const bz = v => (v === 0 ? "" : v);
@@ -14165,13 +14192,14 @@ async function downloadLogsheetPDF() {
       if (matches.length) {
         try {
           layout = await readBlockFormats({ wb: sub.wb, sheetName, token, srcTop: matches[0].dataStart - 3,
-            nRows: PROD_BLOCK_PERIOD, lastColIdx: COL.AH, label: "Logsheet", useCache: true });
+            nRows: (await prodHeatsFor(sub.wb, token, sheetName)) + 6, lastColIdx: COL.AH, label: "Logsheet", useCache: true });
         } catch (e) { layout = null; } // fall back to plain white
       }
 
-      await graphPrefetchBatch(matches.map(({ dataStart }) => `${sub.wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='A${dataStart}:AB${dataStart + 14}')?$select=text`), token); // all dates in one go
+      const lh = await prodHeatsFor(sub.wb, token, sheetName);
+      await graphPrefetchBatch(matches.map(({ dataStart }) => `${sub.wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='A${dataStart}:AB${dataStart + lh + 2}')?$select=text`), token); // all dates in one go
       for (const { dataStart, iso } of matches) {
-        const blockEnd = dataStart + 14; // 12 data rows + MIN + MAX + TOTAL = 15 rows
+        const blockEnd = dataStart + lh + 2; // heat rows + MIN + MAX + TOTAL
         const address = `A${dataStart}:AB${blockEnd}`;
         const blockData = await graphFetch(
           `${sub.wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='${address}')?$select=text`,
@@ -14692,14 +14720,15 @@ async function downloadStripMillPDF(mode) {
       if (matches.length) {
         try {
           layout = await readBlockFormats({ wb: sub.wb, sheetName, token, srcTop: matches[0].dataStart - 3,
-            nRows: 18, lastColIdx: 20, label: "Strip Mill PDF", useCache: true });
+            nRows: (await prodHeatsFor(sub.wb, token)) + 6, lastColIdx: 20, label: "Strip Mill PDF", useCache: true });
         } catch (e) { layout = null; }
       }
 
-      await graphPrefetchBatch(matches.map(({ dataStart }) => `${sub.wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='A${dataStart - 3}:U${dataStart + 14}')?$select=text`), token); // all dates in one go
+      const sh_ = await prodHeatsFor(sub.wb, token);
+      await graphPrefetchBatch(matches.map(({ dataStart }) => `${sub.wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='A${dataStart - 3}:U${dataStart + sh_ + 2}')?$select=text`), token); // all dates in one go
       for (const { dataStart, iso } of matches) {
         const blockTitleRow = dataStart - 3;
-        const blockEnd = dataStart + 14; // 12 data rows + 3 summary rows
+        const blockEnd = dataStart + sh_ + 2; // heat rows + 3 summary rows
         const address = `A${blockTitleRow}:U${blockEnd}`;
         const blockData = await graphFetch(
           `${sub.wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='${address}')?$select=text`,
@@ -15881,7 +15910,7 @@ async function aqProdMetric(token, from, to, metricKey) {
       if (/total\s*prod\s*sheet/i.test(String(row[12] || ""))) { curISO = null; continue; }
       if (typeof row[0] === "number" && row[0] > 40000) curISO = excelSerialToISODate(row[0]);
       if (!curISO || curISO < sub.fromDate || curISO > sub.toDate) continue;
-      if (!/^\s*\d{1,2}\.\d{1,2}\.\d{1,2}\s*$/.test(String(row[1] || ""))) continue;
+      if (!HEAT_NO_RE.test(String(row[1] || ""))) continue;
       const v = row[colMap[metricKey]];
       if (typeof v === "number" && v > 0) { sum += v; count++; } // empty heats give 0 / "" - not counted
     }
@@ -17020,7 +17049,7 @@ async function scanOutOfSpecHeats(sheetName, fromDate, toDate, statusEl, token, 
     }
 
     for (const block of blocks) {
-      const blockRows = values.slice(block.dataStart, block.dataStart + 12);
+      const blockRows = values.slice(block.dataStart, block.dataStart + heatsAt(values, block.dataStart));
       blockRows.forEach(row => {
         const heatNo = row[1];
         if (!heatNo) return; // blank heat row
@@ -17807,7 +17836,7 @@ async function submitRHF() {
     }
 
     const titleRow = dataStart - 3;
-    const r = titleRow + RHF_ROW_OFFSET[section];
+    const r = titleRow + RHF_ROW_OFFSET[section] + ((await prodHeatsFor(wb, token, sheetName)) - 12);
     let log = "";
 
     // Cells are collected and written in ONE call (patchCells) instead of one call each.
@@ -18185,7 +18214,38 @@ setTimeout(() => {
   });
 }, 0);
 /* ===================== CREATE NEXT DAY BLOCK (Prod. sheet) ===================== */
-const PROD_BLOCK_PERIOD = 18;
+const PROD_BLOCK_PERIOD = 18;   // one furnace (12 heats); two furnaces (F-A + F-B, 24 heats) = 30 - read from the sheet
+
+// Heat no.: "5.11.3" (one furnace) or "F-A-5.11.3" / "F-B-5.11.3" (two furnaces)
+const HEAT_NO_RE = /^\s*(?:F\s*-?\s*([AB])\s*-\s*)?0*(\d{1,2})\s*\.\s*0*(\d{1,2})\s*\.\s*0*(\d{1,2})\s*$/i;
+// heat rows of the Prod. day block that starts at values[i] (rows read from column A, so B = index 1):
+// the "MIN" row comes right after the last heat row
+function heatsAt(values, i) {
+  for (let k = 1; k <= 40 && i + k < values.length; k++) {
+    if (String(((values[i + k] || [])[1]) ?? "").trim().toUpperCase() === "MIN") return k;
+  }
+  return 12;
+}
+const _prodHeatsCache = new Map();
+async function prodHeatsFor(wb, token, sheetName) {
+  const name = sheetName || (document.getElementById("sheetName").value.trim() || "Prod.");
+  const key = `${wb}|${name}`;
+  if (_prodHeatsCache.has(key)) return _prodHeatsCache.get(key);
+  let heats = 12;
+  try {
+    const r = await graphFetch(`${wb}/worksheets('${encodeURIComponent(String(name).replace(/'/g, "''"))}')/range(address='A1:B80')?$select=values`, token);
+    const v = r.values || [];
+    const first = v.findIndex(x => typeof x[0] === "number" && x[0] > 40000);
+    if (first >= 0) heats = heatsAt(v, first);
+  } catch (e) { /* not readable - one furnace */ }
+  _prodHeatsCache.set(key, heats);
+  return heats;
+}
+// heat no. of heat row idx (1-based) of a day
+function heatLabel(d, m, idx, heats) {
+  if (heats > 12) return `${idx <= 12 ? "F-A" : "F-B"}-${d}.${m}.${idx <= 12 ? idx : idx - 12}`;
+  return `${d}.${m}.${idx}`;
+}
 
 // Shifts relative row references inside a formula by rowDelta rows.
 // $-anchored (absolute) row references are left untouched.
@@ -18303,15 +18363,15 @@ async function applyBlockFormatting(wb, sheetName, titleRow, token) {
   // separate cyan override is needed here.
 }
 
-function classifyCell(rowOffset, colIdx) {
+function classifyCell(rowOffset, colIdx, heats = 12) {
   // RHF entry cells (J,K,L,M) on the MAX row (130) and Total row (160) - fresh/blank
-  if ((rowOffset === 16 || rowOffset === 17) && colIdx >= COL.J && colIdx <= COL.M) {
+  if ((rowOffset === heats + 4 || rowOffset === heats + 5) && colIdx >= COL.J && colIdx <= COL.M) {
     return "BLANK";
   }
   // Title / header rows - copy as-is
   if (rowOffset <= 2) return "COPY";
-  // 12 heat data rows
-  if (rowOffset >= 3 && rowOffset <= 14) {
+  // heat data rows (12, or 24 with two furnaces)
+  if (rowOffset >= 3 && rowOffset <= heats + 2) {
     if (colIdx === COL.A) return rowOffset === 3 ? "DATE" : "BLANK";
     if (colIdx === COL.B) return "HEATNO";
     if (colIdx >= COL.C && colIdx <= COL.H) return "BLANK";      // analysis + size
@@ -18922,16 +18982,17 @@ async function createNextDayProdFromSheet(wb, token) {
   const nextISO = excelSerialToISODate(nextSerial);
   ndGuard(nextISO, "Prod.");
   const [ny, nm, nd] = nextISO.split("-").map(x => parseInt(x));
-  const newTitleRow = lastTitleRow + PROD_BLOCK_PERIOD;
+  const heats = await prodHeatsFor(wb, token, sheetName), PERIOD = heats + 6;
+  const newTitleRow = lastTitleRow + PERIOD;
 
   const r = await cloneNextDayBlock({
     wb, sheetName, token, label: "Prod.",
-    srcTop: lastTitleRow, destTop: newTitleRow, nRows: PROD_BLOCK_PERIOD, lastColIdx: COL.AH,
+    srcTop: lastTitleRow, destTop: newTitleRow, nRows: PERIOD, lastColIdx: COL.AH,
     override: (ro, c) => {
-      const a = classifyCell(ro, c);
+      const a = classifyCell(ro, c, heats);
       if (a === "BLANK") return { blank: true };
       if (a === "DATE") return { value: nextSerial };
-      if (a === "HEATNO") return { value: `${nd}.${nm}.${ro - 2}` };
+      if (a === "HEATNO") return { value: heatLabel(nd, nm, ro - 2, heats) };
       return undefined;
     }
   });
@@ -18942,7 +19003,7 @@ async function createNextDayProdFromSheet(wb, token) {
 
 async function createNextDayStripMillFromSheet(wb, token) {
   const sheetName = document.getElementById("stripSheetName").value.trim() || "Strip Mill";
-  const PERIOD = 18;
+  const heats = await prodHeatsFor(wb, token), PERIOD = heats + 6;   // same heat rows as Prod.
   const colA = await graphFetch(`${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='A1:A2000')?$select=values`, token);
   let lastDataRow = -1, lastSerial = null;
   for (let i = 0; i < colA.values.length; i++) {
@@ -18977,13 +19038,13 @@ async function createNextDayStripMillFromSheet(wb, token) {
     wb, sheetName, token, label: "Strip Mill",
     srcTop: lastTitleRow, destTop: newTitleRow, nRows: PERIOD, lastColIdx: 20, // A:U
     override: (ro, c) => {
-      if (ro >= 15 && ro <= 17 && c >= 2 && c <= 6) {      // RHF rows: analysis formulas too
+      if (ro >= heats + 3 && ro <= heats + 5 && c >= 2 && c <= 6) {      // RHF rows: analysis formulas too
         const f = formulaFor(ro, c);
         return f ? { value: f } : undefined;
       }
-      if (ro < 3 || ro > 14) return undefined;
+      if (ro < 3 || ro > heats + 2) return undefined;
       if (c === 0) return ro === 3 ? { value: nextSerial } : { blank: true };
-      if (c === 1) return { value: `${nd}.${nm}.${ro - 2}` };
+      if (c === 1) return { value: heatLabel(nd, nm, ro - 2, heats) };
       if ((c >= 2 && c <= 6) || (c >= 8 && c <= 11)) {   // C:G analysis, I:L
         const f = formulaFor(ro, c);
         return f ? { value: f } : { blank: true };
@@ -19103,14 +19164,14 @@ async function locateLastBlock(choice, wb, token) {
     const scan = await get(sheetName, "M1:M2000", "text");
     let top = -1;
     scan.text.forEach((r, i) => { if (/total prod sheet/i.test(r[0] || "")) top = i + 1; });
-    return { sheetName, top, period: PROD_BLOCK_PERIOD, lastColIdx: COL.AH };
+    return { sheetName, top, period: (await prodHeatsFor(wb, token, sheetName)) + 6, lastColIdx: COL.AH };
   }
   if (choice === "stripmill") {
     const sheetName = document.getElementById("stripSheetName").value.trim() || "Strip Mill";
     const scan = await get(sheetName, "A1:A2000", "values");
     let row = -1;
     scan.values.forEach((r, i) => { if (typeof r[0] === "number") row = i + 1; });
-    return { sheetName, top: row === -1 ? -1 : row - 3, period: 18, lastColIdx: 20 };
+    return { sheetName, top: row === -1 ? -1 : row - 3, period: (await prodHeatsFor(wb, token)) + 6, lastColIdx: 20 };
   }
   if (choice === "billetstock") {
     const sheetName = document.getElementById("stockSheetName").value.trim() || "Billet Stock Format";
@@ -19245,7 +19306,7 @@ function nmTransformCell(value, numFmt, off, tpl) {
   let s = value, blank = false;
 
   // heat number "D.M.N" of the template month (whole cell)
-  const hm = /^(\s*)(\d{1,2})\.(\d{1,2})\.(\d{1,2})(\s*)$/.exec(s);
+  const hm = /^(\s*(?:F-[AB]-)?)(\d{1,2})\.(\d{1,2})\.(\d{1,2})(\s*)$/i.exec(s);   // also F-A-1.11.3 (two furnaces)
   if (hm && +hm[3] === tpl.m0 + 1) {
     const b = nmShiftDate(tpl.y, tpl.m0, +hm[2], off);
     if (!b) return { value: "" };
@@ -20372,9 +20433,10 @@ function isRealHeatRow(r) {
   return pos(r[27]) || pos(r[2]) || pos(r[3]) || pos(r[4]) || pos(r[5]) || pos(r[6]);
 }
 async function getDaySummary(wb, sheetName, titleRow, dataStart, token) {
+  const heats = await prodHeatsFor(wb, token, sheetName);
   const [heatCol, rows] = await Promise.all([
-    graphFetch(`${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='A${dataStart}:AB${dataStart + 11}')?$select=values`, token),
-    graphFetch(`${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='A${titleRow + 16}:AH${titleRow + 17}')?$select=values`, token)
+    graphFetch(`${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='A${dataStart}:AB${dataStart + heats - 1}')?$select=values`, token),
+    graphFetch(`${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='A${titleRow + heats + 4}:AH${titleRow + heats + 5}')?$select=values`, token)
   ]);
 
   const heatCount = heatCol.values.filter(isRealHeatRow).length;
@@ -20496,9 +20558,9 @@ async function getHeatWeightsForDate(wb, dateVal, sheetName, token) {
   }
   if (dataStart === -1) return [];
 
-  // 12 heat rows per day; MIN/MAX/TOTAL summary rows follow and are
+  // 12 (or 24) heat rows per day; MIN/MAX/TOTAL summary rows follow and are
   // deliberately excluded (column B is blank for those anyway).
-  const blockEnd = dataStart + 11;
+  const blockEnd = dataStart + (await prodHeatsFor(wb, token, sheetName)) - 1;
   const data = await graphFetch(
     `${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='B${dataStart}:AB${blockEnd}')?$select=values`,
     token
@@ -21163,11 +21225,12 @@ async function loadMonthlyDashboard() {
         const titleRow = block.dataIdx - 2; // dataIdx (0-based) corresponds to Excel row (dataIdx+1) = titleRow(1-based)+3, so titleRow = dataIdx-2
         const dataStart = block.dataIdx + 1; // 1-based Excel row of first heat row
 
-        const heatRows = values.slice(block.dataIdx, block.dataIdx + 12);
+        const hb = heatsAt(values, block.dataIdx);
+        const heatRows = values.slice(block.dataIdx, block.dataIdx + hb);
         const heatCount = heatRows.filter(isRealHeatRow).length;
 
-        const maxRow = values[block.dataIdx + 13];   // titleRow+16, i.e. 13 rows after first heat row
-        const totalRow = values[block.dataIdx + 14]; // titleRow+17
+        const maxRow = values[block.dataIdx + hb + 1];   // MAX row (130)
+        const totalRow = values[block.dataIdx + hb + 2]; // Total row (160)
 
         const n = v => (typeof v === "number" ? v : 0);
         totals.heatCount += heatCount;
@@ -24893,8 +24956,9 @@ async function readProdBlocksForRange(token, sheetName, fromDate, toDate) {
 // same numbers as getDaySummary(), taken from the already-read sheet values
 function daySummaryFromValues(values, i) {
   const n = v => (typeof v === "number" ? v : 0);
-  const heatRows = values.slice(i, i + 12);
-  const maxRow = values[i + 13] || [], totalRow = values[i + 14] || [];
+  const hb = heatsAt(values, i);
+  const heatRows = values.slice(i, i + hb);
+  const maxRow = values[i + hb + 1] || [], totalRow = values[i + hb + 2] || [];
   return {
     heatCount: heatRows.filter(isRealHeatRow).length,
     totalProd: n(totalRow[27]), hotCharging: n(totalRow[20]), bypass: n(totalRow[26]),
@@ -25042,7 +25106,7 @@ async function loadChemicalTrend() {
     const labels = [], avgC = [], avgMn = [], avgSi = [], avgS = [], avgP = [];
     const heats = []; // every heat: { iso, heat, v: [C, Mn, Si, S, P] }
     for (const b of blocks) {
-      const rows = b.values.slice(b.i, b.i + 12);
+      const rows = b.values.slice(b.i, b.i + heatsAt(b.values, b.i));
       const avg = col => { const nums = rows.map(r => r[col]).filter(v => typeof v === "number"); return nums.length ? nums.reduce((a, c) => a + c, 0) / nums.length : null; };
       labels.push(b.iso); avgC.push(avg(2)); avgMn.push(avg(3)); avgSi.push(avg(4)); avgS.push(avg(5)); avgP.push(avg(6));
       rows.forEach(r => { if (r[1] !== null && r[1] !== "" && [2, 3, 4, 5, 6].some(c => typeof r[c] === "number")) heats.push({ iso: b.iso, heat: String(r[1]), v: [r[2], r[3], r[4], r[5], r[6]] }); });
@@ -30059,14 +30123,14 @@ async function downloadAndroidApk() {
       if (top < 0) throw new Error("Prod.: no block found ('TOTAL PROD SHEET' in column M).");
       const a = await graphFetch(`${sh(wb, name)}/range(address='A${top + 3}')?$select=values`, token, { noCache: true });
       if (typeof a.values[0][0] !== "number") throw new Error("Prod.: couldn't read the date of the last block.");
-      return { label: "Prod.", name, top, n: PROD_BLOCK_PERIOD, lastCol: XLSX.utils.encode_col(COL.AH), iso: excelSerialToISODate(a.values[0][0]) };
+      return { label: "Prod.", name, top, n: (await prodHeatsFor(wb, token, name)) + 6, lastCol: XLSX.utils.encode_col(COL.AH), iso: excelSerialToISODate(a.values[0][0]) };
     }
     if (choice === "stripmill") {
       const name = $("stripSheetName").value.trim() || "Strip Mill";
       const a = await graphFetch(`${sh(wb, name)}/range(address='A1:A2000')?$select=values`, token, { noCache: true });
       let row = -1, v = null; a.values.forEach((r, i) => { if (typeof r[0] === "number") { row = i + 1; v = r[0]; } });
       if (row < 0) throw new Error("Strip Mill: no date found.");
-      return { label: "Strip Mill", name, top: row - 3, n: 18, lastCol: "U", iso: excelSerialToISODate(v) };
+      return { label: "Strip Mill", name, top: row - 3, n: (await prodHeatsFor(wb, token)) + 6, lastCol: "U", iso: excelSerialToISODate(v) };
     }
     if (choice === "billetstock") {
       const name = $("stockSheetName").value.trim() || "Billet Stock Format";
