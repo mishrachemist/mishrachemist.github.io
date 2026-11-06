@@ -12,7 +12,7 @@
            cons – open the heat's saved voucher and add the RM lines that are missing.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.06.8";
+  const VERSION = "2026.11.06.9";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -277,10 +277,28 @@
   }
 
   /* ================= listing / vouchers ================= */
-  const onListing = () => !!btn(/^Create New Record$/) && !btn(/^(Save|Update)$/) && !lov();
+  // the screen title, e.g. "Production Entry Listing [QP:PROD]" / "Production Entry [QP:PROD]"
+  const screenTitle = () => {
+    const c = [...document.querySelectorAll("body *")].filter(x => { const tc = x.textContent || ""; if (tc.length > 120 || !/\[Q[A-Z]:/.test(tc) || !vis(x)) return false; return /[A-Za-z]\s*\[Q[A-Z]:[A-Z0-9]+\]\s*$/.test(txt(x)); });
+    c.sort((a, b) => txt(a).length - txt(b).length); return c.length ? txt(c[0]) : "";
+  };
+  const onListing = () => /^Production Entry Listing/i.test(screenTitle()) && !!btn(/^Create New Record$/) && !btn(/^(Save|Update)$/) && !lov();
+  // the ERP's own tab strip at the top ("Production Entry Listing | Menu Object | ...")
+  const erpTab = () => [...document.querySelectorAll("*")].filter(vis).find(e => e.children.length === 0 && txt(e) === "Production Entry Listing" && e.getBoundingClientRect().top < 80);
   async function backToListing() {
-    for (let i = 0; i < 3 && !onListing(); i++) { const a = alertBox(); if (a) await closeAlert(a); if (lov()) await closeLov(); const b = btn(/^Back$/); if (b) click(b); await sleep(2500); }
-    await waitFor(onListing, 15000, "Production Entry Listing");
+    for (let i = 0; i < 4 && !onListing(); i++) {
+      const a = alertBox(); if (a) await closeAlert(a); if (lov()) await closeLov();
+      const b = btn(/^Back$/);
+      if (b && /\[QP:PROD\]/.test(screenTitle())) click(b);         // a Production Entry voucher is open
+      else { const t = erpTab(); if (t) click(t); else if (b) click(b); }
+      await sleep(2500);
+    }
+    try { await waitFor(onListing, 15000, "Production Entry Listing"); }
+    catch (e) {
+      if (e.message === "Stopped by user") throw e;
+      const shown = screenTitle() || "(no screen title found)";
+      throw new Error(`the ERP is not on Production Entry Listing (it shows "${shown}"). Open the Production Entry Listing screen, wait for the list, then press Start again`);
+    }
   }
   async function save(re) {
     const b = btn(re); if (!b) throw new Error("Save button not found"); click(b);
@@ -389,6 +407,8 @@
     if (!picked.length) { log("No heat selected.", "err"); return; }
     MZF.busy = true; STOP = false; const t0 = Date.now(); let okN = 0;
     log(`Starting ${picked.length} heat(s) for ${data.date}`, "h");
+    try { await backToListing(); }
+    catch (e) { log(`✗ ${e.message}`, "err"); log("Nothing was entered.", "err"); MZF.busy = false; STOP = false; return; }
     for (const h of picked) {
       const k = data.date + "|" + h.heat;
       log(`Heat ${h.heat}`, "h");
@@ -421,5 +441,5 @@
     grid, realRows, addRow, activate, fillProdLine, fillRmLine, alertBox, lov, pickLov, field, cell } };
   panel(); renderData();
   if (!/erpv7\.marutisteel\.in/i.test(location.host)) log("This doesn't look like the Lighthouse ERP page.", "err");
-  else if (!onListing()) log("Open Production Entry Listing in the ERP first, then press Start.", "err");
+  else log(`ERP screen now: ${screenTitle() || "(unknown)"}` + (onListing() ? "" : " - Start will try to open Production Entry Listing itself"), onListing() ? "ok" : "err");
 })();
