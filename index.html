@@ -5319,6 +5319,24 @@ window.__gmFS = {
               </div>
             </div>
           </div>
+
+          <div class="card" style="margin-top:16px;">
+            <h2>🧾 ERP Entry Sheet (heat-wise)</h2>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 14px;">
+              Builds everything to be entered in the ERP for one day from the Prod. sheet and
+              RM Report: one Production Entry per heat (billets in pcs, C/F = length × weight/mtr,
+              Ref No = heat no. + R for hot charging / B for bypass, RM consumption split per heat)
+              and the Material to Material Transfers (series BL) for hot charging, hot out and RHF.
+              Tap any cell to copy it.
+            </p>
+            <label for="erpEntryDate">Select Date</label>
+            <input type="date" id="erpEntryDate">
+            <div class="btnRow">
+              <button class="primary" id="erpEntryLoadBtn">Load ERP Entry Sheet</button>
+              <button class="secondary" id="erpEntryXlsxBtn">Download Excel</button>
+            </div>
+            <div id="erpEntryWrap" class="hidden" style="margin-top:16px;"></div>
+          </div>
         </div>
 
         <div class="sectionPanel hidden" id="section-debitnote">
@@ -6928,9 +6946,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.06.2";
+const APP_VERSION = "2026.11.06.3";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🧾 New: ERP PROD → ERP Entry Sheet - pick a date to get every heat's Production Entry (billets in pcs, C/F, Ref No R/B, RM consumption per heat) and the BL transfers for hot charging, hot out and RHF with ERP item codes; tap a cell to copy, or download Excel",
   "🧾 AOP vs Indent: dummy ₹1 indent lines (rate ₹1, no PO, for an item that also has a priced indent - e.g. IG26Y-00052 AMC for Spectrometer) are left out",
   "🧾 AOP vs Indent: cancelled indents (Net Indent Qty 0) are left out of every tab, PDF and Excel; items indented or issued for the first time are added by themselves to the Next FY AOP (WIP) on every Compare - an item you delete there is not put back",
   "🔥 Two furnaces ready: a Reports file made from the 24-heat template (F-A 1-12 + F-B 1-12 per day) works everywhere - next-day blocks, Logsheet / Strip Mill PDF, dashboards, RHF, WhatsApp heats (write \"F-A\" or \"F-B\" in the message); the 12-heat files work as before",
@@ -17589,6 +17608,226 @@ document.getElementById("erpProdPdfBtn").addEventListener("click", () => {
   stampLogoOnAllPages(doc);
   showPdfPreview(doc, `ERP_Production_${erpProdData.fromDate}_to_${erpProdData.toDate}.pdf`, `ERP Production - ${erpProdData.fromDate} to ${erpProdData.toDate}`);
 });
+
+/* ===================== ERP ENTRY SHEET (heat-wise) =====================
+   Everything to be typed into the Lighthouse ERP for one day:
+   - Production Entry (series Q2): one voucher per heat; one line per length
+     and per hot charging / bypass. Godown CD SHED (SMS2), Batch d/m/n,
+     Ref No d/m/nR (hot charging = rolled) or d/m/nB (bypass), Tran UM PCS,
+     C/F = length x weight per mtr (ERP keeps 5 decimals), Department QAD-SMS.
+     RM consumption = the day's RM Report figures split per heat by weight
+     (same split as Heat-wise Consumption), godown BC SHED (SMS1).
+   - Material to Material Transfer (series BL):
+       hot charging  SMS2 (F03..) -> BLRM (R06..), batch d/m/firstRTOd/m/lastR
+       hot out       BLRM (R06..) -> SMS2 (F03..)
+       RHF           SMS2 (F03..) -> BLRM (R06..), batch RHF-dd/mm/yyyy
+   Prod. columns (0-based in A..AF): B=1 heat, H=7 size, I=8 wt/mtr,
+   J:M=9..12 RHF pcs (130 row / 160 row after the heats), P:S=15..18 hot
+   charging pcs, V:Y=21..24 bypass pcs, AB=27 total prod, AC:AF=28..31 hot out pcs. */
+const ERP_LENGTHS = [3, 4, 5, 6];
+const ERP_WT_PER_MTR = { 130: 0.132335, 160: 0.198005 };
+// SMS2 side (F03..) and BLRM side (R06..) item codes, read from the ERP item list
+const ERP_BILLET_CODES = {
+  160: { 3: ["F03010018", "R06010016"], 4: ["F03010026", "R06010017"], 5: ["F03010027", "R06010018"], 6: ["F03010009", "R06010005"] },
+  130: { 3: ["F03010017", "R06010006"], 4: ["F03010019", "R06010007"], 5: ["F03010023", "R06010013"], 6: ["F03010012", "R06010004"] }
+};
+// HEAT_CONSUMPTION_ITEMS order; null = ERP code not known yet
+const ERP_RM_CODES = {
+  lumps: "R05060001", fines: "R05060003", pellets: "R05060002", steelMeltingScrap: "R05030002",
+  magMaterial: "R05030007", rollingMillScrap: "W01010028", msScrap: null, ciMixScrap: null, pigIron: null, overSizeMag: null
+};
+const ERP_SMS2 = "CD SHED (SMS2)", ERP_BLRM = "BILLET YARD RM (BLRM)", ERP_SMS1 = "BC SHED (SMS1)";
+let erpEntryData = null;
+
+const erpR = (v, d) => Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
+const erpNum = v => (typeof v === "number" && isFinite(v) ? v : 0);
+// "4.11.1" -> "4/11/1"; "F-A-4.11.1" -> "F-A-4/11/1"
+function erpBatchOf(heat) {
+  const m = String(heat || "").trim().match(HEAT_NO_RE);
+  if (!m) return String(heat || "").trim();
+  return `${m[1] ? `F-${m[1].toUpperCase()}-` : ""}${+m[2]}/${+m[3]}/${+m[4]}`;
+}
+function erpBillet(size, len, wpm) {
+  const codes = (ERP_BILLET_CODES[size] || {})[len] || [null, null];
+  const w = ERP_WT_PER_MTR[size] || wpm || 0;
+  return { sms2Code: codes[0], blrmCode: codes[1], cf: erpR(len * w, 5) };
+}
+
+// rows = Prod. values A(dataStart):AF(dataStart+heats+2); consRow = RM Report AI:AR of the day
+function erpEntryBuild(rows, heats, consRow, dateISO) {
+  const [yy, mm, dd] = dateISO.split("-").map(Number);
+  const heatRows = rows.slice(0, heats).filter(r => isRealHeatRow(r));
+  const warn = [];
+  const line = (heat, kind, size, len, pcs, wpm) => {
+    const b = erpBillet(size, len, wpm);
+    if (!b.sms2Code) warn.push(`No ERP item code for ${size} ${len} Mtr (heat ${heat}).`);
+    return { heat, batch: erpBatchOf(heat), kind, size, len, pcs, ...b, mt: erpR(pcs * b.cf, 3) };
+  };
+
+  // consumption split per heat by total production weight (0.01 MT units, like Heat-wise Consumption)
+  const weights = heatRows.map(r => erpNum(r[27]));
+  const perItem = HEAT_CONSUMPTION_ITEMS.map((it, k) => apportionIntegerByWeight(Math.round(erpNum((consRow || [])[k]) * 100), weights));
+
+  const vouchers = heatRows.map((r, h) => {
+    const heat = String(r[1]).trim(), size = erpNum(r[7]), wpm = erpNum(r[8]);
+    const lines = [];
+    ERP_LENGTHS.forEach((len, k) => { const p = erpNum(r[15 + k]); if (p > 0) lines.push(line(heat, "R", size, len, p, wpm)); });
+    ERP_LENGTHS.forEach((len, k) => { const p = erpNum(r[21 + k]); if (p > 0) lines.push(line(heat, "B", size, len, p, wpm)); });
+    lines.forEach(l => { l.ref = l.batch + l.kind; });
+    const rm = HEAT_CONSUMPTION_ITEMS.map((it, k) => ({ key: it.key, label: it.label, code: ERP_RM_CODES[it.key] || null, qty: perItem[k][h] / 100 }))
+      .filter(x => x.qty > 0);
+    rm.filter(x => !x.code).forEach(x => warn.push(`No ERP item code for ${x.label} (heat ${heat}).`));
+    const hotOut = [];
+    ERP_LENGTHS.forEach((len, k) => { const p = erpNum(r[28 + k]); if (p > 0) hotOut.push(line(heat, "HO", size, len, p, wpm)); });
+    return { heat, batch: erpBatchOf(heat), size, lines, rm, hotOut,
+      sheetMt: erpNum(r[27]), erpMt: erpR(lines.reduce((s, l) => s + l.mt, 0), 3) };
+  });
+
+  // hot charging transfer: all rolled lines of the day, receive grouped per item
+  const hcIssue = vouchers.flatMap(v => v.lines.filter(l => l.kind === "R"));
+  const rolledHeats = vouchers.filter(v => v.lines.some(l => l.kind === "R"));
+  let rangeBatch = "";
+  if (rolledHeats.length) {
+    const a = rolledHeats[0].batch, z = rolledHeats[rolledHeats.length - 1].batch;
+    rangeBatch = a === z ? `${a}R` : `${a}RTO${z}R`;
+  }
+  const groupBy = (arr) => {
+    const g = new Map();
+    arr.forEach(l => { const k = `${l.size}|${l.len}`; const x = g.get(k) || { size: l.size, len: l.len, sms2Code: l.sms2Code, blrmCode: l.blrmCode, cf: l.cf, pcs: 0, mt: 0 }; x.pcs += l.pcs; x.mt = erpR(x.mt + l.mt, 3); g.set(k, x); });
+    return [...g.values()];
+  };
+  const hcReceive = groupBy(hcIssue).map(x => ({ ...x, batch: rangeBatch }));
+  const hotOut = vouchers.flatMap(v => v.hotOut);
+
+  // RHF: pcs per section on the two rows after the heats (130 first, 160 second)
+  const rhf = [];
+  const rhfBatch = `RHF-${String(dd).padStart(2, "0")}/${String(mm).padStart(2, "0")}/${yy}`;
+  [[130, heats + 1], [160, heats + 2]].forEach(([size, idx]) => {
+    const r = rows[idx] || [];
+    ERP_LENGTHS.forEach((len, k) => {
+      const p = erpNum(r[9 + k]);
+      if (p > 0) { const b = erpBillet(size, len, 0); if (!b.sms2Code) warn.push(`No ERP item code for RHF ${size} ${len} Mtr.`); rhf.push({ size, len, pcs: p, ...b, mt: erpR(p * b.cf, 3), batch: rhfBatch }); }
+    });
+  });
+
+  return { dateISO, heats: vouchers.length, vouchers, hcIssue, hcReceive, rangeBatch, hotOut, rhf, rhfBatch,
+    totals: { sheetMt: erpR(vouchers.reduce((s, v) => s + v.sheetMt, 0), 3), erpMt: erpR(vouchers.reduce((s, v) => s + v.erpMt, 0), 3),
+      hotOutMt: erpR(hotOut.reduce((s, l) => s + l.mt, 0), 3), rhfMt: erpR(rhf.reduce((s, l) => s + l.mt, 0), 3) },
+    warn: [...new Set(warn)] };
+}
+
+function erpEntryRender(d) {
+  const e = htmlEsc;
+  const tbl = (head, rows) => `<div class="tableScroll"><table class="matrixTable stockTable erpCopy"><tr>${head.map(h => `<th>${e(h)}</th>`).join("")}</tr>` +
+    rows.map(r => `<tr>${r.map(c => `<td>${e(c === null || c === undefined ? "NOT FOUND" : c)}</td>`).join("")}</tr>`).join("") + `</table></div>`;
+  const dmy = d.dateISO.split("-").reverse().join("-");
+  let h = `<div class="dashGrid">
+    <div class="dashCard"><div class="dashLabel">Heats</div><div class="dashValue">${d.heats}</div></div>
+    <div class="dashCard"><div class="dashLabel">Production - ERP (MT)</div><div class="dashValue">${d.totals.erpMt.toFixed(3)}</div></div>
+    <div class="dashCard"><div class="dashLabel">Production - Sheet (MT)</div><div class="dashValue">${d.totals.sheetMt.toFixed(3)}</div></div>
+    <div class="dashCard"><div class="dashLabel">Hot Out (MT)</div><div class="dashValue">${d.totals.hotOutMt.toFixed(3)}</div></div>
+    <div class="dashCard"><div class="dashLabel">RHF (MT)</div><div class="dashValue">${d.totals.rhfMt.toFixed(3)}</div></div></div>`;
+  if (d.warn.length) h += `<p class="err" style="white-space:pre-line;margin-top:10px;">${e(d.warn.join("\n"))}</p>`;
+  h += `<p style="font-size:12px;color:var(--muted);margin:8px 0;">ERP MT = pcs × C/F with C/F rounded to 5 decimals (as the ERP stores it), so it can differ from the sheet by about 0.001 MT per line.</p>`;
+
+  h += `<h3 style="color:var(--navy);margin-top:18px;">1. Production Entry - one voucher per heat</h3>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Series PRODUCTION ENTRY - STEEL MELTING SHOP (Q2) · Transaction Type STOCK MATERIAL · Plant INDUCTION FURNACE (INDF1) · Process BILLETS · Cost INDUCTION FURNACE (INFUR) · Production In / Out Date ${e(dmy)} · Manual</p>`;
+  d.vouchers.forEach(v => {
+    h += `<details style="margin:8px 0;"><summary><b>Heat ${e(v.heat)}</b> - ${v.lines.reduce((s, l) => s + l.pcs, 0)} pcs, ${v.erpMt.toFixed(3)} MT (sheet ${v.sheetMt.toFixed(3)})</summary>`;
+    h += `<div style="font-size:12px;margin:6px 0 2px;">Production Received - Godown ${ERP_SMS2} · Stock Type R - REVENUE · Department QAD-SMS · Tran UM PCS</div>`;
+    h += tbl(["Item Code", "Size", "Length", "Batch No.", "Ref No", "PCS", "C/F", "Qty (MT)"],
+      v.lines.map(l => [l.sms2Code, l.size, `${l.len} Mtr`, l.batch, l.ref, l.pcs, l.cf.toFixed(5), l.mt.toFixed(3)]));
+    h += `<div style="font-size:12px;margin:6px 0 2px;">RM Consumption - Godown ${ERP_SMS1} · Stock Type R - REVENUE</div>`;
+    h += v.rm.length ? tbl(["Item Code", "Item", "Qty (MT)"], v.rm.map(x => [x.code, x.label, x.qty.toFixed(3)])) : `<div style="font-size:12px;">No consumption entered for this date in RM Report.</div>`;
+    h += `</details>`;
+  });
+
+  h += `<h3 style="color:var(--navy);margin-top:18px;">2. Material to Material Transfer - Hot Charging (SMS2 → BLRM)</h3>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Series Billet Tranfer from SMS to RM (BL) · Transaction Type STOCK MATERIAL · Tran UM PCS</p>`;
+  if (d.hcIssue.length) {
+    h += `<div style="font-size:12px;margin:6px 0 2px;">Item Issued - Godown ${ERP_SMS2}</div>`;
+    h += tbl(["Item Code", "Size", "Length", "Batch No.", "Ref No", "PCS", "C/F", "Qty (MT)"], d.hcIssue.map(l => [l.sms2Code, l.size, `${l.len} Mtr`, l.batch, l.ref, l.pcs, l.cf.toFixed(5), l.mt.toFixed(3)]));
+    h += `<div style="font-size:12px;margin:6px 0 2px;">Item Received - Godown ${ERP_BLRM}</div>`;
+    h += tbl(["Item Code", "Size", "Length", "Batch No.", "PCS", "C/F", "Qty (MT)"], d.hcReceive.map(x => [x.blrmCode, x.size, `${x.len} Mtr`, x.batch, x.pcs, x.cf.toFixed(5), x.mt.toFixed(3)]));
+  } else h += `<div style="font-size:12px;">No hot charging on this date.</div>`;
+
+  h += `<h3 style="color:var(--navy);margin-top:18px;">3. Material to Material Transfer - Hot Out (BLRM → SMS2)</h3>`;
+  h += d.hotOut.length ? tbl(["Heat", "Issue: Item Code (BLRM)", "Issue Batch", "Receive: Item Code (SMS2)", "Receive Batch", "Receive Ref No", "Size", "Length", "PCS", "C/F", "Qty (MT)"],
+    d.hotOut.map(l => [l.heat, l.blrmCode, d.rangeBatch || "NOT FOUND", l.sms2Code, l.batch, l.batch + "R", l.size, `${l.len} Mtr`, l.pcs, l.cf.toFixed(5), l.mt.toFixed(3)]))
+    : `<div style="font-size:12px;">No hot out on this date.</div>`;
+
+  h += `<h3 style="color:var(--navy);margin-top:18px;">4. Material to Material Transfer - RHF (SMS2 → BLRM)</h3>`;
+  h += d.rhf.length ? tbl(["Issue: Item Code (SMS2)", "Receive: Item Code (BLRM)", "Receive Batch", "Size", "Length", "PCS", "C/F", "Qty (MT)"],
+    d.rhf.map(x => [x.sms2Code, x.blrmCode, x.batch, x.size, `${x.len} Mtr`, x.pcs, x.cf.toFixed(5), x.mt.toFixed(3)]))
+    : `<div style="font-size:12px;">No RHF on this date.</div>`;
+  return h;
+}
+
+async function loadErpEntrySheet() {
+  const statusEl = document.getElementById("status");
+  const dateVal = document.getElementById("erpEntryDate").value;
+  const wrap = document.getElementById("erpEntryWrap");
+  if (!dateVal) { statusEl.className = "err"; statusEl.textContent = "Please select a date."; return; }
+  statusEl.className = "wait"; statusEl.textContent = "Building the ERP entry sheet...";
+  wrap.classList.add("hidden"); erpEntryData = null;
+  try {
+    const token = await getToken();
+    const { results: wbList } = await getWorkbooksForRange(token, dateVal, dateVal);
+    if (!wbList.length) { statusEl.className = "err"; statusEl.textContent = "Couldn't find the Reports file for this date."; return; }
+    const wb = wbList[0].wb, sheet = "Prod.";
+    const sh = encodeURIComponent(sheet.replace(/'/g, "''"));
+    const colA = await graphFetch(`${wb}/worksheets('${sh}')/range(address='A1:A2000')?$select=values`, token);
+    let dataStart = -1;
+    for (let i = 0; i < colA.values.length; i++) { const v = colA.values[i][0]; if (typeof v === "number" && excelSerialToISODate(v) === dateVal) { dataStart = i + 1; break; } }
+    if (dataStart === -1) { statusEl.className = "err"; statusEl.textContent = `No block for ${dateVal} in the Prod. sheet.`; return; }
+    const heats = await prodHeatsFor(wb, token, sheet);
+    const [prod, consRow] = await Promise.all([
+      graphFetch(`${wb}/worksheets('${sh}')/range(address='A${dataStart}:AF${dataStart + heats + 2}')?$select=values`, token),
+      getConsumptionRowForDate(wb, dateVal, token)]);
+    const d = erpEntryBuild(prod.values, heats, consRow, dateVal);
+    if (!d.heats) { statusEl.className = "err"; statusEl.textContent = `No heats entered for ${dateVal}.`; return; }
+    erpEntryData = d;
+    wrap.innerHTML = erpEntryRender(d);
+    wrap.classList.remove("hidden");
+    statusEl.className = d.warn.length ? "err" : "ok";
+    statusEl.textContent = `ERP entry sheet ready for ${dateVal}: ${d.heats} heat voucher(s), ${d.totals.erpMt.toFixed(3)} MT.` + (d.warn.length ? ` ${d.warn.length} item code(s) missing - see the list.` : "");
+  } catch (e) { statusEl.className = "err"; statusEl.textContent = "Error: " + e.message; }
+}
+
+function erpEntryXlsx() {
+  const d = erpEntryData;
+  if (!d) { alert("Load the ERP entry sheet first."); return; }
+  const wbOut = XLSX.utils.book_new();
+  const prod = [["Heat", "Item Code", "Godown", "Size", "Length (Mtr)", "Batch No.", "Ref No", "Department", "Tran UM", "PCS", "C/F", "Qty (MT)"]];
+  d.vouchers.forEach(v => v.lines.forEach(l => prod.push([v.heat, l.sms2Code || "NOT FOUND", ERP_SMS2, l.size, l.len, l.batch, l.ref, "QAD-SMS", "PCS", l.pcs, l.cf, l.mt])));
+  XLSX.utils.book_append_sheet(wbOut, XLSX.utils.aoa_to_sheet(prod), "Production");
+  const rm = [["Heat", "Item Code", "Item", "Godown", "Qty (MT)"]];
+  d.vouchers.forEach(v => v.rm.forEach(x => rm.push([v.heat, x.code || "NOT FOUND", x.label, ERP_SMS1, x.qty])));
+  XLSX.utils.book_append_sheet(wbOut, XLSX.utils.aoa_to_sheet(rm), "RM Consumption");
+  const m = [["Transfer", "Side", "Heat", "Item Code", "Godown", "Size", "Length (Mtr)", "Batch No.", "Ref No", "Tran UM", "PCS", "C/F", "Qty (MT)"]];
+  d.hcIssue.forEach(l => m.push(["Hot Charging", "Issue", l.heat, l.sms2Code || "NOT FOUND", ERP_SMS2, l.size, l.len, l.batch, l.ref, "PCS", l.pcs, l.cf, l.mt]));
+  d.hcReceive.forEach(x => m.push(["Hot Charging", "Receive", "", x.blrmCode || "NOT FOUND", ERP_BLRM, x.size, x.len, x.batch, "", "PCS", x.pcs, x.cf, x.mt]));
+  d.hotOut.forEach(l => { m.push(["Hot Out", "Issue", l.heat, l.blrmCode || "NOT FOUND", ERP_BLRM, l.size, l.len, d.rangeBatch, "", "PCS", l.pcs, l.cf, l.mt]);
+    m.push(["Hot Out", "Receive", l.heat, l.sms2Code || "NOT FOUND", ERP_SMS2, l.size, l.len, l.batch, l.batch + "R", "PCS", l.pcs, l.cf, l.mt]); });
+  d.rhf.forEach(x => { m.push(["RHF", "Issue", "", x.sms2Code || "NOT FOUND", ERP_SMS2, x.size, x.len, "", "", "PCS", x.pcs, x.cf, x.mt]);
+    m.push(["RHF", "Receive", "", x.blrmCode || "NOT FOUND", ERP_BLRM, x.size, x.len, x.batch, "", "PCS", x.pcs, x.cf, x.mt]); });
+  XLSX.utils.book_append_sheet(wbOut, XLSX.utils.aoa_to_sheet(m), "M2M");
+  XLSX.writeFile(wbOut, `ERP_Entry_${d.dateISO}.xlsx`);
+}
+
+document.getElementById("erpEntryLoadBtn").addEventListener("click", loadErpEntrySheet);
+document.getElementById("erpEntryXlsxBtn").addEventListener("click", erpEntryXlsx);
+document.getElementById("erpEntryWrap").addEventListener("click", ev => {
+  const td = ev.target.closest("table.erpCopy td");
+  if (!td) return;
+  const t = td.textContent.trim();
+  if (!t || t === "NOT FOUND") return;
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => {
+    td.style.outline = "2px solid #2e9d5b"; setTimeout(() => { td.style.outline = ""; }, 700);
+  }).catch(() => {});
+});
+(() => { const el = document.getElementById("erpEntryDate"); if (el && !el.value) { const y = new Date(Date.now() - 864e5); el.value = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, "0")}-${String(y.getDate()).padStart(2, "0")}`; } })();
+window._erpEntryTest = { erpEntryBuild, erpBatchOf };
 
 /* ===================== HOT OUT ENTRY ===================== */
 const HOTOUT_OFFSETS = {
