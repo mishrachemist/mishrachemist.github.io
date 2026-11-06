@@ -2289,6 +2289,8 @@
   .sidebar[data-ico] .dcSub{ font-size:clamp(10px, 3vw, 12px); }
   /* ===== Home icon styles (Menu -> Icon Style). .sidebar[data-ico] ===== */
   .navSvg{ display:none; }
+  .navIcon:has(img.navImg) .navSvg{ display:none !important; }
+  .navIcon img.navImg{ display:block; width:72%; height:auto; aspect-ratio:1/1; border-radius:22%; object-fit:cover; }
   .navGroupHead{ display:none; }
   .sidebar[data-ico="flat"]:not(.subNav) > .navItem .navIcon,
   .sidebar[data-ico="group"]:not(.subNav) > .navItem .navIcon,
@@ -4481,7 +4483,7 @@ window.__gmFS = {
         <button class="navItem" data-section="stock"><span class="navPin">☆</span><span class="navIcon">📦</span><span class="navLabel" data-en="Stock" data-hi="स्टॉक">Stock</span><span class="navShort">Stock</span></button>
         <button class="navItem" data-section="rmdesc"><span class="navPin">☆</span><span class="navIcon">🧾</span><span class="navLabel" data-en="R.M Description" data-hi="आर.एम विवरण">R.M Description</span><span class="navShort">RM Desc</span></button>
         <button class="navItem" data-section="outofspec"><span class="navPin">☆</span><span class="statusDot hidden" id="outOfSpecDot"></span><span class="navIcon">⚠️</span><span class="navLabel" data-en="Out of Spec" data-hi="आउट ऑफ स्पेक">Out of Spec</span><span class="navShort">Off-Spec</span></button>
-        <button class="navItem" data-section="erpprod"><span class="navPin">☆</span><span class="navIcon">🏢</span><span class="navLabel" data-en="ERP PROD" data-hi="ईआरपी उत्पादन">ERP PROD</span><span class="navShort">ERP Prod</span></button>
+        <button class="navItem" data-section="erpprod"><span class="navPin">☆</span><span class="navIcon"><img class="navImg" alt="ERP" src="data:image/webp;base64,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"></span><span class="navLabel" data-en="ERP" data-hi="ईआरपी">ERP</span><span class="navShort">ERP</span></button>
         <button class="navItem" data-section="debitnote"><span class="navPin">☆</span><span class="navIcon">💰</span><span class="navLabel" data-en="SI Debit Note" data-hi="डेबिट नोट">SI Debit Note</span><span class="navShort">Debit Note</span></button>
         <button class="navItem" data-section="trends"><span class="navPin">☆</span><span class="navIcon">📈</span><span class="navLabel" data-en="Trend Charts" data-hi="ट्रेंड चार्ट">Trend Charts</span><span class="navShort">Trends</span></button>
         <button class="navItem" data-section="whatsapp"><span class="navPin">☆</span><span class="navIcon">📋</span><span class="navLabel" data-en="Production Update" data-hi="प्रोडक्शन अपडेट">Production Update</span><span class="navShort">Prod Entry</span></button>
@@ -5288,6 +5290,15 @@ window.__gmFS = {
         </div>
 
         <div class="sectionPanel hidden" id="section-erpprod">
+          <div class="sidebar subNav" id="erpSubNav">
+            <button class="navItem" data-suberp="prod"><span class="navIcon">📥</span> ERP Prod Download</button>
+            <button class="navItem" data-suberp="entry"><span class="navIcon">🧾</span> ERP Entry</button>
+          </div>
+          <div class="contentArea hidden" id="erpSubContent">
+          <div class="backBar">
+            <button class="backBtn" id="backToErpMenuBtn">← Back to ERP Menu</button>
+          </div>
+          <div class="sub-sectionPanel hidden" id="suberp-prod">
           <div class="card">
             <h2>🏢 ERP Production</h2>
             <p style="font-size:13px;color:var(--muted);margin:0 0 14px;">
@@ -5320,7 +5331,9 @@ window.__gmFS = {
             </div>
           </div>
 
-          <div class="card" style="margin-top:16px;">
+          </div>
+          <div class="sub-sectionPanel hidden" id="suberp-entry">
+          <div class="card">
             <h2>🧾 ERP Entry Sheet (heat-wise)</h2>
             <p style="font-size:13px;color:var(--muted);margin:0 0 14px;">
               Builds everything to be entered in the ERP for one day from the Prod. sheet and
@@ -5357,6 +5370,8 @@ window.__gmFS = {
               </details>
             </div>
             <div id="erpEntryWrap" class="hidden" style="margin-top:16px;"></div>
+          </div>
+          </div>
           </div>
         </div>
 
@@ -6778,7 +6793,7 @@ function uiLang() { try { return localStorage.getItem("appLanguage") || "en"; } 
 function uiHiDict() {
   return {
     "Dashboard": "डैशबोर्ड", "Stock": "स्टॉक", "RM Desc": "आर.एम विवरण", "Off-Spec": "आउट ऑफ स्पेक",
-    "ERP Prod": "ईआरपी उत्पादन", "Debit Note": "डेबिट नोट", "Trends": "ट्रेंड", "Prod Entry": "उत्पादन एंट्री",
+    "ERP Prod": "ईआरपी उत्पादन", "ERP Prod Download": "ईआरपी उत्पादन डाउनलोड", "ERP Entry": "ईआरपी एंट्री", "← Back to ERP Menu": "← ईआरपी मेनू पर वापस", "Debit Note": "डेबिट नोट", "Trends": "ट्रेंड", "Prod Entry": "उत्पादन एंट्री",
     "Heat Cons.": "हीट खपत", "Party TC": "पार्टी टीसी", "New Block": "नया ब्लॉक", "Reports": "रिपोर्ट्स",
     "Edge Crack": "एज क्रैक", "ISO 9001": "आईएसओ 9001", "Quarterly": "तिमाही", "Summary": "सारांश",
     "What-If": "व्हाट-इफ", "Ask Data": "डेटा से पूछें", "Ind Std.": "भारतीय मानक", "SOP/WI": "एसओपी/WI",
@@ -6967,9 +6982,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.06.4";
+const APP_VERSION = "2026.11.06.5";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🏢 ERP PROD is now the ERP tile with the ERP icon - inside it: ERP Prod Download (production from the Excel sheet, later straight from the ERP) and ERP Entry (entry sheet + Send to ERP)",
   "🏭 New: Send to ERP - with the \"Moltrix ERP\" bookmark in the ERP, Moltrix sends the day's heats and the ERP fills and saves each heat's Production Entry (billets + RM consumption) by itself; a second mode adds missing RM consumption to vouchers already saved",
   "🧾 New: ERP PROD → ERP Entry Sheet - pick a date to get every heat's Production Entry (billets in pcs, C/F, Ref No R/B, RM consumption per heat) and the BL transfers for hot charging, hot out and RHF with ERP item codes; tap a cell to copy, or download Excel",
   "🧾 AOP vs Indent: dummy ₹1 indent lines (rate ₹1, no PO, for an item that also has a priced indent - e.g. IG26Y-00052 AMC for Spectrometer) are left out",
@@ -7223,7 +7239,7 @@ const NAV_GROUP = { dashboard: "prod", whatsapp: "prod", nextday: "prod", erppro
   reports: "docs", indstd: "docs", sopwi: "docs", askdata: "docs", element: "qual", marketdash: "prod", aop: "docs" };
 const NAV_GROUP_LABEL = { pinned: "★ Pinned", prod: "Production", qual: "Quality", stock: "Stock & Raw Material", docs: "Documents" };
 const NAV_SUB = { dashboard: "Production overview", stock: "Billet & RM stock", rmdesc: "Raw material details",
-  outofspec: "Chemistry out of spec", erpprod: "ERP production", debitnote: "SI debit notes", trends: "Trend charts",
+  outofspec: "Chemistry out of spec", erpprod: "ERP production & ERP entry", debitnote: "SI debit notes", trends: "Trend charts",
   whatsapp: "WhatsApp / paste entry", heatwiseconsumption: "Consumption per heat", partyreports: "Party test certificates",
   nextday: "Next day blocks", reports: "PDF reports", edgecrack: "Edge crack QC", iso9001: "NCR, calibration, vendors",
   inwardqc: "Quarter reports", smartsummary: "Smart summary", whatif: "What-if simulator", askdata: "Ask your data",
@@ -7241,7 +7257,7 @@ window._homeLive = window._homeLive || {};
 
 // Inner page icon grids (Dashboard, Trends, Production Update, Reports, ISO 9001)
 const SUB_SVG = {"daily": "<path d=\"M4 5m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z\"/> <path d=\"M16 3l0 4\"/> <path d=\"M8 3l0 4\"/> <path d=\"M4 11l16 0\"/> <path d=\"M8 15h2v2h-2z\"/>", "period": "<path d=\"M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M15 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M9 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z\"/> <path d=\"M4 20h14\"/>", "mom": "<path d=\"M4 19l16 0\"/> <path d=\"M4 15l4 -6l4 2l4 -5l4 4\"/>", "calendar": "<path d=\"M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z\"/> <path d=\"M16 3v4\"/> <path d=\"M8 3v4\"/> <path d=\"M4 11h16\"/> <path d=\"M11 15h1\"/> <path d=\"M12 15v3\"/>", "linechart": "<path d=\"M4 19l16 0\"/> <path d=\"M4 15l4 -6l4 2l4 -5l4 4\"/>", "pie": "<path d=\"M10 3.2a9 9 0 1 0 10.8 10.8a1 1 0 0 0 -1 -1h-6.8a2 2 0 0 1 -2 -2v-7a.9 .9 0 0 0 -1 -.8\"/> <path d=\"M15 3.5a9 9 0 0 1 5.5 5.5h-4.5a1 1 0 0 1 -1 -1v-4.5\"/>", "sizewise": "<path d=\"M17 3l4 4l-14 14l-4 -4z\"/> <path d=\"M16 7l-1.5 -1.5\"/> <path d=\"M13 10l-1.5 -1.5\"/> <path d=\"M10 13l-1.5 -1.5\"/> <path d=\"M7 16l-1.5 -1.5\"/>", "chemical": "<path d=\"M6.1 15h11.8\"/> <path d=\"M14 3v7.342a6 6 0 0 1 1.318 10.658h-6.635a6 6 0 0 1 1.317 -10.66v-7.34h4z\"/> <path d=\"M9 3h6\"/>", "update": "<path d=\"M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2\"/> <path d=\"M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z\"/> <path d=\"M9 12l.01 0\"/> <path d=\"M13 12l2 0\"/> <path d=\"M9 16l.01 0\"/> <path d=\"M13 16l2 0\"/>", "hotout": "<path d=\"M12 12c2 -2.96 0 -7 -1 -8c0 3.038 -1.773 4.741 -3 6c-1.226 1.26 -2 3.24 -2 5a6 6 0 1 0 12 0c0 -1.532 -1.056 -3.94 -2 -5c-1.786 3 -2.791 3 -4 2z\"/>", "rhf": "<path d=\"M12 4l-8 4l8 4l8 -4l-8 -4\"/> <path d=\"M4 12l8 4l8 -4\"/> <path d=\"M4 16l8 4l8 -4\"/>", "rawmaterial": "<path d=\"M12 17l-2 2l2 2\"/> <path d=\"M10 19h9a2 2 0 0 0 1.75 -2.75l-.55 -1\"/> <path d=\"M8.536 11l-.732 -2.732l-2.732 .732\"/> <path d=\"M7.804 8.268l-4.5 7.794a2 2 0 0 0 1.506 2.89l1.141 .024\"/> <path d=\"M15.464 11l2.732 .732l.732 -2.732\"/> <path d=\"M18.196 11.732l-4.5 -7.794a2 2 0 0 0 -3.256 -.14l-.591 .976\"/>", "logsheet": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z\"/> <path d=\"M8 11h8v7h-8z\"/> <path d=\"M8 15h8\"/> <path d=\"M11 11v7\"/>", "billetstock": "<path d=\"M7 16.5l-5 -3l5 -3l5 3v5.5l-5 3z\"/> <path d=\"M2 13.5v5.5l5 3\"/> <path d=\"M7 16.545l5 -3.03\"/> <path d=\"M17 16.5l-5 -3l5 -3l5 3v5.5l-5 3z\"/> <path d=\"M12 19l5 3\"/> <path d=\"M17 16.5l5 -3\"/> <path d=\"M12 13.5v-5.5l-5 -3l5 -3l5 3v5.5\"/> <path d=\"M7 5.03v5.455\"/> <path d=\"M12 8l5 -3\"/>", "stripmill": "<path d=\"M4 21c1.147 -4.02 1.983 -8.027 2 -12h6c.017 3.973 .853 7.98 2 12\"/> <path d=\"M12.5 13h4.5c.025 2.612 .894 5.296 2 8\"/> <path d=\"M9 5a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1\"/> <path d=\"M3 21l19 0\"/>", "stockdiff": "<path d=\"M11 16h10\"/> <path d=\"M11 16l4 4\"/> <path d=\"M11 16l4 -4\"/> <path d=\"M13 8h-10\"/> <path d=\"M13 8l-4 4\"/> <path d=\"M13 8l-4 -4\"/>", "bisdoc": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M5 8v-3a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2h-5\"/> <path d=\"M6 14m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/> <path d=\"M4.5 17l-1.5 5l3 -1.5l3 1.5l-1.5 -5\"/>", "testcert": "<path d=\"M12 15m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/> <path d=\"M10 7h4\"/> <path d=\"M10 18v4l2 -1l2 1v-4\"/> <path d=\"M10 19h-2a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-2\"/>", "rmscrap": "<path d=\"M12 17l-2 2l2 2\"/> <path d=\"M10 19h9a2 2 0 0 0 1.75 -2.75l-.55 -1\"/> <path d=\"M8.536 11l-.732 -2.732l-2.732 .732\"/> <path d=\"M7.804 8.268l-4.5 7.794a2 2 0 0 0 1.506 2.89l1.141 .024\"/> <path d=\"M15.464 11l2.732 .732l.732 -2.732\"/> <path d=\"M18.196 11.732l-4.5 -7.794a2 2 0 0 0 -3.256 -.14l-.591 .976\"/>", "slagcrusher": "<path d=\"M19.875 6.27a2.225 2.225 0 0 1 1.125 1.948v7.284c0 .809 -.443 1.555 -1.158 1.948l-6.75 4.27a2.269 2.269 0 0 1 -2.184 0l-6.75 -4.27a2.225 2.225 0 0 1 -1.158 -1.948v-7.285c0 -.809 .443 -1.554 1.158 -1.947l6.75 -3.98a2.33 2.33 0 0 1 2.25 0l6.75 3.98h-.033z\"/> <path d=\"M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/>", "mis": "<path d=\"M8 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h5.697\"/> <path d=\"M18 14v4h4\"/> <path d=\"M18 11v-4a2 2 0 0 0 -2 -2h-2\"/> <path d=\"M8 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z\"/> <path d=\"M18 18m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0\"/> <path d=\"M8 11h4\"/> <path d=\"M8 15h3\"/>", "ncr": "<path d=\"M12.802 2.165l5.575 2.389c.48 .206 .863 .589 1.07 1.07l2.388 5.574c.22 .512 .22 1.092 0 1.604l-2.389 5.575c-.206 .48 -.589 .863 -1.07 1.07l-5.574 2.388c-.512 .22 -1.092 .22 -1.604 0l-5.575 -2.389a2.036 2.036 0 0 1 -1.07 -1.07l-2.388 -5.574a2.036 2.036 0 0 1 0 -1.604l2.389 -5.575c.206 -.48 .589 -.863 1.07 -1.07l5.574 -2.388a2.036 2.036 0 0 1 1.604 0z\"/> <path d=\"M12 8v4\"/> <path d=\"M12 16h.01\"/>", "calibration": "<path d=\"M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5\"/>", "vendor": "<path d=\"M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572\"/> <path d=\"M12 6l-3.293 3.293a1 1 0 0 0 0 1.414l.543 .543c.69 .69 1.81 .69 2.5 0l1 -1a3.182 3.182 0 0 1 4.5 0l2.25 2.25\"/> <path d=\"M12.5 15.5l2 2\"/> <path d=\"M15 13l2 2\"/>", "traceability": "<path d=\"M9 15l6 -6\"/> <path d=\"M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464\"/> <path d=\"M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463\"/>", "objectives": "<path d=\"M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0\"/> <path d=\"M12 7a5 5 0 1 0 5 5\"/> <path d=\"M13 3.055a9 9 0 1 0 7.941 7.945\"/> <path d=\"M15 6v3h3l3 -3h-3v-3z\"/> <path d=\"M15 9l-3 3\"/>", "pack": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M5 8v-3a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2h-5\"/> <path d=\"M6 14m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0\"/> <path d=\"M4.5 17l-1.5 5l3 -1.5l3 1.5l-1.5 -5\"/>", "rmdaily": "<path d=\"M3 5a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-14z\"/> <path d=\"M3 10h18\"/> <path d=\"M3 15h18\"/> <path d=\"M10 3v18\"/>", "spongenote": "<path d=\"M13 20l7 -7\"/> <path d=\"M13 20v-6a1 1 0 0 1 1 -1h6v-7a2 2 0 0 0 -2 -2h-12a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7\"/>", "solution": "<path d=\"M9 3l6 0\"/> <path d=\"M10 9l4 0\"/> <path d=\"M10 3v6l-4 11a.7 .7 0 0 0 .5 1h11a.7 .7 0 0 0 .5 -1l-4 -11v-6\"/>", "ptable": "<path d=\"M4 4h6v6h-6z\"/> <path d=\"M14 4h6v6h-6z\"/> <path d=\"M4 14h6v6h-6z\"/> <path d=\"M14 14h6v6h-6z\"/>", "sds": "<path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/> <path d=\"M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z\"/> <path d=\"M12 11l-3 6h6z\"/>", "safety": "<path d=\"M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -3a12 12 0 0 0 8.5 3a12 12 0 0 1 -.09 7.06\"/> <path d=\"M15 19l2 2l4 -4\"/>"};
-const SUBNAV_GROUP = { marketSubNav: "prod", elementSubNav: "qual", dashboardSubNav: "prod", trendsSubNav: "prod", whatsappSubNav: "prod", reportsSubNav: "docs", iso9001SubNav: "qual" };
+const SUBNAV_GROUP = { erpSubNav: "prod", marketSubNav: "prod", elementSubNav: "qual", dashboardSubNav: "prod", trendsSubNav: "prod", whatsappSubNav: "prod", reportsSubNav: "docs", iso9001SubNav: "qual" };
 function setupSubNavIcons() {
   document.querySelectorAll(".sidebar.subNav").forEach(sn => {
     sn.dataset.grp = SUBNAV_GROUP[sn.id] || "docs";
@@ -9912,7 +9928,8 @@ document.querySelectorAll("#mainSidebar > .navItem").forEach(btn => {
       element: ["elementSubNav", "elementSubContent"],
       marketdash: ["marketSubNav", "marketSubContent"],
       stock: ["stockSubNav", "stockSubContent"],
-      aop: ["aopSubNav", "aopSubContent"]
+      aop: ["aopSubNav", "aopSubContent"],
+      erpprod: ["erpSubNav", "erpSubContent"]
     };
     const reset = subNavResets[btn.dataset.section];
     if (reset) {
@@ -10115,6 +10132,24 @@ document.querySelectorAll("#getStartedSubNav .navItem").forEach(btn => {
   });
 });
 document.getElementById("backToGetStartedMenuBtn").addEventListener("click", gsShowTiles);
+
+/* ===================== ERP SUB-NAV (ERP Prod Download / ERP Entry) ===================== */
+function openErpSub(key) {
+  document.querySelectorAll("#erpSubNav .navItem").forEach(b => b.classList.toggle("active", b.dataset.suberp === key));
+  document.querySelectorAll("#section-erpprod .sub-sectionPanel").forEach(p => p.classList.add("hidden"));
+  document.getElementById("suberp-" + key).classList.remove("hidden");
+  document.getElementById("erpSubNav").classList.add("hidden");
+  document.getElementById("mainBackBar").classList.add("hidden");
+  document.getElementById("erpSubContent").classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+document.querySelectorAll("#erpSubNav .navItem").forEach(btn => btn.addEventListener("click", () => openErpSub(btn.dataset.suberp)));
+document.getElementById("backToErpMenuBtn").addEventListener("click", () => {
+  document.getElementById("erpSubContent").classList.add("hidden");
+  document.getElementById("erpSubNav").classList.remove("hidden");
+  document.getElementById("mainBackBar").classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "instant" });
+});
 
 /* ===================== TREND CHARTS SUB-NAV ===================== */
 document.querySelectorAll("#trendsSubNav .navItem").forEach(btn => {
@@ -17907,7 +17942,7 @@ window.addEventListener("message", ev => {
       const app = document.getElementById("app");
       if (nav && app && !app.classList.contains("hidden") && typeof account !== "undefined" && account) {
         clearInterval(iv); nav.click();
-        setTimeout(() => { const c = document.getElementById("erpSendBox"); if (c) c.closest(".card").scrollIntoView({ block: "start" }); }, 400);
+        setTimeout(() => { openErpSub("entry"); const c = document.getElementById("erpSendBox"); if (c) c.scrollIntoView({ block: "start" }); }, 400);
       } else if (Date.now() - t0 > 120000) clearInterval(iv);
     }, 500);
   }
