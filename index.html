@@ -5335,6 +5335,27 @@ window.__gmFS = {
               <button class="primary" id="erpEntryLoadBtn">Load ERP Entry Sheet</button>
               <button class="secondary" id="erpEntryXlsxBtn">Download Excel</button>
             </div>
+            <div id="erpSendBox" style="margin-top:14px;padding:12px;border:1px solid var(--line, #c9d3e3);border-radius:10px;">
+              <b>Enter into ERP</b>
+              <p id="erpSendHint" style="font-size:12px;color:var(--muted);margin:6px 0 10px;"></p>
+              <label for="erpSendMode">What to enter</label>
+              <select id="erpSendMode">
+                <option value="full">Production + RM consumption (new voucher per heat)</option>
+                <option value="cons">Add RM consumption to vouchers already saved</option>
+              </select>
+              <div class="btnRow"><button class="primary" id="erpSendBtn" disabled>Send to ERP</button></div>
+              <div id="erpSendLog" style="font:12px/1.4 Consolas,monospace;white-space:pre-wrap;margin-top:8px;max-height:220px;overflow:auto;"></div>
+              <details style="margin-top:10px;"><summary style="cursor:pointer;font-size:13px;">Set up the ERP bookmark (one time, on the PC)</summary>
+                <ol style="font-size:12px;margin:8px 0 0 18px;padding:0;">
+                  <li>Show the bookmarks bar in Chrome (Ctrl+Shift+B).</li>
+                  <li>Drag this button onto the bookmarks bar: <a id="erpBookmarklet" href="#" style="display:inline-block;padding:3px 10px;border-radius:6px;background:#d4a017;color:#10213a;font-weight:700;text-decoration:none;">Moltrix ERP</a></li>
+                  <li>Daily: open the ERP → Production Entry Listing → click <b>Moltrix ERP</b> → <b>Open Moltrix</b> → pick the date here → <b>Send to ERP</b> → <b>Start</b> in the ERP.</li>
+                  <li>While it runs keep the ERP tab in front and don't click in it (a heat takes about 3-4 minutes; Chrome slows down tabs in the background).</li>
+                  <li>Every heat is checked line by line before Save. If an RM item has no stock or anything doesn't match, that heat is <b>not saved</b> and the reason is shown - fix it and Start again (saved heats are skipped).</li>
+                  <li>The ERP doesn't accept a Production Entry without at least one RM line, so production goes in together with the consumption. "Add RM consumption to vouchers already saved" adds lines that were missing earlier.</li>
+                </ol>
+              </details>
+            </div>
             <div id="erpEntryWrap" class="hidden" style="margin-top:16px;"></div>
           </div>
         </div>
@@ -6946,9 +6967,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.06.3";
+const APP_VERSION = "2026.11.06.4";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🏭 New: Send to ERP - with the \"Moltrix ERP\" bookmark in the ERP, Moltrix sends the day's heats and the ERP fills and saves each heat's Production Entry (billets + RM consumption) by itself; a second mode adds missing RM consumption to vouchers already saved",
   "🧾 New: ERP PROD → ERP Entry Sheet - pick a date to get every heat's Production Entry (billets in pcs, C/F, Ref No R/B, RM consumption per heat) and the BL transfers for hot charging, hot out and RHF with ERP item codes; tap a cell to copy, or download Excel",
   "🧾 AOP vs Indent: dummy ₹1 indent lines (rate ₹1, no PO, for an item that also has a priced indent - e.g. IG26Y-00052 AMC for Spectrometer) are left out",
   "🧾 AOP vs Indent: cancelled indents (Net Indent Qty 0) are left out of every tab, PDF and Excel; items indented or issued for the first time are added by themselves to the Next FY AOP (WIP) on every Compare - an item you delete there is not put back",
@@ -17634,7 +17656,8 @@ const ERP_BILLET_CODES = {
 // HEAT_CONSUMPTION_ITEMS order; null = ERP code not known yet
 const ERP_RM_CODES = {
   lumps: "R05060001", fines: "R05060003", pellets: "R05060002", steelMeltingScrap: "R05030002",
-  magMaterial: "R05030007", rollingMillScrap: "W01010028", msScrap: null, ciMixScrap: null, pigIron: null, overSizeMag: null
+  // W01010028 (MS Scrap - Rolling Mill) is not in the ERP's RM Consumption item list, so it is skipped
+  magMaterial: "R05030007", rollingMillScrap: null, msScrap: null, ciMixScrap: null, pigIron: null, overSizeMag: null
 };
 const ERP_SMS2 = "CD SHED (SMS2)", ERP_BLRM = "BILLET YARD RM (BLRM)", ERP_SMS1 = "BC SHED (SMS1)";
 let erpEntryData = null;
@@ -17676,7 +17699,7 @@ function erpEntryBuild(rows, heats, consRow, dateISO) {
     lines.forEach(l => { l.ref = l.batch + l.kind; });
     const rm = HEAT_CONSUMPTION_ITEMS.map((it, k) => ({ key: it.key, label: it.label, code: ERP_RM_CODES[it.key] || null, qty: perItem[k][h] / 100 }))
       .filter(x => x.qty > 0);
-    rm.filter(x => !x.code).forEach(x => warn.push(`No ERP item code for ${x.label} (heat ${heat}).`));
+    rm.filter(x => !x.code).forEach(x => warn.push(`No ERP item code for ${x.label} - it will be skipped in the ERP.`));
     const hotOut = [];
     ERP_LENGTHS.forEach((len, k) => { const p = erpNum(r[28 + k]); if (p > 0) hotOut.push(line(heat, "HO", size, len, p, wpm)); });
     return { heat, batch: erpBatchOf(heat), size, lines, rm, hotOut,
@@ -17763,6 +17786,27 @@ function erpEntryRender(d) {
   return h;
 }
 
+// Reads the Prod. block + RM Report consumption of one date and builds the ERP entry data
+async function erpEntryFetch(dateVal) {
+  const token = await getToken();
+  const { results: wbList } = await getWorkbooksForRange(token, dateVal, dateVal);
+  if (!wbList.length) throw new Error("Couldn't find the Reports file for this date.");
+  const wb = wbList[0].wb, sheet = "Prod.";
+  const sh = encodeURIComponent(sheet.replace(/'/g, "''"));
+  const colA = await graphFetch(`${wb}/worksheets('${sh}')/range(address='A1:A2000')?$select=values`, token);
+  let dataStart = -1;
+  for (let i = 0; i < colA.values.length; i++) { const v = colA.values[i][0]; if (typeof v === "number" && excelSerialToISODate(v) === dateVal) { dataStart = i + 1; break; } }
+  if (dataStart === -1) throw new Error(`No block for ${dateVal} in the Prod. sheet.`);
+  const heats = await prodHeatsFor(wb, token, sheet);
+  const [prod, consRow] = await Promise.all([
+    graphFetch(`${wb}/worksheets('${sh}')/range(address='A${dataStart}:AF${dataStart + heats + 2}')?$select=values`, token),
+    getConsumptionRowForDate(wb, dateVal, token)]);
+  const d = erpEntryBuild(prod.values, heats, consRow, dateVal);
+  if (!d.heats) throw new Error(`No heats entered for ${dateVal}.`);
+  d.consAvailable = (consRow || []).some(v => typeof v === "number" && v > 0);
+  return d;
+}
+
 async function loadErpEntrySheet() {
   const statusEl = document.getElementById("status");
   const dateVal = document.getElementById("erpEntryDate").value;
@@ -17771,22 +17815,8 @@ async function loadErpEntrySheet() {
   statusEl.className = "wait"; statusEl.textContent = "Building the ERP entry sheet...";
   wrap.classList.add("hidden"); erpEntryData = null;
   try {
-    const token = await getToken();
-    const { results: wbList } = await getWorkbooksForRange(token, dateVal, dateVal);
-    if (!wbList.length) { statusEl.className = "err"; statusEl.textContent = "Couldn't find the Reports file for this date."; return; }
-    const wb = wbList[0].wb, sheet = "Prod.";
-    const sh = encodeURIComponent(sheet.replace(/'/g, "''"));
-    const colA = await graphFetch(`${wb}/worksheets('${sh}')/range(address='A1:A2000')?$select=values`, token);
-    let dataStart = -1;
-    for (let i = 0; i < colA.values.length; i++) { const v = colA.values[i][0]; if (typeof v === "number" && excelSerialToISODate(v) === dateVal) { dataStart = i + 1; break; } }
-    if (dataStart === -1) { statusEl.className = "err"; statusEl.textContent = `No block for ${dateVal} in the Prod. sheet.`; return; }
-    const heats = await prodHeatsFor(wb, token, sheet);
-    const [prod, consRow] = await Promise.all([
-      graphFetch(`${wb}/worksheets('${sh}')/range(address='A${dataStart}:AF${dataStart + heats + 2}')?$select=values`, token),
-      getConsumptionRowForDate(wb, dateVal, token)]);
-    const d = erpEntryBuild(prod.values, heats, consRow, dateVal);
-    if (!d.heats) { statusEl.className = "err"; statusEl.textContent = `No heats entered for ${dateVal}.`; return; }
-    erpEntryData = d;
+    const d = await erpEntryFetch(dateVal);
+    erpEntryData = d; erpSendRefresh();
     wrap.innerHTML = erpEntryRender(d);
     wrap.classList.remove("hidden");
     statusEl.className = d.warn.length ? "err" : "ok";
@@ -17827,6 +17857,61 @@ document.getElementById("erpEntryWrap").addEventListener("click", ev => {
   }).catch(() => {});
 });
 (() => { const el = document.getElementById("erpEntryDate"); if (el && !el.value) { const y = new Date(Date.now() - 864e5); el.value = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, "0")}-${String(y.getDate()).padStart(2, "0")}`; } })();
+
+/* ---- Send to ERP: Moltrix opened from the ERP bookmark gets window.opener = the ERP page ---- */
+const ERP_ORIGIN = "http://erpv7.marutisteel.in:8282";
+const ERP_FILLER_URL = "https://mishrachemist.github.io/erpfill.js";
+const erpBridge = (() => { try { return new URLSearchParams(location.search).get("erpbridge") === "1" && !!window.opener; } catch (e) { return false; } })();
+function erpPayload(d, mode) {
+  const dmy = d.dateISO.split("-").reverse().join("-");
+  const bad = [];
+  const heats = d.vouchers.map(v => {
+    v.lines.forEach(l => { if (!l.sms2Code) bad.push(`heat ${v.heat}: no ERP code for ${l.size} ${l.len} Mtr`); });
+    return { heat: v.heat, remark: `Heat ${v.heat}`, date: dmy, mt: v.erpMt,
+      lines: v.lines.map(l => ({ code: l.sms2Code, batch: l.batch, ref: l.ref, pcs: l.pcs, cf: l.cf, mt: l.mt, len: l.len })),
+      rm: v.rm.map(x => ({ code: x.code, label: x.label, qty: x.qty })) };
+  });
+  return { bad, payload: { v: 1, mode, date: dmy, heats } };
+}
+function erpSendLog(m, cls) { const L = document.getElementById("erpSendLog"); if (!L) return; const d = document.createElement("div"); d.textContent = m;
+  d.style.color = cls === "err" ? "#c0392b" : cls === "ok" ? "#2e9d5b" : cls === "h" ? "#b7860b" : ""; L.appendChild(d); L.scrollTop = L.scrollHeight; }
+function erpSendRefresh() {
+  const b = document.getElementById("erpSendBtn"), h = document.getElementById("erpSendHint");
+  if (!b) return;
+  b.disabled = !(erpBridge && erpEntryData);
+  h.textContent = erpBridge ? (erpEntryData ? "Opened from the ERP - press Send to ERP, then Start in the ERP window." : "Opened from the ERP - load the date first.")
+    : "Open this from the ERP with the Moltrix ERP bookmark (set-up below) to send the entries.";
+}
+document.getElementById("erpSendBtn").addEventListener("click", () => {
+  if (!erpBridge || !window.opener) { alert("Open Moltrix from the ERP bookmark to send."); return; }
+  if (!erpEntryData) { alert("Load the ERP entry sheet first."); return; }
+  const mode = document.getElementById("erpSendMode").value;
+  const { bad, payload } = erpPayload(erpEntryData, mode);
+  if (bad.length) { alert("Can't send - " + bad.join("; ")); return; }
+  try { window.opener.postMessage({ type: "moltrix-erp-data", payload }, ERP_ORIGIN); }
+  catch (e) { alert("Couldn't reach the ERP window: " + e.message); return; }
+  erpSendLog(`Sent ${payload.heats.length} heat(s) for ${payload.date} - now press Start in the ERP window.`, "h");
+});
+window.addEventListener("message", ev => {
+  if (ev.origin !== ERP_ORIGIN || !ev.data) return;
+  if (ev.data.type === "moltrix-erp-log") erpSendLog(ev.data.text, ev.data.cls);
+});
+(() => {
+  const a = document.getElementById("erpBookmarklet");
+  if (a) a.href = `javascript:(()=>{const s=document.createElement('script');s.src='${ERP_FILLER_URL}?t='+Date.now();document.body.appendChild(s);})()`;
+  erpSendRefresh();
+  if (erpBridge) {
+    const t0 = Date.now();
+    const iv = setInterval(() => {
+      const nav = document.querySelector('#mainSidebar .navItem[data-section="erpprod"]');
+      const app = document.getElementById("app");
+      if (nav && app && !app.classList.contains("hidden") && typeof account !== "undefined" && account) {
+        clearInterval(iv); nav.click();
+        setTimeout(() => { const c = document.getElementById("erpSendBox"); if (c) c.closest(".card").scrollIntoView({ block: "start" }); }, 400);
+      } else if (Date.now() - t0 > 120000) clearInterval(iv);
+    }, 500);
+  }
+})();
 window._erpEntryTest = { erpEntryBuild, erpBatchOf };
 
 /* ===================== HOT OUT ENTRY ===================== */
