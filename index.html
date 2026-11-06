@@ -4845,7 +4845,7 @@ window.__gmFS = {
             <p class="aovLead">See how much of the AOP is already indented and consumed - section by section, item by item.</p>
             <details class="aovHelp">
               <summary>ℹ️ How it works</summary>
-              <p>Every AOP item is matched with its indents (ERP "Master Indent Report": Net Indent Qty and "Indent Val for Budget", cancelled quantity left out)
+              <p>Every AOP item is matched with its indents (ERP "Master Indent Report": Net Indent Qty and "Indent Val for Budget"; cancelled indents and cancelled quantity left out)
                 and its store issues (consumption Excel, e.g. QAD_Issue sheet: Qty and Value, months of the AOP year only) - by item code, or by name where the AOP has no code.
                 Items indented or issued but not in the AOP are shown as new items. Files are kept in OneDrive → Apps → AOP → Indent / Consumption.</p>
             </details>
@@ -6928,9 +6928,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.05.12";
+const APP_VERSION = "2026.11.06.1";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🧾 AOP vs Indent: cancelled indents (Net Indent Qty 0) are left out of every tab, PDF and Excel; items indented or issued for the first time are added by themselves to the Next FY AOP (WIP) on every Compare - an item you delete there is not put back",
   "🔥 Two furnaces ready: a Reports file made from the 24-heat template (F-A 1-12 + F-B 1-12 per day) works everywhere - next-day blocks, Logsheet / Strip Mill PDF, dashboards, RHF, WhatsApp heats (write \"F-A\" or \"F-B\" in the message); the 12-heat files work as before",
   "🛑 ERP Upload (Durgesh): an ERP report in list form (one line per Tnature) is a wrong file - it is now stopped with a message and nothing in the Excel is changed; the usual ERP stock report (Opening / Receipt / Issue / Closing) works as always",
   "🛠️ ERP Upload (Durgesh): an ERP report in list form (one line per Tnature) is turned into the usual table, so FC Report and the stock formulas work; a wrong earlier ERP adjustment in Daily Stock Q is replaced (not added to); a 4-CLOSING column without numbers no longer zeroes the ERP stock",
@@ -23937,6 +23938,7 @@ function calNameAlike(a, b) {
   function parseIndent(wb, dept) {
     const want = norm(dept);
     const best = new Map();   // key -> { line, sheets }
+    const cancelled = new Set();   // indent no.|item code of lines cancelled in full (Net Indent Qty 0) - left out everywhere
     let period = "";
     wb.SheetNames.forEach(sn => {
       const ws = wb.Sheets[sn]; if (!ws["!ref"]) return;
@@ -23959,6 +23961,7 @@ function calNameAlike(a, b) {
         const line = { date: String(g(C.date)), no, code: String(g(C.code)).trim(), name: String(g(C.name)).replace(/ /g, " ").trim(), um: String(g(C.um)),
           qty: num(g(C.qty)), canc: num(g(C.canc)), net: num(g(C.net)), rate: num(g(C.rate)), po: num(g(C.po)), val: num(g(C.val)),
           pono: String(g(C.pono)), vendor: String(g(C.vendor)), grn: String(g(C.grn)), pend: num(g(C.pend)) };
+        if (C.net >= 0 && line.net <= 0) { cancelled.add(norm(no) + "|" + norm(line.code)); continue; }
         const key = [no, line.code, line.qty, line.net].join("|");
         const k2 = (count.get(key) || 0) + 1; count.set(key, k2);
         const kk = key + "#" + k2, b = best.get(kk);
@@ -23967,8 +23970,8 @@ function calNameAlike(a, b) {
     });
     const nSheets = new Set([].concat(...[...best.values()].map(b => b.sheets))).size;
     const lines = [...best.values()].map(b => Object.assign(b.line, { onlyIn: b.sheets.length < nSheets ? b.sheets.join(", ") : "" }));
-    if (!lines.length) throw new Error(`no indent lines for department "${dept}" in this file`);
-    return { lines, period };
+    if (!lines.length && !cancelled.size) throw new Error(`no indent lines for department "${dept}" in this file`);
+    return { lines, period, cancelled };
   }
 
   /* ---------- consumption: QAD store issue sheet (Month, Issue Date, Slip No, Item Code, Item Name, UM, Qty, Rate, Value, Remark) ---------- */
@@ -24358,17 +24361,11 @@ function calNameAlike(a, b) {
   // Same table layout for every section (the Consumables format, one year on) + [WIP] working columns on the right,
   // which "Move to final AOP" drops. Estimate Nov-Mar: average of the months so far x the months left; an item not consumed
   // so far (and services, J codes / SRN) -> what is left of its AOP budget. Budget qty FY next = estimated total of this FY.
-  async function nextAop() {
-    const res = R.res, st = $("status");
-    if (!res || !res.hasCons) { st.className = "err"; st.textContent = "Compare with a consumption file first - the estimate needs it."; return; }
-    try {
-      st.className = "wait"; st.textContent = "Making the next FY AOP...";
-      await psvLoadExcelJs();
+  // everything the next FY AOP sheet needs (headings, styles, one item row) - used to make it and to add new items to it later
+  function nextAopCtx(res, ws) {
       const n0 = res.fyStart + 1, FY = `${n0}-${n0 + 1}`, PFY = res.fy, cm = res.cm, rest = 12 - cm;
       const fyFrom = (2000 + res.fyStart) * 12 + 3, ml = k => `${MON[k % 12]}-${String(Math.floor(k / 12)).slice(2)}`;
       const soFar = `${ml(fyFrom)} to ${ml(fyFrom + cm - 1)}`, ahead = `${ml(fyFrom + cm)} to ${ml(fyFrom + 11)}`;
-      const wb = new ExcelJS.Workbook(); wb.calcProperties.fullCalcOnLoad = true;
-      const ws = wb.addWorksheet(res.aopSheet || "AOP", { views: [{ state: "frozen", xSplit: 3 }] });
       const fill = argb => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
       const GREEN = fill("FF92D050"), YELLOW = fill("FFFFFF00"), GREY = fill("FFF2F2F2"), WIPF = fill("FFFCE4D6");
       const thin = { style: "thin", color: { argb: "FF000000" } }, BOX = { top: thin, left: thin, bottom: thin, right: thin };
@@ -24383,12 +24380,66 @@ function calNameAlike(a, b) {
         `Annual Budgeted Inventory Qty FY ${FY}`, `Annual Budgeted Inventory Cost FY ${FY}`, "Remarks",
         `[WIP] Actual Consumed Qty ${soFar} (${cm} months)`, `[WIP] Estimated Qty ${ahead} (${rest} months)`, "[WIP] Current Stock Qty (from the stock file)",
         "[WIP] Pending Indent Qty (GRN not done)", `[WIP] Rate FY ${PFY} (AOP)`, "[WIP] Rate taken from"];
-      [6.3, 14.1, 47.7, 8, 12.6, 13, 13, 15, 14, 14, 13, 15, 13, 15, 13, 15, 24, 14, 14, 13, 13, 12, 30].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
       const dkey = s => { const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})/.exec(String(s || "").trim()); if (!m) return 0;
         const mo = MON.findIndex(x => x.toLowerCase() === m[2].toLowerCase()); let y = +m[3]; if (y < 100) y += 2000; return y * 10000 + (mo + 1) * 100 + +m[1]; };
       const latest = (lines, q, v) => lines.filter(l => l[q] > 0 && l[v] > 0).sort((a, b) => dkey(b.date) - dkey(a.date))[0];
+    const newKey = it => it.code ? "C:" + norm(it.code) : "N:" + norm(it.name);
+    // one item row at R0 (k = serial no. - 1); returns its money figures for the section total
+    function writeRow(R0, k, r, sec) {
+      const sum = { 8: 0, 10: 0, 12: 0, 14: 0, 16: 0 };
+          const it = r.it, svc = /^J/i.test(it.code || "") || /\bSRN\b/i.test(sec.title);
+      const iLines = res.lines.filter(l => l.target === it), cLines = res.cLines.filter(l => l.target === it);
+      const actual = svc ? (r.a ? r.a.qty : 0) : (r.c ? r.c.qty : 0);
+      const F = it.isNew ? 0 : (it.cq || 0);
+      const li = latest(cLines, "qty", "val"), ln = latest(iLines, "net", "val");
+      let rate = it.isNew ? 0 : it.rate, src = `AOP FY ${PFY}`;
+      if (li) { rate = li.val / li.qty; src = `latest issue ${li.date} (slip ${li.slip})`; }
+      else if (ln) { rate = ln.val / ln.net; src = `latest indent ${ln.no} (${ln.date.slice(0, 11)})`; }
+      rate = r4(rate);
+      const est = svc ? Math.max(0, F - actual) : (actual > 0 ? actual / cm * rest : Math.max(0, F - actual));
+      const K = r2(actual + est), O = svc ? 0 : (it.inv || 0);
+      const pend = svc ? 0 : iLines.reduce((s, l) => s + (l.net > 0 ? l.pend : 0), 0);
+      const open = Math.max(0, pend - est), M = K + O - open;
+      const remark = [it.remark, sec.isNew ? (r.c ? `issued ${soFar}` : `indented ${soFar}`) : "", svc ? `service: ${soFar} from indents` : ""].filter(Boolean).join("; ");
+      put(R0, 1, k + 1, { align: "center" }); put(R0, 2, it.code || "-"); put(R0, 3, it.name); put(R0, 4, it.um, { align: "center" });
+      put(R0, 5, rate, { fmt: RATE }); put(R0, 6, F, { fmt: QTY });
+      put(R0, 7, f(`R${R0}+S${R0}`, actual + est), { fmt: QTY });
+      put(R0, 8, f(`G${R0}*E${R0}`, (actual + est) * rate), { fmt: NUM });
+      put(R0, 9, f(`MAX(0,T${R0}+U${R0}-S${R0})`, open), { fmt: QTY });
+      put(R0, 10, f(`I${R0}*E${R0}`, open * rate), { fmt: NUM });
+      put(R0, 11, K, { fmt: QTY });
+      put(R0, 12, f(`K${R0}*E${R0}`, K * rate), { fmt: NUM });
+      put(R0, 13, f(`K${R0}+O${R0}-I${R0}`, M), { fmt: QTY });
+      put(R0, 14, f(`M${R0}*E${R0}`, M * rate), { fmt: NUM });
+      put(R0, 15, O, { fmt: QTY });
+      put(R0, 16, f(`O${R0}*E${R0}`, O * rate), { fmt: NUM });
+      put(R0, 17, remark || null, { wrap: true });
+      put(R0, 18, r2(actual), { fmt: QTY, fill: WIPF });
+      put(R0, 19, f(svc ? `MAX(0,F${R0}-R${R0})` : `IF(R${R0}>0,R${R0}/${cm}*${rest},MAX(0,F${R0}-R${R0}))`, est), { fmt: QTY, fill: WIPF });
+      put(R0, 20, null, { fmt: QTY, fill: WIPF });
+      put(R0, 21, r2(pend), { fmt: QTY, fill: WIPF });
+      put(R0, 22, it.isNew ? null : r4(it.rate), { fmt: RATE, fill: WIPF });
+      put(R0, 23, src, { fill: WIPF, wrap: true });
+      sum[8] += (actual + est) * rate; sum[10] += open * rate; sum[12] += K * rate; sum[14] += M * rate; sum[16] += O * rate;
+      return sum;
+    }
+    return { n0, FY, PFY, cm, rest, soFar, ahead, put, f, r2, GREEN, YELLOW, GREY, WIPF, NUM, HEAD, newKey, writeRow,
+      newRows: sec => sec.rows.filter(r => (r.a && r.a.qty > 0) || r.c) };
+  }
+
+  async function nextAop() {
+    const res = R.res, st = $("status");
+    if (!res || !res.hasCons) { st.className = "err"; st.textContent = "Compare with a consumption file first - the estimate needs it."; return; }
+    try {
+      st.className = "wait"; st.textContent = "Making the next FY AOP...";
+      await psvLoadExcelJs();
+      const wb = new ExcelJS.Workbook(); wb.calcProperties.fullCalcOnLoad = true;
+      const ws = wb.addWorksheet(res.aopSheet || "AOP", { views: [{ state: "frozen", xSplit: 3 }] });
+      const X = nextAopCtx(res, ws);
+      const { n0, FY, PFY, cm, rest, soFar, put, f, r2, GREEN, YELLOW, GREY, WIPF, NUM, HEAD } = X;
+      [6.3, 14.1, 47.7, 8, 12.6, 13, 13, 15, 14, 14, 13, 15, 13, 15, 13, 15, 24, 14, 14, 13, 13, 12, 30].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
       // sections and their rows (new items: only those really indented or issued)
-      const secs = res.sections.map(sec => ({ sec, rows: sec.isNew ? sec.rows.filter(r => (r.a && r.a.qty > 0) || r.c) : sec.rows }));
+      const secs = res.sections.map(sec => ({ sec, rows: sec.isNew ? X.newRows(sec) : sec.rows }));
       const SUM_TOP = 1, nSum = secs.length;
       let row = SUM_TOP + 2 + nSum + 1 + 3;
       const totals = [];
@@ -24401,41 +24452,8 @@ function calNameAlike(a, b) {
         ws.getRow(row).height = 60; row++;
         const first = row, sum = { 8: 0, 10: 0, 12: 0, 14: 0, 16: 0 };
         rows.forEach((r, k) => {
-          const it = r.it, svc = /^J/i.test(it.code || "") || /\bSRN\b/i.test(sec.title);
-          const iLines = res.lines.filter(l => l.target === it), cLines = res.cLines.filter(l => l.target === it);
-          const actual = svc ? (r.a ? r.a.qty : 0) : (r.c ? r.c.qty : 0);
-          const F = it.isNew ? 0 : (it.cq || 0);
-          const li = latest(cLines, "qty", "val"), ln = latest(iLines, "net", "val");
-          let rate = it.isNew ? 0 : it.rate, src = `AOP FY ${PFY}`;
-          if (li) { rate = li.val / li.qty; src = `latest issue ${li.date} (slip ${li.slip})`; }
-          else if (ln) { rate = ln.val / ln.net; src = `latest indent ${ln.no} (${ln.date.slice(0, 11)})`; }
-          rate = r4(rate);
-          const est = svc ? Math.max(0, F - actual) : (actual > 0 ? actual / cm * rest : Math.max(0, F - actual));
-          const K = r2(actual + est), O = svc ? 0 : (it.inv || 0);
-          const pend = svc ? 0 : iLines.reduce((s, l) => s + (l.net > 0 ? l.pend : 0), 0);
-          const open = Math.max(0, pend - est), M = K + O - open;
-          const remark = [it.remark, sec.isNew ? (r.c ? `issued ${soFar}` : `indented ${soFar}`) : "", svc ? `service: ${soFar} from indents` : ""].filter(Boolean).join("; ");
-          const R0 = row;
-          put(R0, 1, k + 1, { align: "center" }); put(R0, 2, it.code || "-"); put(R0, 3, it.name); put(R0, 4, it.um, { align: "center" });
-          put(R0, 5, rate, { fmt: RATE }); put(R0, 6, F, { fmt: QTY });
-          put(R0, 7, f(`R${R0}+S${R0}`, actual + est), { fmt: QTY });
-          put(R0, 8, f(`G${R0}*E${R0}`, (actual + est) * rate), { fmt: NUM });
-          put(R0, 9, f(`MAX(0,T${R0}+U${R0}-S${R0})`, open), { fmt: QTY });
-          put(R0, 10, f(`I${R0}*E${R0}`, open * rate), { fmt: NUM });
-          put(R0, 11, K, { fmt: QTY });
-          put(R0, 12, f(`K${R0}*E${R0}`, K * rate), { fmt: NUM });
-          put(R0, 13, f(`K${R0}+O${R0}-I${R0}`, M), { fmt: QTY });
-          put(R0, 14, f(`M${R0}*E${R0}`, M * rate), { fmt: NUM });
-          put(R0, 15, O, { fmt: QTY });
-          put(R0, 16, f(`O${R0}*E${R0}`, O * rate), { fmt: NUM });
-          put(R0, 17, remark || null, { wrap: true });
-          put(R0, 18, r2(actual), { fmt: QTY, fill: WIPF });
-          put(R0, 19, f(svc ? `MAX(0,F${R0}-R${R0})` : `IF(R${R0}>0,R${R0}/${cm}*${rest},MAX(0,F${R0}-R${R0}))`, est), { fmt: QTY, fill: WIPF });
-          put(R0, 20, null, { fmt: QTY, fill: WIPF });
-          put(R0, 21, r2(pend), { fmt: QTY, fill: WIPF });
-          put(R0, 22, it.isNew ? null : r4(it.rate), { fmt: RATE, fill: WIPF });
-          put(R0, 23, src, { fill: WIPF, wrap: true });
-          sum[8] += (actual + est) * rate; sum[10] += open * rate; sum[12] += K * rate; sum[14] += M * rate; sum[16] += O * rate;
+          const s1 = X.writeRow(row, k, r, sec);
+          [8, 10, 12, 14, 16].forEach(c => { sum[c] += s1[c]; });
           row++; nItems++;
         });
         const last = row - 1;
@@ -24465,7 +24483,7 @@ function calNameAlike(a, b) {
       const buf = await wb.xlsx.writeBuffer();
       // into OneDrive -> AOP -> WIP, then open it in the Next FY AOP tile
       const pre = `${res.fyStart}-${res.fyStart + 1}`;
-      const name = (R.aopName && R.aopName.includes(pre) ? R.aopName.replace(pre, FY) : `AOP_FY_${FY}.xlsx`).replace(/\.xls[xm]?$/i, "") + ".xlsx";
+      const name = nextAopName(res);
       const token = await getToken(); if (!token) return;
       const url = `${AOP_ROOT}/WIP/${encodeURIComponent(name)}:/content`;
       const ex = await fetch(url, { method: "HEAD", headers: { Authorization: "Bearer " + token } }).catch(() => null);
@@ -24473,11 +24491,113 @@ function calNameAlike(a, b) {
       const up = await fetch(url, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }, body: buf });
       if (!up.ok) throw new Error("OneDrive upload failed (" + up.status + ")");
       try { Object.keys(localStorage).filter(k => k.startsWith("aopwEdits:" + name + ":")).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+      await nextAopAddedSave(token, name, X.newRows(res.sections[res.sections.length - 1]).map(r => X.newKey(r.it)));
       const back = document.getElementById("backToAopMenuBtn"), tile = document.querySelector('[data-subaop="next"]');
       if (back) back.click(); if (tile) tile.click();
       if (window._aopWip) { const ab = buf instanceof ArrayBuffer ? buf : buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength); await window._aopWip.openFile(name, ab); await window._aopWip.listFiles(name, true); }
       st.className = "ok"; st.textContent = `${name} made (${nItems} items) and opened in Next FY AOP (WIP). [WIP] columns are dropped when you press ✅ Move to final AOP.`;
     } catch (e) { st.className = "err"; st.textContent = "Next FY AOP error: " + e.message; }
+  }
+
+  // ---------- Next FY AOP (WIP) kept up to date: items indented / issued for the first time are added to its new-items section ----------
+  function nextAopName(res) {
+    const FY = `${res.fyStart + 1}-${res.fyStart + 2}`, pre = `${res.fyStart}-${res.fyStart + 1}`;
+    return (R.aopName && R.aopName.includes(pre) ? R.aopName.replace(pre, FY) : `AOP_FY_${FY}.xlsx`).replace(/\.xls[xm]?$/i, "") + ".xlsx";
+  }
+  const addedUrl = name => `${AOP_ROOT}/WIP/${encodeURIComponent(name.replace(/\.xlsx$/i, "") + ".newitems.json")}:/content`;
+  async function nextAopAddedLoad(token, name) {
+    const r = await fetch(addedUrl(name), { headers: { Authorization: "Bearer " + token }, cache: "no-store" });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error("list of added items not readable (" + r.status + ")");
+    const j = await r.json(); return new Set(j.keys || []);
+  }
+  async function nextAopAddedSave(token, name, keys) {
+    const r = await fetch(addedUrl(name), { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ file: name, keys: [...new Set(keys)], savedAt: new Date().toISOString() }) });
+    if (!r.ok) throw new Error("list of added items not saved (" + r.status + ")");
+  }
+  async function syncNextAop(res) {
+    const newSec = res.sections[res.sections.length - 1];
+    if (!newSec || !newSec.isNew) return "";
+    const token = await getToken(); if (!token) return "";
+    const name = nextAopName(res);
+    const fr = await fetch(`${AOP_ROOT}/WIP/${encodeURIComponent(name)}:/content`, { headers: { Authorization: "Bearer " + token }, cache: "no-store" });
+    if (fr.status === 404) return "";                       // no Next FY AOP (WIP) yet - nothing to update
+    if (!fr.ok) throw new Error("WIP file not readable (" + fr.status + ")");
+    await psvLoadExcelJs();
+    const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await fr.arrayBuffer());
+    const ws = wb.getWorksheet(res.aopSheet || "AOP") || wb.worksheets[0];
+    const X = nextAopCtx(res, ws);
+    const txt = v => { if (v && typeof v === "object") v = v.richText ? v.richText.map(t => t.text).join("") : (v.result !== undefined ? v.result : v.text); return String(v == null ? "" : v).trim(); };
+    const numv = v => { if (v && typeof v === "object") v = v.result; return typeof v === "number" ? v : 0; };
+    // what is in the sheet already (any section), and what was added before (deleted ones stay out)
+    const have = new Set();
+    let title = 0, sr = 0;
+    ws.eachRow((rw, rn) => {
+      const code = txt(rw.getCell(2).value), nm = txt(rw.getCell(3).value);
+      if (/^New items \(not in AOP/i.test(nm)) {
+        if (/^Sr\.?\s*No/i.test(txt(ws.getCell(rn + 1, 1).value))) title = rn;      // the section (its heading row follows)
+        else if (/^Rs/i.test(txt(rw.getCell(4).value))) sr = rn;                    // its line in the SUMMARY at the top
+        return;
+      }
+      if (rn > 2 && code && code !== "-" && !/^Item\s*Code$/i.test(code)) have.add("C:" + norm(code));
+      if (rn > 2 && nm && !/^(Item Name|Total|Description|SUMMARY)$/i.test(nm)) have.add("N:" + norm(nm));
+    });
+    let added = await nextAopAddedLoad(token, name);
+    const firstTime = !added; if (!added) added = new Set();
+    const want = X.newRows(newSec).filter(r => { const k = X.newKey(r.it); return !have.has(k) && !have.has("N:" + norm(r.it.name)) && !added.has(k); });
+    if (!want.length) {
+      if (firstTime) await nextAopAddedSave(token, name, X.newRows(newSec).map(r => X.newKey(r.it)).filter(k => have.has(k)));
+      return "";
+    }
+    if (!title) throw new Error(`no "New items" section in ${name}`);
+    let total = 0;
+    for (let rn = title + 2; rn <= ws.rowCount; rn++) if (txt(ws.getCell(rn, 3).value) === "Total") { total = rn; break; }
+    if (!total) throw new Error(`no Total row under "New items" in ${name}`);
+    for (let rn = total + 1; rn <= total + want.length; rn++) for (let c = 1; c <= 23; c++)
+      if (txt(ws.getCell(rn, c).value)) throw new Error(`something is written below the "New items" Total row (row ${rn}) - not changed, add the items by hand`);
+    const first = title + 2;
+    const sum = { 8: 0, 10: 0, 12: 0, 14: 0, 16: 0 };
+    for (let rn = first; rn < total; rn++) [8, 10, 12, 14, 16].forEach(c => { sum[c] += numv(ws.getCell(rn, c).value); });
+    const k0 = total - first;
+    // the old Total row becomes the first new item; the Total row goes below the new items
+    for (let c = 1; c <= 23; c++) { const x = ws.getCell(total, c); x.value = null; x.style = {}; }
+    want.forEach((r, i) => { const s1 = X.writeRow(total + i, k0 + i, r, newSec); [8, 10, 12, 14, 16].forEach(c => { sum[c] += s1[c]; }); });
+    const T = total + want.length, last = T - 1;
+    for (let c = 1; c <= 17; c++) X.put(T, c, null, { fill: X.GREY });
+    X.put(T, 3, "Total", { bold: true, fill: X.GREY });
+    [8, 10, 12, 14, 16].forEach(c => { const L = String.fromCharCode(64 + c); X.put(T, c, X.f(`SUM(${L}${first}:${L}${last})`, sum[c]), { fmt: X.NUM, bold: true, fill: X.GREY }); });
+    // the summary line of the new-items section, and the grand total under the summary
+    if (sr && sr < title) {
+      const fset = (c, formula, v) => { const x = ws.getCell(sr, c); x.value = { formula, result: v }; };
+      fset(6, `H${T}`, sum[8]); fset(7, `J${T}`, sum[10]); fset(9, `L${T}`, sum[12]); fset(8, `I${sr}/12`, sum[12] / 12); fset(10, `N${T}`, sum[14]); fset(11, `P${T}`, sum[16]);
+      // grand total row: first row below the summary lines with a SUM in column E
+      for (let rn = sr + 1; rn < title; rn++) {
+        const v = ws.getCell(rn, 5).value;
+        if (v && typeof v === "object" && /^SUM\(/i.test(v.formula || "")) {
+          for (let c = 5; c <= 11; c++) {
+            const g = ws.getCell(rn, c).value; if (!g || typeof g !== "object" || !g.formula) continue;
+            const m = /^SUM\(([A-Z])(\d+):([A-Z])(\d+)\)$/i.exec(g.formula); if (!m) continue;
+            let t = 0; for (let q = +m[2]; q <= +m[4]; q++) t += numv(ws.getCell(q, c).value);
+            ws.getCell(rn, c).value = { formula: g.formula, result: t };
+          }
+          break;
+        }
+      }
+    }
+    wb.calcProperties.fullCalcOnLoad = true;
+    const buf = await wb.xlsx.writeBuffer();
+    const up = await fetch(`${AOP_ROOT}/WIP/${encodeURIComponent(name)}:/content`, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }, body: buf });
+    if (!up.ok) throw new Error("OneDrive upload failed (" + up.status + ")");
+    want.forEach(r => added.add(X.newKey(r.it)));
+    if (firstTime) X.newRows(newSec).forEach(r => { const k = X.newKey(r.it); if (have.has(k)) added.add(k); });
+    await nextAopAddedSave(token, name, [...added]);
+    // the Next FY AOP tile shows the new version (your unsaved changes there stay - they are kept by cell)
+    if (window._aopWip && window._aopWip.S && window._aopWip.S.name === name) {
+      const ab = buf instanceof ArrayBuffer ? buf : buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+      await window._aopWip.openFile(name, ab);
+    }
+    return `➕ Next FY AOP (${name}): ${want.length} new item(s) added - ${want.map(r => r.it.code || r.it.name).slice(0, 8).join(", ")}${want.length > 8 ? " ..." : ""}`;
   }
 
   /* ---------- PDF: summary (summary tables + items needing attention) or detailed (every item of every section) ---------- */
@@ -24587,7 +24707,7 @@ function calNameAlike(a, b) {
   // merges the app entries of this department into the indent / consumption data (file lines win)
   function manMerge(list, dept, ind, cons) {
     const mine = list.filter(e => norm(e.dept) === norm(dept));
-    const iKeys = new Set((ind ? ind.lines : []).map(l => norm(l.no) + "|" + norm(l.code)));
+    const iKeys = new Set((ind ? ind.lines : []).map(l => norm(l.no) + "|" + norm(l.code)).concat(ind && ind.cancelled ? [...ind.cancelled] : []));
     const cKeys = new Set((cons ? cons.lines : []).map(l => norm(l.slip) + "|" + norm(l.code)));
     let nI = 0, nC = 0, dup = 0;
     const iAdd = [], cAdd = [];
@@ -24649,7 +24769,13 @@ function calNameAlike(a, b) {
       show(R.res); $("aovXlsx").disabled = false;
       $("aovNext").disabled = !R.res.hasCons; $("aovNext").textContent = `🛠️ Make FY ${aop.fyStart + 1}-${aop.fyStart + 2} AOP (WIP)`;
       const nNew = R.res.sections[R.res.sections.length - 1].rows.length;
-      st.className = "ok"; st.textContent = `Compared ${[mm.ind ? `${mm.ind.lines.length} indent line(s)` : "", mm.cons ? `${R.res.cLines.length} issue line(s)` : ""].filter(Boolean).join(" and ")}${mm.nI + mm.nC ? ` (${mm.nI + mm.nC} added in the app)` : ""} with ${[].concat(...aop.sections.map(s => s.items)).length} AOP item(s); ${nNew} new item(s).`;
+      const nCanc = mm.ind && mm.ind.cancelled ? mm.ind.cancelled.size : 0;
+      st.className = "ok"; st.textContent = `Compared ${[mm.ind ? `${mm.ind.lines.length} indent line(s)` : "", mm.cons ? `${R.res.cLines.length} issue line(s)` : ""].filter(Boolean).join(" and ")}${mm.nI + mm.nC ? ` (${mm.nI + mm.nC} added in the app)` : ""} with ${[].concat(...aop.sections.map(s => s.items)).length} AOP item(s); ${nNew} new item(s).` +
+        (nCanc ? ` ${nCanc} cancelled indent line(s) left out.` : "");
+      // new items indented / issued since the Next FY AOP (WIP) was made -> added to it
+      const said = st.textContent;
+      if (R.res.hasCons || R.res.hasInd) syncNextAop(R.res).then(msg => { if (msg) { st.className = "ok"; st.textContent = said + "\n" + msg; } })
+        .catch(e => { st.className = "err"; st.textContent = said + "\n⚠️ Next FY AOP not updated: " + e.message; });
     } catch (e) { st.className = "err"; st.textContent = "Compare error: " + e.message; }
   });
   $("aovXlsx").addEventListener("click", excel);
