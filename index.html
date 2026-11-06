@@ -4845,7 +4845,7 @@ window.__gmFS = {
             <p class="aovLead">See how much of the AOP is already indented and consumed - section by section, item by item.</p>
             <details class="aovHelp">
               <summary>ℹ️ How it works</summary>
-              <p>Every AOP item is matched with its indents (ERP "Master Indent Report": Net Indent Qty and "Indent Val for Budget"; cancelled indents and cancelled quantity left out)
+              <p>Every AOP item is matched with its indents (ERP "Master Indent Report": Net Indent Qty and "Indent Val for Budget"; cancelled indents, cancelled quantity and dummy ₹1 lines - rate ₹1, no PO, for an item that has a priced indent too - left out)
                 and its store issues (consumption Excel, e.g. QAD_Issue sheet: Qty and Value, months of the AOP year only) - by item code, or by name where the AOP has no code.
                 Items indented or issued but not in the AOP are shown as new items. Files are kept in OneDrive → Apps → AOP → Indent / Consumption.</p>
             </details>
@@ -6928,9 +6928,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.06.1";
+const APP_VERSION = "2026.11.06.2";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🧾 AOP vs Indent: dummy ₹1 indent lines (rate ₹1, no PO, for an item that also has a priced indent - e.g. IG26Y-00052 AMC for Spectrometer) are left out",
   "🧾 AOP vs Indent: cancelled indents (Net Indent Qty 0) are left out of every tab, PDF and Excel; items indented or issued for the first time are added by themselves to the Next FY AOP (WIP) on every Compare - an item you delete there is not put back",
   "🔥 Two furnaces ready: a Reports file made from the 24-heat template (F-A 1-12 + F-B 1-12 per day) works everywhere - next-day blocks, Logsheet / Strip Mill PDF, dashboards, RHF, WhatsApp heats (write \"F-A\" or \"F-B\" in the message); the 12-heat files work as before",
   "🛑 ERP Upload (Durgesh): an ERP report in list form (one line per Tnature) is a wrong file - it is now stopped with a message and nothing in the Excel is changed; the usual ERP stock report (Opening / Receipt / Issue / Closing) works as always",
@@ -23969,9 +23970,17 @@ function calNameAlike(a, b) {
       }
     });
     const nSheets = new Set([].concat(...[...best.values()].map(b => b.sheets))).size;
-    const lines = [...best.values()].map(b => Object.assign(b.line, { onlyIn: b.sheets.length < nSheets ? b.sheets.join(", ") : "" }));
+    let lines = [...best.values()].map(b => Object.assign(b.line, { onlyIn: b.sheets.length < nSheets ? b.sheets.join(", ") : "" }));
+    // dummy ₹1 lines: rate ₹1, value ₹1, no PO - for an item that has a real (priced) indent too -> left out
+    const priced = new Set(lines.filter(l => l.val > 1).map(l => norm(l.code)));
+    const dummy = new Set(), dummyNos = [];
+    lines = lines.filter(l => {
+      const noPo = !String(l.pono || "").trim() || String(l.pono).trim() === "0";
+      if (l.rate <= 1 && l.val <= 1 && noPo && l.code && priced.has(norm(l.code))) { dummy.add(norm(l.no) + "|" + norm(l.code)); dummyNos.push(l.no); return false; }
+      return true;
+    });
     if (!lines.length && !cancelled.size) throw new Error(`no indent lines for department "${dept}" in this file`);
-    return { lines, period, cancelled };
+    return { lines, period, cancelled, dummy, dummyNos };
   }
 
   /* ---------- consumption: QAD store issue sheet (Month, Issue Date, Slip No, Item Code, Item Name, UM, Qty, Rate, Value, Remark) ---------- */
@@ -24707,7 +24716,7 @@ function calNameAlike(a, b) {
   // merges the app entries of this department into the indent / consumption data (file lines win)
   function manMerge(list, dept, ind, cons) {
     const mine = list.filter(e => norm(e.dept) === norm(dept));
-    const iKeys = new Set((ind ? ind.lines : []).map(l => norm(l.no) + "|" + norm(l.code)).concat(ind && ind.cancelled ? [...ind.cancelled] : []));
+    const iKeys = new Set((ind ? ind.lines : []).map(l => norm(l.no) + "|" + norm(l.code)).concat(ind && ind.cancelled ? [...ind.cancelled] : [], ind && ind.dummy ? [...ind.dummy] : []));
     const cKeys = new Set((cons ? cons.lines : []).map(l => norm(l.slip) + "|" + norm(l.code)));
     let nI = 0, nC = 0, dup = 0;
     const iAdd = [], cAdd = [];
@@ -24769,9 +24778,9 @@ function calNameAlike(a, b) {
       show(R.res); $("aovXlsx").disabled = false;
       $("aovNext").disabled = !R.res.hasCons; $("aovNext").textContent = `🛠️ Make FY ${aop.fyStart + 1}-${aop.fyStart + 2} AOP (WIP)`;
       const nNew = R.res.sections[R.res.sections.length - 1].rows.length;
-      const nCanc = mm.ind && mm.ind.cancelled ? mm.ind.cancelled.size : 0;
+      const nCanc = mm.ind && mm.ind.cancelled ? mm.ind.cancelled.size : 0, nDum = mm.ind && mm.ind.dummy ? mm.ind.dummy.size : 0;
       st.className = "ok"; st.textContent = `Compared ${[mm.ind ? `${mm.ind.lines.length} indent line(s)` : "", mm.cons ? `${R.res.cLines.length} issue line(s)` : ""].filter(Boolean).join(" and ")}${mm.nI + mm.nC ? ` (${mm.nI + mm.nC} added in the app)` : ""} with ${[].concat(...aop.sections.map(s => s.items)).length} AOP item(s); ${nNew} new item(s).` +
-        (nCanc ? ` ${nCanc} cancelled indent line(s) left out.` : "");
+        (nCanc ? ` ${nCanc} cancelled indent line(s) left out.` : "") + (nDum ? ` ${nDum} dummy ₹1 indent line(s) left out (${(mm.ind.dummyNos || []).join(", ")}).` : "");
       // new items indented / issued since the Next FY AOP (WIP) was made -> added to it
       const said = st.textContent;
       if (R.res.hasCons || R.res.hasInd) syncNextAop(R.res).then(msg => { if (msg) { st.className = "ok"; st.textContent = said + "\n" + msg; } })
