@@ -5374,6 +5374,7 @@ window.__gmFS = {
               <select id="erpSendMode">
                 <option value="full">Production + RM consumption (new voucher per heat)</option>
                 <option value="cons">Add RM consumption to vouchers already saved</option>
+                <option value="qc">Production QC - BIS Doc Final row (after the voucher is approved)</option>
               </select>
               <div class="btnRow"><button class="primary" id="erpSendBtn" disabled>Send to ERP</button></div>
               <div id="erpSendLog" style="font:12px/1.4 Consolas,monospace;white-space:pre-wrap;margin-top:8px;max-height:220px;overflow:auto;"></div>
@@ -5385,6 +5386,7 @@ window.__gmFS = {
                   <li>While it runs keep the ERP tab in front and don't click in it (a heat takes about 3-4 minutes; Chrome slows down tabs in the background).</li>
                   <li>Every heat is checked line by line before Save. If an RM item has no stock or anything doesn't match, that heat is <b>not saved</b> and the reason is shown - fix it and Start again (saved heats are skipped).</li>
                   <li>The ERP doesn't accept a Production Entry without at least one RM line, so production goes in together with the consumption. "Add RM consumption to vouchers already saved" adds lines that were missing earlier.</li>
+                  <li><b>Production QC</b>: open Production QC in the ERP (Quick Search → QC → Production QC), click <b>Moltrix ERP</b>, pick "Production QC" here and Send. One QC per heat (series 2G HEAT WISE ANALYSIS) on the heat's first billet line, everything from the BIS Doc Final row (C, Mn, P, S, Si, N, S+P, CE, Bend, Camber, Length, Width, Freedom From Defects, Grade if the ERP asks), QC Time = heat date 10:00 (shift A), every test Pass. Only heats whose production voucher is approved can be picked in the ERP.</li>
                 </ol>
               </details>
             </div>
@@ -7001,9 +7003,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.07.1";
+const APP_VERSION = "2026.11.07.2";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🏭 ERP Entry: new \"Production QC\" option - one QC per heat with every parameter of the BIS Doc Final row (chemistry, CE, bend, camber, length, width, freedom from defects), QC Time = heat date 10:00, all Pass (works once the production voucher is approved)",
   "🧪 Party Test Reports: ➕ Add a new report - upload the report picture, check what the app read (unclear cells in yellow), and it is added to R.M Billets Reports just below the last entry in the same layout; ↩ Undo removes it again",
   "🏢 ERP PROD is now the ERP tile with the ERP icon - inside it: ERP Prod Download (production from the Excel sheet, later straight from the ERP) and ERP Entry (entry sheet + Send to ERP)",
   "🏭 New: Send to ERP - with the \"Moltrix ERP\" bookmark in the ERP, Moltrix sends the day's heats and the ERP fills and saves each heat's Production Entry (billets + RM consumption) by itself; a second mode adds missing RM consumption to vouchers already saved",
@@ -17928,6 +17931,47 @@ function erpPayload(d, mode) {
   });
   return { bad, payload: { v: 1, mode, date: dmy, heats } };
 }
+const ERP_QC_KEYS = ["C", "Mn", "P", "S", "Si", "N", "S+P", "CE", "Bend", "Camber", "Length", "Width", "Defects", "Grade"];
+const ERP_QC_NEED = ["C", "Mn", "P", "S", "Si", "N", "S+P", "CE", "Bend", "Camber", "Length", "Width", "Defects"];
+// Final-row chemistry of one date from the BIS Doc sheet: heat -> {C, Mn, P, S, Si} (as shown in the sheet)
+async function erpBisFetch(dateVal) {
+  const token = await getToken();
+  const { results: wbList } = await getWorkbooksForRange(token, dateVal, dateVal);
+  if (!wbList.length) throw new Error("Couldn't find the Reports file for this date.");
+  const wb = wbList[0].wb, sh = encodeURIComponent("BIS Doc");
+  const colA = await graphFetch(`${wb}/worksheets('${sh}')/range(address='A1:A2992')?$select=text`, token, { noCache: true });
+  const dmy = dateVal.split("-").reverse().join("-");
+  let dRow = -1;
+  (colA.text || []).forEach((r, i) => { const t = String(r[0] || ""); if (dRow < 0 && /date of manufacturing/i.test(t)) { const m = t.match(/(\d{1,2})-(\d{1,2})-(\d{4})/); if (m && `${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}-${m[3]}` === dmy) dRow = i + 1; } });
+  if (dRow < 0) throw new Error(`No block for ${dmy} in the BIS Doc sheet.`);
+  const blk = await graphFetch(`${wb}/worksheets('${sh}')/range(address='A${dRow}:S${dRow + 28}')?$select=text,values`, token, { noCache: true });
+  const out = {};
+  const val = (t, v) => { t = String(t || "").trim(); if (/^\d*\.?\d+$/.test(t)) return t; return typeof v === "number" ? String(Math.round(v * 10000) / 10000) : ""; };
+  (blk.text || []).forEach((r, i) => {
+    if (String(r[2] || "").trim().toLowerCase() !== "final") return;
+    const heat = String(r[1] || "").trim(); if (!heat) return;
+    const v = blk.values[i];
+    const t = k => String(r[k] || "").replace(/\s+/g, " ").trim();
+    out[heat.toUpperCase().replace(/\s+/g, "")] = { heat, C: val(r[5], v[5]), Mn: val(r[6], v[6]), P: val(r[7], v[7]), S: val(r[8], v[8]), Si: val(r[9], v[9]),
+      N: val(r[10], v[10]), "S+P": val(r[11], v[11]), CE: val(r[12], v[12]), Bend: val(r[13], v[13]), Camber: val(r[14], v[14]), Length: val(r[15], v[15]),
+      Width: t(16), Defects: t(17), Grade: t(18) };
+  });
+  return out;
+}
+function erpQcPayload(d, bis) {
+  const dmy = d.dateISO.split("-").reverse().join("-");
+  const bad = [], heats = [];
+  d.vouchers.forEach(v => {
+    const q = bis[String(v.heat).toUpperCase().replace(/\s+/g, "")], l = v.lines[0];
+    if (!q) { bad.push(`heat ${v.heat}: no Final row in the BIS Doc`); return; }
+    const miss = ERP_QC_NEED.filter(k => !q[k]);
+    if (miss.length) { bad.push(`heat ${v.heat}: BIS Doc has no ${miss.join(", ")}`); return; }
+    if (!l || !l.sms2Code) { bad.push(`heat ${v.heat}: no billet line / ERP item code`); return; }
+    heats.push({ heat: v.heat, date: dmy, mt: v.erpMt, lines: v.lines.map(x => ({ code: x.sms2Code, batch: x.batch, ref: x.ref, pcs: x.pcs, cf: x.cf, mt: x.mt, len: x.len })), rm: [],
+      qc: { code: l.sms2Code, batch: l.batch, vals: Object.fromEntries(ERP_QC_KEYS.map(k => [k, q[k]])) } });
+  });
+  return { bad, payload: { v: 1, mode: "qc", date: dmy, heats } };
+}
 function erpSendLog(m, cls) { const L = document.getElementById("erpSendLog"); if (!L) return; const d = document.createElement("div"); d.textContent = m;
   d.style.color = cls === "err" ? "#c0392b" : cls === "ok" ? "#2e9d5b" : cls === "h" ? "#b7860b" : ""; L.appendChild(d); L.scrollTop = L.scrollHeight; }
 function erpSendRefresh() {
@@ -17937,12 +17981,23 @@ function erpSendRefresh() {
   h.textContent = erpBridge ? (erpEntryData ? "Opened from the ERP - press Send to ERP, then Start in the ERP window." : "Opened from the ERP - load the date first.")
     : "Open this from the ERP with the Moltrix ERP bookmark (set-up below) to send the entries.";
 }
-document.getElementById("erpSendBtn").addEventListener("click", () => {
+document.getElementById("erpSendBtn").addEventListener("click", async () => {
   if (!erpBridge || !window.opener) { alert("Open Moltrix from the ERP bookmark to send."); return; }
   if (!erpEntryData) { alert("Load the ERP entry sheet first."); return; }
   const mode = document.getElementById("erpSendMode").value;
-  const { bad, payload } = erpPayload(erpEntryData, mode);
-  if (bad.length) { alert("Can't send - " + bad.join("; ")); return; }
+  let bad, payload;
+  if (mode === "qc") {
+    let bis;
+    try { erpSendLog("Reading the BIS Doc sheet..."); bis = await erpBisFetch(erpEntryData.dateISO); }
+    catch (e) { erpSendLog("✗ " + e.message, "err"); return; }
+    ({ bad, payload } = erpQcPayload(erpEntryData, bis));
+    bad.forEach(b => erpSendLog("✗ " + b + " - not sent", "err"));
+    if (!payload.heats.length) { alert("Nothing to send - " + bad.join("; ")); return; }
+    payload.heats.forEach(h => { const v = h.qc.vals; erpSendLog(`Heat ${h.heat} (${h.qc.batch}, ${h.qc.code}): ` + ERP_QC_KEYS.filter(k => v[k]).map(k => `${k === "Defects" ? "Freedom From Defects" : k} ${v[k]}`).join(" · ")); });
+  } else {
+    ({ bad, payload } = erpPayload(erpEntryData, mode));
+    if (bad.length) { alert("Can't send - " + bad.join("; ")); return; }
+  }
   try { window.opener.postMessage({ type: "moltrix-erp-data", payload }, ERP_ORIGIN); }
   catch (e) { alert("Couldn't reach the ERP window: " + e.message); return; }
   erpSendLog(`Sent ${payload.heats.length} heat(s) for ${payload.date} - now press Start in the ERP window.`, "h");

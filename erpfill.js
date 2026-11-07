@@ -9,13 +9,19 @@
    Modes:  full – billets + RM consumption (the ERP refuses a Production Entry without
                   at least one RM line, so this is the normal mode)
            prod – billets only (only works if the ERP admin makes RM consumption optional)
-           cons – open the heat's saved voucher and add the RM lines that are missing.   */
+           cons – open the heat's saved voucher and add the RM lines that are missing.
+           qc   – Production QC (series 2G, HEAT WISE ANALYSIS): one entry per heat on the heat's
+                  first billet line, the BIS Doc Final row (C Mn P S Si N S+P CE, Bend, Camber,
+                  Length, Width, Freedom From Defects, Grade if asked), QC Time = heat date
+                  10:00 (shift A), every test Pass. Needs the production voucher approved (only
+                  approved vouchers are in the ERP's Batch No. list). Start on Production QC.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.06.9";
+  const VERSION = "2026.11.07.2";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
+  const QC_DONE_KEY = "moltrixErpQcDone"; // date|heat -> Production QC voucher no
   if (window.MZF && window.MZF.busy) { window.MZF.show(); return; }
 
   /* ================= helpers ================= */
@@ -279,7 +285,7 @@
   /* ================= listing / vouchers ================= */
   // the screen title, e.g. "Production Entry Listing [QP:PROD]" / "Production Entry [QP:PROD]"
   const screenTitle = () => {
-    const c = [...document.querySelectorAll("body *")].filter(x => { const tc = x.textContent || ""; if (tc.length > 120 || !/\[Q[A-Z]:/.test(tc) || !vis(x)) return false; return /[A-Za-z]\s*\[Q[A-Z]:[A-Z0-9]+\]\s*$/.test(txt(x)); });
+    const c = [...document.querySelectorAll("body *")].filter(x => { const tc = x.textContent || ""; if (tc.length > 120 || !/\[[A-Z]{2}:/.test(tc) || !vis(x)) return false; return /[A-Za-z]\s*\[[A-Z]{2}:[A-Z0-9]+\]\s*$/.test(txt(x)); });
     c.sort((a, b) => txt(a).length - txt(b).length); return c.length ? txt(c[0]) : "";
   };
   const onListing = () => /^Production Entry Listing/i.test(screenTitle()) && !!btn(/^Create New Record$/) && !btn(/^(Save|Update)$/) && !lov();
@@ -369,9 +375,131 @@
     return { vr: v2, missing: r.missing };
   }
 
+
+  /* ================= Production QC (one per heat) ================= */
+  const onQcListing = () => /^Production QC \[NQ:QCPRO\]/i.test(screenTitle()) && !!btn(/^Create New Record$/) && !btn(/^(Save|Update)$/) && !lov();
+  const qcTab = () => [...document.querySelectorAll("*")].filter(vis).find(e => e.children.length === 0 && txt(e) === "Production QC" && e.getBoundingClientRect().top < 80);
+  async function backToQcListing() {
+    for (let i = 0; i < 4 && !onQcListing(); i++) {
+      const a = alertBox(); if (a) await closeAlert(a); if (lov()) await closeLov();
+      const b = btn(/^Back$/);
+      if (b && /\[NQ:QCPRO\]/.test(screenTitle())) click(b); else { const t = qcTab(); if (t) click(t); else if (b) click(b); }
+      await sleep(2500);
+    }
+    try { await waitFor(onQcListing, 15000, "Production QC"); }
+    catch (e) {
+      if (e.message === "Stopped by user") throw e;
+      throw new Error(`the ERP is not on the Production QC screen (it shows "${screenTitle() || "(no screen title found)"}"). Open Production QC (Quick Search → QC → Production QC), then press Start again`);
+    }
+  }
+  const MON = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
+  const dmyOf = s => { const m = String(s).trim().match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/); return m ? `${m[1].padStart(2, "0")}-${String(MON[m[2].toUpperCase()]).padStart(2, "0")}-${m[3]}` : ""; };
+  // Batch No. list = lines of approved production vouchers; its search box only matches the
+  // voucher number from the start, so list the Q2 vouchers and filter on the batch column
+  async function qcPickBatch(h) {
+    const { inp, wrap } = field("Batch No.");
+    if (lov()) await closeLov();
+    click(wrap.querySelector("ion-icon[name=search]") || wrap.querySelector("ion-icon"));
+    const L = await waitFor(lov, 15000, "Batch No. list");
+    const s = [...L.querySelectorAll("input")].find(i => /Search Here/i.test(i.placeholder || ""));
+    s.focus(); setIn.call(s, "Q2"); s.dispatchEvent(new Event("input", { bubbles: true }));
+    click(btn(/^Find$/, L));
+    await waitFor(() => lovRows(L).length, 30000, "production vouchers in the Batch No. list");
+    const heads = [...L.querySelectorAll("thead tr")].find(tr => [...tr.children].some(c => txt(c)));
+    const names = [...heads.children].map(c => txt(c).replace(/\*$/, "").toLowerCase());
+    const ci = n => { const i = names.indexOf(n); if (i < 0) throw new Error(`Batch No. list has no "${n}" column`); return i; };
+    const cB = ci("batch no."), cI = ci("item code"), cD = ci("production vr date"), cV = ci("production vr no."), cS = ci("slno");
+    const ftr = [...L.querySelectorAll("thead tr")].find(tr => tr.querySelector("input"));
+    const f = ftr && ftr.children[cB] && ftr.children[cB].querySelector("input");
+    if (f) await typeInto(f, `%${h.qc.batch}%`, 300);
+    const match = () => { const r = lovRows(L).filter(r => txt(r.children[cB]) === h.qc.batch && txt(r.children[cI]) === h.qc.code && dmyOf(txt(r.children[cD])) === h.date);
+      return r.length ? r.sort((a, b) => +txt(a.children[cS]) - +txt(b.children[cS])) : null; };
+    let rows;
+    try { rows = await waitFor(match, 15000, `batch ${h.qc.batch}`); }
+    catch (e) { await closeLov(); throw new Error(`batch ${h.qc.batch} (${h.qc.code}, ${h.date}) is not in the ERP's Batch No. list - is the heat's production voucher approved?`); }
+    const row = rows[0], vr = txt(row.children[cV]);
+    const td = [...row.children].find(t => getComputedStyle(t).display !== "none") || row.firstElementChild;
+    mouse(td, "click"); mouse(td, "dblclick");
+    await waitFor(() => !lov(), 15000, "lookup to close"); await sleep(800);
+    if (inp.value.trim() !== h.qc.batch) throw new Error(`Batch No. shows "${inp.value}"`);
+    return vr;
+  }
+  // ERP test (code or name) -> BIS Doc column. The ERP admin sets the test names, so match loosely.
+  const QC_KEYS = ["C", "Mn", "P", "S", "Si", "N", "S+P", "CE", "Bend", "Camber", "Length", "Width", "Defects", "Grade"];
+  const QC_NEED = ["C", "Mn", "P", "S", "Si", "N", "S+P", "CE", "Bend", "Camber", "Length", "Width", "Defects"];   // Grade only if the ERP asks
+  function qcKeyOf(raw) {
+    const t = String(raw || "").toLowerCase().replace(/[%()\s._-]+/g, " ").trim();
+    if (!t) return null;
+    if (/s ?\+ ?p|sulph?f?ur ?\+ ?phos|s and p/.test(t)) return "S+P";
+    if (/carbon equiv|^ce$|^c ?e$|^c\.?e\.?$/.test(t)) return "CE";
+    if (/^c$|carbon/.test(t)) return "C";
+    if (/^mn$|mangan/.test(t)) return "Mn";
+    if (/^p$|phosph/.test(t)) return "P";
+    if (/^s$|sulph|sulf/.test(t)) return "S";
+    if (/^si$|silic/.test(t)) return "Si";
+    if (/^n$|nitrog/.test(t)) return "N";
+    if (/bend/.test(t)) return "Bend";
+    if (/camber/.test(t)) return "Camber";
+    if (/length/.test(t)) return "Length";
+    if (/width|size|dimension/.test(t)) return "Width";
+    if (/defect|crack|visual|freedom|surface/.test(t)) return "Defects";
+    if (/grade/.test(t)) return "Grade";
+    return null;
+  }
+  function qcRowsNow() {
+    const t = [...document.querySelectorAll("table")].filter(vis).filter(t => /Test Code/.test(txt(t.querySelector("thead") || t))).pop();
+    return t ? [...t.querySelectorAll("tbody tr")].filter(tr => { const c = tr.querySelector("input#TEST_CODE"); return c && c.value.trim(); }) : [];
+  }
+  const testOf = tr => qcKeyOf(tr.querySelector("input#TEST_CODE").value) || qcKeyOf((tr.querySelector("input#TEST_NAME") || {}).value);
+  // numbers must come back equal (the ERP may round them); text must come back the same
+  const sameVal = (got, want) => /^-?\d*\.?\d+$/.test(String(want).trim()) ? near(got, +want, 1e-9) : String(got).replace(/\s+/g, " ").trim() === String(want).replace(/\s+/g, " ").trim();
+  async function newQc(h, log) {
+    await backToQcListing();
+    click(btn(/^Create New Record$/));
+    try { await waitFor(lov, 8000, "series list"); }
+    catch (e) { await sleep(1500); click(btn(/^Create New Record$/)); await waitFor(lov, 15000, "series list"); }
+    await pickLov("Series", "2G");
+    await waitFor(() => { try { return field("Batch No."); } catch (e) { return null; } }, 20000, "new Production QC"); await sleep(800);
+    await headerLov("Plant", "Plant Code", "INDF1", "INDUCTION FURNACE");
+    await headerLov("Process", "Process Code", "BILLETS", "BILLETS");
+    await headerLov("Item Category", "Item Category", "BL", "BILLETS");
+    await headerLov("Item Name", "Item Code", h.qc.code);
+    await headerLov("Shift Code", "Shift Code", "A", "^A$");
+    const qt = field("QC Time").inp, when = `${h.date} 10:00:00`;
+    await typeInto(qt, when); if (qt.value !== when) throw new Error(`QC Time shows "${qt.value}"`);
+    const vr = await qcPickBatch(h);
+    log(`   production voucher ${vr}, batch ${h.qc.batch} (${h.qc.code})`);
+    click(btn(/^Show$/));
+    await waitFor(() => { const a = alertBox(); if (a && a.kind === "err") throw new Error("ERP said: " + a.text.replace(/Know More.*$/i, "").slice(0, 200)); return qcRowsNow().length; }, 20000, "test list");
+    await sleep(800);
+    const rows = qcRowsNow(), inErp = rows.map(testOf);
+    const unknown = rows.filter(r => !testOf(r)).map(r => r.querySelector("input#TEST_CODE").value.trim() + " " + ((r.querySelector("input#TEST_NAME") || {}).value || ""));
+    if (unknown.length) throw new Error(`the ERP asks for test(s) "${unknown.join('", "')}" that Moltrix can't match to a BIS Doc column - send me the test names`);
+    const notInErp = QC_NEED.filter(k => !inErp.includes(k));
+    if (notInErp.length && !window.MZF_DRY) throw new Error(`the ERP's test list for ${h.qc.code} has no ${notInErp.join(", ")} (it has ${inErp.join(", ")}) - ask the ERP admin to add them`);
+    for (const tr of rows) {
+      const k = testOf(tr), want = h.qc.vals[k];
+      if (want === null || want === undefined || want === "") throw new Error(`no ${k} value in the BIS Doc for this heat`);
+      const inp = tr.querySelector("input#TEST_RESULT");
+      inp.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+      await editCell(inp, String(want));
+      if (!sameVal(inp.value, want)) throw new Error(`${k}: typed "${want}" but the ERP keeps "${inp.value}" - ask the ERP admin to allow ${/^-?\d*\.?\d+$/.test(want) ? "3-4 decimals" : "text"} in this Test Result`);
+      const sel = tr.querySelector("ion-select");
+      if (sel && sel.value !== "P") { sel.value = "P"; sel.dispatchEvent(new CustomEvent("ionChange", { detail: { value: "P" }, bubbles: true })); await sleep(300); }
+      if (!sel || sel.value !== "P") throw new Error(`${k}: Test Status did not take Pass`);
+    }
+    // final check
+    const got = qcRowsNow().map(tr => `${testOf(tr)} ${tr.querySelector("input#TEST_RESULT").value} ${(tr.querySelector("ion-select") || {}).value}`);
+    const bad = qcRowsNow().filter(tr => !sameVal(tr.querySelector("input#TEST_RESULT").value, h.qc.vals[testOf(tr)]) || (tr.querySelector("ion-select") || {}).value !== "P");
+    if (bad.length || field("Batch No.").inp.value.trim() !== h.qc.batch || field("QC Time").inp.value !== when) throw new Error("check before saving failed - " + got.join("; "));
+    log(`   ${got.map(g => g.replace(/ P$/, "")).join(", ")} · Pass ✓`, "ok");
+    if (window.MZF_DRY) { log("   (dry run - not saved)", "h"); return "DRY RUN"; }
+    return await save(/^Save$/);
+  }
+
   /* ================= panel ================= */
-  const store = () => { try { return JSON.parse(localStorage.getItem(DONE_KEY) || "{}"); } catch (e) { return {}; } };
-  const remember = (k, v) => { try { const s = store(); s[k] = v; localStorage.setItem(DONE_KEY, JSON.stringify(s)); } catch (e) {} };
+  const store = (key = DONE_KEY) => { try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch (e) { return {}; } };
+  const remember = (k, v, key = DONE_KEY) => { try { const s = store(key); s[k] = v; localStorage.setItem(key, JSON.stringify(s)); } catch (e) {} };
   let data = null, appWin = null;
   function panel() {
     let p = document.getElementById("mzfPanel"); if (p) return p;
@@ -391,9 +519,17 @@
     try { if (appWin) appWin.postMessage({ type: "moltrix-erp-log", text: m, cls }, APP_ORIGIN); } catch (e) {} }
   function openApp() { appWin = window.open(APP_URL, "moltrixErpBridge", "width=520,height=760"); if (!appWin) log("Pop-up blocked - allow pop-ups for this ERP site, then press Open Moltrix again.", "err"); }
   function renderData() {
-    const b = panel().querySelector("#mzfBody"); const s = store();
-    if (!data) { b.innerHTML = `<div>Press <b>Open Moltrix</b>, pick the date there and press <b>Send to ERP</b>.</div>`; return; }
-    const mode = data.mode;
+    if (!data) { panel().querySelector("#mzfBody").innerHTML = `<div>Press <b>Open Moltrix</b>, pick the date there and press <b>Send to ERP</b>.</div>`; return; }
+    const b = panel().querySelector("#mzfBody"), mode = data.mode, s = store(mode === "qc" ? QC_DONE_KEY : DONE_KEY);
+    if (mode === "qc") {
+      b.innerHTML = `<div style="margin-bottom:6px"><b>${data.date}</b> · Production QC (Final chemistry from BIS Doc)</div>` +
+        data.heats.map((h, i) => { const done = s[data.date + "|" + h.heat], v = h.qc.vals;
+          return `<label style="display:flex;gap:6px;align-items:center;margin:2px 0"><input type="checkbox" data-i="${i}" ${done ? "" : "checked"}>
+            Heat ${h.heat} · ${QC_KEYS.filter(k => v[k] !== undefined && v[k] !== "").map(k => k + " " + v[k]).join(" ")}${done ? ` <span style="color:#9be7a0">(${done})</span>` : ""}</label>`; }).join("") +
+        `<div style="margin-top:8px"><button data-a="start" style="background:#d4a017;color:#10213a;border:0;border-radius:6px;padding:6px 14px;font-weight:700;cursor:pointer">Start</button>
+         <span style="color:#8ea3c4;font-size:11px"> Start on the Production QC screen. Keep this tab in front.</span></div>`;
+      return;
+    }
     b.innerHTML = `<div style="margin-bottom:6px"><b>${data.date}</b> · ${mode === "full" ? "Production + RM consumption" : mode === "cons" ? "Add RM consumption to saved vouchers" : "Production only"}</div>` +
       data.heats.map((h, i) => { const k = data.date + "|" + h.heat, done = s[k]; const can = mode === "cons" ? !!done : true;
         return `<label style="display:flex;gap:6px;align-items:center;margin:2px 0;${can ? "" : "opacity:.5"}"><input type="checkbox" data-i="${i}" ${can && (mode === "cons" || !done) ? "checked" : ""} ${can ? "" : "disabled"}>
@@ -407,22 +543,24 @@
     if (!picked.length) { log("No heat selected.", "err"); return; }
     MZF.busy = true; STOP = false; const t0 = Date.now(); let okN = 0;
     log(`Starting ${picked.length} heat(s) for ${data.date}`, "h");
-    try { await backToListing(); }
+    const qc = data.mode === "qc", back = qc ? backToQcListing : backToListing;
+    try { await back(); }
     catch (e) { log(`✗ ${e.message}`, "err"); log("Nothing was entered.", "err"); MZF.busy = false; STOP = false; return; }
     for (const h of picked) {
       const k = data.date + "|" + h.heat;
       log(`Heat ${h.heat}`, "h");
       try {
         let r;
-        if (data.mode === "cons") { const vr = store()[k]; if (!vr) throw new Error("no saved voucher recorded for this heat"); r = await addConsumption(h, vr, log); }
+        if (qc) r = { vr: await newQc(h, log) };
+        else if (data.mode === "cons") { const vr = store()[k]; if (!vr) throw new Error("no saved voucher recorded for this heat"); r = await addConsumption(h, vr, log); }
         else r = await newVoucher(h, data.mode, log);
         if (r.nothing) log(`   nothing added to ${r.vr}`, "err");
-        else { remember(k, r.vr); okN++; log(`   saved ${r.vr}`, "ok"); }
+        else { remember(k, r.vr, qc ? QC_DONE_KEY : DONE_KEY); okN++; log(`   saved ${r.vr}`, "ok"); }
         if (r.missing && r.missing.length) log(`   NOT entered: ${r.missing.join("; ")}`, "err");
         try { if (appWin) appWin.postMessage({ type: "moltrix-erp-done", date: data.date, heat: h.heat, vr: r.vr, missing: r.missing || [] }, APP_ORIGIN); } catch (e) {}
       } catch (e) {
         log(`   ✗ ${e.message} - this heat was NOT saved`, "err");
-        try { await backToListing(); } catch (e2) {}
+        try { await back(); } catch (e2) {}
         if (STOP) break;
       }
       renderData();
@@ -438,8 +576,8 @@
     log(`Received ${data.heats.length} heat(s) for ${data.date} from Moltrix.`, "h"); renderData();
   });
   window.MZF = { VERSION, busy: false, show() { panel(); renderData(); }, _t: { newVoucher, addConsumption, fillRm, backToListing, log, setData(d) { data = d; renderData(); }, debug(on) { DEBUG = on; dbgT = Date.now(); },
-    grid, realRows, addRow, activate, fillProdLine, fillRmLine, alertBox, lov, pickLov, field, cell } };
+    grid, realRows, addRow, activate, fillProdLine, fillRmLine, alertBox, lov, pickLov, field, cell, newQc, backToQcListing, qcPickBatch, qcRowsNow, screenTitle } };
   panel(); renderData();
   if (!/erpv7\.marutisteel\.in/i.test(location.host)) log("This doesn't look like the Lighthouse ERP page.", "err");
-  else log(`ERP screen now: ${screenTitle() || "(unknown)"}` + (onListing() ? "" : " - Start will try to open Production Entry Listing itself"), onListing() ? "ok" : "err");
+  else log(`ERP screen now: ${screenTitle() || "(unknown)"}`, onListing() || onQcListing() ? "ok" : "");
 })();
