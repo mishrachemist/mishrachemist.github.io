@@ -1833,6 +1833,9 @@
   #status.ok{display:block;background:#e9f6ee;color:var(--good);border:1px solid #bfe4cb;animation:statusSlideIn .25s ease-out;}
   #status.err{display:block;background:#fbeceb;color:var(--bad);border:1px solid #f2c6c2;animation:statusSlideIn .25s ease-out;}
   #status.wait{display:block;background:#eef2fa;color:var(--navy);border:1px solid #d3dae6;animation:statusSlideIn .25s ease-out;}
+  #prtAddStatus{padding:0;border-radius:8px;} #prtAddStatus.ok,#prtAddStatus.err,#prtAddStatus.wait{padding:8px 10px;}
+  #prtAddStatus.ok{background:#e9f6ee;color:#1e7a45;border:1px solid #bfe4cb;} #prtAddStatus.err{background:#fbeceb;color:#b3261e;border:1px solid #f2c6c2;} #prtAddStatus.wait{background:#eef2fa;color:#1f3a68;border:1px solid #d3dae6;}
+  #prtAddTable td{border:1px solid rgba(128,128,128,.55);padding:4px 6px;}
   @keyframes statusSlideIn{
     0%{ opacity:0; transform:translateY(10px); }
     100%{ opacity:1; transform:translateY(0); }
@@ -5224,6 +5227,22 @@ window.__gmFS = {
               then a vehicle, and submit to see every heat's chemical
               composition for that vehicle. You can then download it as a PDF.
             </p>
+            <details id="prtAddBox" style="margin:0 0 16px;border:1px solid var(--border,#d0d7de);border-radius:10px;padding:10px 12px;">
+              <summary style="cursor:pointer;font-weight:600;">➕ Add a new report (photo / screenshot)</summary>
+              <p style="font-size:13px;color:var(--muted);margin:8px 0;">
+                Upload the party's test report picture. The app reads it, shows what it read for checking,
+                and adds it to <b>R.M Billets Reports</b> just below the last entry (one blank row gap), in the
+                same layout. The values go in as they are in the report. <b>Yellow</b> = not read clearly,
+                compare it with the picture; tap any cell to correct a reading mistake.
+              </p>
+              <input type="file" id="prtAddFile" accept="image/*">
+              <div id="prtAddStatus" style="font-size:13px;margin:8px 0;"></div>
+              <div id="prtAddPreview"></div>
+              <div class="btnRow">
+                <button class="primary hidden" id="prtAddBtn">Add to Excel</button>
+                <button class="secondary hidden" id="prtUndoBtn">↩ Undo last add</button>
+              </div>
+            </details>
             <label for="partyRepParty">Party</label>
             <select id="partyRepParty"><option value="">Loading parties...</option></select>
             <label for="partyRepVehicle">Vehicle No.</label>
@@ -6982,9 +7001,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.06.5";
+const APP_VERSION = "2026.11.07.1";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [
+  "🧪 Party Test Reports: ➕ Add a new report - upload the report picture, check what the app read (unclear cells in yellow), and it is added to R.M Billets Reports just below the last entry in the same layout; ↩ Undo removes it again",
   "🏢 ERP PROD is now the ERP tile with the ERP icon - inside it: ERP Prod Download (production from the Excel sheet, later straight from the ERP) and ERP Entry (entry sheet + Send to ERP)",
   "🏭 New: Send to ERP - with the \"Moltrix ERP\" bookmark in the ERP, Moltrix sends the day's heats and the ERP fills and saves each heat's Production Entry (billets + RM consumption) by itself; a second mode adds missing RM consumption to vouchers already saved",
   "🧾 New: ERP PROD → ERP Entry Sheet - pick a date to get every heat's Production Entry (billets in pcs, C/F, Ref No R/B, RM consumption per heat) and the BL transfers for hot charging, hot out and RHF with ERP item codes; tap a cell to copy, or download Excel",
@@ -21354,6 +21374,420 @@ function downloadPartyVehiclePdf() {
 document.getElementById("partyRepParty").addEventListener("change", e => loadPartySheet(e.target.value));
 document.getElementById("partyRepSubmitBtn").addEventListener("click", showPartyVehicleReport);
 document.getElementById("partyRepPdfBtn").addEventListener("click", downloadPartyVehiclePdf);
+
+/* ---- Party Test Reports: add a new report from a photo / screenshot ---- */
+// Reads the report table from the picture (grid lines -> cells, merged cells
+// found from missing borders), OCRs every cell with Tesseract.js, and turns it
+// into the same block layout the 'R.M Billets Reports' sheet uses (Date:-,
+// V.No./Party Name:-, SIZE, 3 header rows, PO row, 2 rows per heat, pieces /
+// qty merged exactly as in the picture). The report's own values are kept
+// as they are; only OCR mistakes are fixed by the user in the preview.
+function prtGray(img) {
+  const W = img.width, H = img.height, d = img.data, g = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) g[i] = d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114;
+  return g;
+}
+// Table lines = long straight dark runs (text strokes are short). Cells that
+// have no border between them are joined, so merged cells come out whole.
+function prtGrid(img) {
+  const W = img.width, H = img.height, gv = prtGray(img), g = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) g[i] = gv[i] < 110 ? 1 : 0;
+  const minV = Math.max(12, H * 0.025), minH = Math.max(30, W * 0.06);
+  const colRun = x => { let b = 0, c = 0; for (let y = 0; y < H; y++) { c = g[y * W + x] ? c + 1 : 0; if (c > b) b = c; } return b; };
+  const rowRun = y => { let b = 0, c = 0; for (let x = 0; x < W; x++) { c = g[y * W + x] ? c + 1 : 0; if (c > b) b = c; } return b; };
+  const lines = (n, f, thr) => { const out = []; let st = -1; for (let i = 0; i <= n; i++) { const on = i < n && f(i) >= thr; if (on && st < 0) st = i; if (!on && st >= 0) { out.push(Math.round((st + i - 1) / 2)); st = -1; } } return out; };
+  const ys = lines(H, rowRun, minH), xs = lines(W, colRun, minV);
+  if (!ys.length || ys[0] > 3) ys.unshift(0); if (H - 1 - ys[ys.length - 1] > 6) ys.push(H - 1);
+  if (!xs.length || xs[0] > 3) xs.unshift(0); if (W - 1 - xs[xs.length - 1] > 6) xs.push(W - 1);
+  const dk = (x, y) => x >= 0 && y >= 0 && x < W && y < H && g[y * W + x];
+  const hB = (y, x0, x1) => { let s = 0, n = 0; for (let x = x0 + 2; x < x1 - 1; x++) { s += (dk(x, y - 1) || dk(x, y) || dk(x, y + 1)) ? 1 : 0; n++; } return n ? s / n > 0.85 : true; };
+  const vB = (x, y0, y1) => { let s = 0, n = 0; for (let y = y0 + 2; y < y1 - 1; y++) { s += (dk(x - 1, y) || dk(x, y) || dk(x + 1, y)) ? 1 : 0; n++; } return n ? s / n > 0.85 : true; };
+  const R = ys.length - 1, C = xs.length - 1;
+  const par = [...Array(Math.max(0, R * C)).keys()];
+  const find = a => par[a] === a ? a : (par[a] = find(par[a]));
+  const uni = (a, b) => { a = find(a); b = find(b); if (a !== b) par[b] = a; };
+  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+    if (c < C - 1 && !vB(xs[c + 1], ys[r], ys[r + 1])) uni(r * C + c, r * C + c + 1);
+    if (r < R - 1 && !hB(ys[r + 1], xs[c], xs[c + 1])) uni(r * C + c, (r + 1) * C + c);
+  }
+  const m = new Map();
+  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+    const k = find(r * C + c), o = m.get(k) || { r0: r, c0: c, r1: r, c1: c };
+    o.r0 = Math.min(o.r0, r); o.c0 = Math.min(o.c0, c); o.r1 = Math.max(o.r1, r); o.c1 = Math.max(o.c1, c); m.set(k, o);
+  }
+  const cells = [...m.values()].map(o => ({ ...o, x0: xs[o.c0], x1: xs[o.c1 + 1], y0: ys[o.r0], y1: ys[o.r1 + 1] }));
+  return { xs, ys, R, C, cells, gv, W };
+}
+// ink box + background colour of one cell
+function prtInk(img, gv, W, cell) {
+  const p = 3, d = img.data; let bg = 0, n = 0, rr = 0, gg = 0, bb = 0;
+  for (let y = cell.y0 + p; y < cell.y1 - p; y += 2) for (let x = cell.x0 + p; x < cell.x1 - p; x += 2) { const i = y * W + x; bg += gv[i]; rr += d[i * 4]; gg += d[i * 4 + 1]; bb += d[i * 4 + 2]; n++; }
+  if (!n) return null;
+  // background = the most common colour, not the mean (text would darken the mean)
+  const hist = new Map();
+  for (let y = cell.y0 + p; y < cell.y1 - p; y += 2) for (let x = cell.x0 + p; x < cell.x1 - p; x += 2) { const i = (y * W + x) * 4; const k = (d[i] >> 4) + "," + (d[i + 1] >> 4) + "," + (d[i + 2] >> 4); hist.set(k, (hist.get(k) || 0) + 1); }
+  let top = "", tc = 0; hist.forEach((v, k) => { if (v > tc) { tc = v; top = k; } });
+  const [hr, hg, hb] = top.split(",").map(v => v * 16 + 8);
+  const bgL = hr * 0.299 + hg * 0.587 + hb * 0.114, thr = Math.min(bgL - 60, 150);
+  const fill = (hr > 232 && hg > 232 && hb > 232) ? "" : "#" + [hr, hg, hb].map(v => Math.min(255, v).toString(16).padStart(2, "0")).join("");
+  let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1, k = 0;
+  for (let y = cell.y0 + p; y < cell.y1 - p; y++) for (let x = cell.x0 + p; x < cell.x1 - p; x++) if (gv[y * W + x] < thr) { k++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  return { fill, box: k ? { x0, y0, x1, y1, thr } : null };
+}
+function prtCellCanvas(src, b, scale, mode) {
+  const m = 2, w = b.x1 - b.x0 + 1 + 2 * m, h = b.y1 - b.y0 + 1 + 2 * m;
+  const cv = document.createElement("canvas"); cv.width = w * scale + 40; cv.height = h * scale + 40;
+  const cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
+  cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = "high";
+  cx.drawImage(src, b.x0 - m, b.y0 - m, w, h, 20, 20, w * scale, h * scale);
+  const im = cx.getImageData(0, 0, cv.width, cv.height), d = im.data;
+  for (let i = 0; i < d.length; i += 4) {
+    let v = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+    v = mode === "thr" ? (v < 128 ? 0 : 255) : mode === "raw" ? (v < b.thr + 40 ? v : 255) : Math.max(0, Math.min(255, (v - (b.thr - 40)) * 255 / 120));
+    d[i] = d[i + 1] = d[i + 2] = v;
+  }
+  cx.putImageData(im, 0, 0); return cv;
+}
+const prtClean = t => String(t || "").replace(/[|\[\]{}()€]/g, " ").replace(/\s+/g, " ").trim();
+// One cell: quick read; if Tesseract is unsure, read it several ways and take
+// the answer most of them agree on (marked "check" unless all agree).
+async function prtReadCell(worker, src, b) {
+  const s0 = Math.max(1, Math.min(6, 40 / (b.y1 - b.y0 + 1)));
+  const first = await worker.recognize(prtCellCanvas(src, b, s0, "stretch"));
+  const t = prtClean(first.data.text), conf = first.data.confidence;
+  if (conf >= 85) return { text: t, conf, sure: true };
+  const votes = new Map(), add = (x, c) => { const v = votes.get(x) || { n: 0, c: 0 }; v.n++; v.c += c; votes.set(x, v); };
+  add(t, conf); let total = 1;
+  for (const k of [0.75, 1, 1.25, 1.5, 2]) for (const mode of ["stretch", "raw", "thr"]) {
+    const r = await worker.recognize(prtCellCanvas(src, b, s0 * k, mode));
+    add(prtClean(r.data.text), r.data.confidence); total++;
+  }
+  let best = "", bv = null; votes.forEach((v, x) => { if (x && (!bv || v.n > bv.n || (v.n === bv.n && v.c > bv.c))) { best = x; bv = v; } });
+  return { text: best, conf: bv ? bv.c / bv.n : 0, sure: !!bv && bv.n >= total - 1 };
+}
+async function prtOcr(src, worker, onProg) {
+  const cx = src.getContext("2d"), img = cx.getImageData(0, 0, src.width, src.height);
+  const grid = prtGrid(img);
+  let k = 0;
+  for (const cell of grid.cells) {
+    cell.text = ""; cell.sure = true; cell.fill = "";
+    const ink = prtInk(img, grid.gv, grid.W, cell);
+    if (ink) {
+      cell.fill = ink.fill;
+      const b = ink.box;
+      if (b) {
+        const bw = b.x1 - b.x0 + 1, bh = b.y1 - b.y0 + 1;
+        if (bh <= 3 && bw <= 14) cell.text = "-";
+        else if (bh > 3 || bw > 3) Object.assign(cell, await prtReadCell(worker, src, b));
+      }
+    }
+    if (onProg) onProg(++k, grid.cells.length);
+  }
+  return grid;
+}
+
+// ---- picture cells -> sheet block (rows of 10 cells A..J + merges) ----
+const PRT_DATE_FMT = "[$-409]d\\-mmm\\-yyyy;@";
+function prtSerial(d, m, y) { if (y < 100) y += 2000; return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 86400000); }
+function prtValue(t) {
+  t = String(t || "").trim();
+  if (/^-?\d+(\.\d+)?$/.test(t)) { const dec = (t.split(".")[1] || "").length; return { v: parseFloat(t), fmt: dec ? "0." + "0".repeat(dec) : "0", text: t }; }
+  return { v: t, fmt: t ? "@" : "General", text: t };
+}
+function prtParse(grid) {
+  const warn = [], cells = grid.cells.slice().sort((a, b) => a.r0 - b.r0 || a.c0 - b.c0);
+  const txt = c => (c && c.text) || "";
+  const rightOf = c => cells.filter(o => o.r0 === c.r0 && o.c0 > c.c1 && txt(o)).sort((a, b) => a.c0 - b.c0)[0];
+  const label = re => cells.find(c => re.test(txt(c)));
+  const top = {};
+  const dl = label(/^date/i), vl = label(/^v\s*\.?\s*no/i), pl = label(/party\s*name/i), sl = label(/^size\b/i);
+  const val = l => l ? rightOf(l) : null;
+  const dC = val(dl), vC = val(vl), pC = val(pl), sC = val(sl);
+  top.dateText = txt(dC); top.vehicle = txt(vC).replace(/\s+/g, " "); top.party = txt(pC); top.size = txt(sC);
+  const dm = top.dateText.match(/(\d{1,2})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{2,4})/);
+  top.date = dm ? prtSerial(+dm[1], +dm[2], +dm[3]) : null;
+  if (!dm) warn.push("Date not read - type it in the preview (dd-mm-yyyy).");
+  top.sure = { date: !dC || dC.sure, vehicle: !vC || vC.sure, party: !pC || pC.sure, size: !sC || sC.sure };
+  // table body: first PO row, else first heat (a left cell spanning 2 rows)
+  const poC = label(/^po\b/i);
+  const isHeatCell = c => c.r1 === c.r0 + 1 && c.c0 === 0 && txt(c) && !/heat|h.t\s*no/i.test(txt(c));
+  const firstHeat = cells.filter(isHeatCell).sort((a, b) => a.r0 - b.r0)[0];
+  if (!firstHeat) throw new Error("No heat rows found in the picture. Send a clear screenshot of the whole report table.");
+  const bodyR0 = poC && poC.r0 < firstHeat.r0 ? poC.r0 : firstHeat.r0;
+  const totC = cells.find(c => /^total$/i.test(txt(c)) && c.r0 > firstHeat.r0);
+  const bodyR1 = (totC ? totC.r0 : grid.R) - 1;
+  // sheet columns A..J = the cells of the first heat row, left to right
+  const colCells = cells.filter(c => c.r0 <= firstHeat.r0 && c.r1 >= firstHeat.r0).sort((a, b) => a.x0 - b.x0);
+  if (colCells.length !== 10) warn.push(`The heat row has ${colCells.length} columns (expected 10: Heat, Report, C, S, P, Mn, N, Si, Pieces, Qty). Check the preview.`);
+  const bounds = colCells.slice(0, 10).map(c => [c.x0, c.x1]);
+  const sheetCols = c => { const out = []; bounds.forEach(([a, b], i) => { const mid = (a + b) / 2; if (mid > c.x0 && mid < c.x1) out.push(i); }); return out; };
+  // block rows: 0 Date, 1 V.No., 2 SIZE, 3-5 headers, then body
+  const B0 = 6, nBody = bodyR1 - bodyR0 + 1, rows = [];
+  for (let r = 0; r < B0 + nBody; r++) rows.push(Array.from({ length: 10 }, () => ({ v: "", fmt: "General", text: "", sure: true, fill: "" })));
+  const put = (r, c, t, extra) => { rows[r][c] = { ...prtValue(t), sure: true, fill: "", ...(extra || {}) }; };
+  const merges = [];
+  put(0, 0, "Date:-");
+  rows[0][1] = { v: top.date === null ? "" : top.date, fmt: PRT_DATE_FMT, text: top.dateText, sure: top.sure.date && !!dm, fill: "", isDate: true };
+  merges.push([0, 1, 0, 9]);
+  put(1, 0, "V.No."); put(1, 1, top.vehicle, { sure: top.sure.vehicle, fmt: "@", v: top.vehicle }); merges.push([1, 1, 1, 2]);
+  put(1, 3, "Party Name:-"); merges.push([1, 3, 1, 4]); put(1, 5, top.party, { sure: top.sure.party, fmt: "@", v: top.party });
+  put(2, 0, "SIZE"); put(2, 1, top.size, { sure: top.sure.size, fmt: "@", v: top.size }); merges.push([2, 1, 2, 2]);
+  put(3, 0, "Heat No."); put(3, 1, "Report "); put(3, 2, "Parameters "); merges.push([3, 2, 3, 7]);
+  put(3, 8, "No. Of pieces"); merges.push([3, 8, 5, 8]); put(3, 9, "QTY (MT)"); merges.push([3, 9, 5, 9]);
+  ["C ", "S ", "P ", "Mn ", "N ", "Si "].forEach((h, i) => put(4, 2 + i, h));
+  ["%", "%", "%", "%", "ppm", "%"].forEach((h, i) => put(5, 2 + i, h));
+  for (const c of cells) {
+    if (c.r0 < bodyR0 || c.r0 > bodyR1) continue;
+    const sc = sheetCols(c); if (!sc.length) continue;
+    const r0 = B0 + c.r0 - bodyR0, r1 = B0 + Math.min(c.r1, bodyR1) - bodyR0, c0 = sc[0], c1 = sc[sc.length - 1];
+    let t = c.text || "";
+    if (c0 === 0) t = t.replace(/^([A-Z]+)\s*(\d+\.\d+)\s*([A-Z]+\s*\d+)$/i, "$1 $2 $3");  // OCR spacing only
+    rows[r0][c0] = { ...prtValue(t), sure: c.sure !== false, fill: c.fill || "" };
+    for (let r = r0; r <= r1; r++) for (let k = c0; k <= c1; k++) if (r !== r0 || k !== c0) rows[r][k].fill = c.fill || "";
+    if (r1 > r0 || c1 > c0) merges.push([r0, c0, r1, c1]);
+  }
+  // unusual values (kept as they are - only pointed out)
+  const heats = [];
+  for (let r = B0; r < rows.length; r++) {
+    const h = rows[r][0].text; if (h && !/^po/i.test(h) && !/^po/i.test(rows[r][1].text)) heats.push(h);
+    [2, 3, 4, 5, 7].forEach(k => { const x = rows[r][k]; if (typeof x.v === "number" && x.v > 5) x.odd = "No decimal point? Kept as in the report."; });
+  }
+  return { top, rows, merges, heats, warn, bodyStart: B0 };
+}
+
+// ---- app side: preview, checks, write to OneDrive, undo ----
+const PRT_RAW_SHEET = "r.m billets reports";
+const PRT_STAGING_LAST_RAW_ROW = 3000;   // Staging rows 2-3001 read raw rows 1-3000
+const PRT_MASTER_ROWS = 1000;            // Master!A2:A1001
+let prtAdd = null;      // { block, info, imgUrl }
+let prtLastAdd = null;  // { sh, start, end, vehicle }
+let _prtBusy = false;
+
+async function prtRawSheet(token) {
+  const wb = await getPartyReportWorkbook(token);
+  const list = await graphFetch(`${wb}/worksheets?$select=name`, token);
+  const ws = (list.value || []).find(s => s.name.trim().toLowerCase() === PRT_RAW_SHEET);
+  if (!ws) throw new Error(`Sheet "R.M Billets Reports" not found in ${PARTY_REPORT_FILE_NAME}.`);
+  const q = n => `${wb}/worksheets('${encodeURIComponent(n.replace(/'/g, "''"))}')`;
+  return { wb, sh: q(ws.name), names: (list.value || []).map(s => s.name), q };
+}
+// last used row + earlier blocks (date, vehicle, party) for the duplicate / name checks
+async function prtSheetInfo(token) {
+  const s = await prtRawSheet(token);
+  const ur = await graphFetch(`${s.sh}/usedRange(valuesOnly=true)?$select=address`, token, { noCache: true });
+  const m = String(ur.address || "").match(/(\d+)\s*$/);
+  const last = m ? parseInt(m[1], 10) : 0;
+  const blocks = [];
+  if (last) {
+    const r = await graphFetch(`${s.sh}/range(address='A1:F${last}')?$select=values`, token, { noCache: true });
+    const v = r.values || [];
+    let date = null;
+    for (let i = 0; i < v.length; i++) {
+      const a = String(v[i][0] || "").trim();
+      if (/^date\s*:?-/i.test(a)) date = v[i][1];
+      if (/^v\.?\s*no/i.test(a)) {
+        const pn = String(v[i][3] || "");
+        const party = /party\s*name\s*:-/i.test(pn) ? String(v[i][5] || "").trim() : /party\s*name-/i.test(pn) ? pn.replace(/^.*?-/, "").trim() : "";
+        blocks.push({ row: i + 1, date, vehicle: String(v[i][1] || "").trim(), party });
+      }
+    }
+  }
+  let masterUsed = null;
+  try {
+    const mr = await graphFetch(`${s.q("Master")}/range(address='A2:A${PRT_MASTER_ROWS + 1}')?$select=values`, token);
+    masterUsed = (mr.values || []).filter(x => String(x[0] || "").trim() !== "").length;
+  } catch (e) { /* Master sheet not readable - skip that check */ }
+  return { ...s, last, blocks, masterUsed };
+}
+const prtNormVeh = v => String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+const prtDateText = serial => { if (typeof serial !== "number") return String(serial || ""); const d = new Date(Date.UTC(1899, 11, 30) + serial * 86400000); return `${String(d.getUTCDate()).padStart(2, "0")}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${d.getUTCFullYear()}`; };
+
+function prtRenderPreview() {
+  const box = document.getElementById("prtAddPreview");
+  if (!prtAdd) { box.innerHTML = ""; return; }
+  const { block, info, imgUrl } = prtAdd, rows = block.rows;
+  const cover = rows.map(r => r.map(() => null));
+  block.merges.forEach(([r0, c0, r1, c1]) => { for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) cover[r][c] = (r === r0 && c === c0) ? { rs: r1 - r0 + 1, cs: c1 - c0 + 1 } : "x"; });
+  const start = info.last ? info.last + 2 : 1, end = start + rows.length - 1;
+  let h = `<div style="font-size:13px;margin:6px 0;">Will be added at rows <b>${start}–${end}</b> of R.M Billets Reports (last entry ends at row ${info.last || "-"}). ${block.heats.length} heats.</div>`;
+  h += `<details style="margin:6px 0;"><summary style="cursor:pointer;font-size:13px;">🖼️ Show the picture</summary><img src="${imgUrl}" style="max-width:100%;border:1px solid #ccc;margin-top:6px;"></details>`;
+  h += `<div class="tableScroll"><table class="matrixTable" id="prtAddTable" style="font-size:12px;">`;
+  rows.forEach((r, ri) => {
+    h += "<tr>";
+    r.forEach((c, ci) => {
+      const cv = cover[ri][ci]; if (cv === "x") return;
+      const span = cv ? `${cv.rs > 1 ? ` rowspan="${cv.rs}"` : ""}${cv.cs > 1 ? ` colspan="${cv.cs}"` : ""}` : "";
+      const fixed = ri >= 3 && ri <= 5 || (ri <= 2 && (ci === 0 || (ri === 1 && ci === 3)));
+      let style = `white-space:nowrap;text-align:${ri <= 2 && ci > 0 ? "left" : "center"};`;
+      if (c.fill) style += `background:${c.fill};color:#111;`;
+      if (!c.sure) style += "background:#fff3b0;color:#111;";
+      if (c.odd) style += "background:#ffd8a8;color:#111;";
+      const title = !c.sure ? "Not read clearly - compare with the picture" : c.odd || "";
+      const text = c.isDate ? (typeof c.v === "number" ? prtDateText(c.v) : c.text) : c.text;
+      h += `<td${span} data-r="${ri}" data-c="${ci}"${fixed ? "" : ' contenteditable="true"'} style="${style}"${title ? ` title="${partyRepEsc(title)}"` : ""}>${partyRepEsc(text)}</td>`;
+    });
+    h += "</tr>";
+  });
+  h += "</table></div>";
+  const notes = [...block.warn];
+  const unsure = rows.flat().filter(c => !c.sure).length, odd = rows.flat().filter(c => c.odd).length;
+  if (unsure) notes.push(`${unsure} cell(s) in yellow were not read clearly - please compare them with the picture.`);
+  if (odd) notes.push(`${odd} value(s) in orange look unusual (e.g. no decimal point) - they are added as they are in the report.`);
+  info.notes.forEach(n => notes.push(n));
+  if (notes.length) h += `<ul style="font-size:13px;margin:8px 0;padding-left:18px;">${notes.map(n => `<li>${partyRepEsc(n)}</li>`).join("")}</ul>`;
+  box.innerHTML = h;
+}
+// read the (possibly corrected) preview back into the block
+function prtReadPreview() {
+  const rows = prtAdd.block.rows;
+  document.querySelectorAll("#prtAddTable td[contenteditable]").forEach(td => {
+    const r = +td.dataset.r, c = +td.dataset.c, old = rows[r][c], t = td.textContent.replace(/\s+/g, " ").trim();
+    if (old.isDate) {
+      const m = t.match(/^(\d{1,2})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{2,4})$/);
+      rows[r][c] = { ...old, text: t, v: m ? prtSerial(+m[1], +m[2], +m[3]) : "" };
+    } else if (old.fmt === "@" && r <= 2) rows[r][c] = { ...old, text: t, v: t };
+    else rows[r][c] = { ...old, ...prtValue(t) };
+  });
+  return rows;
+}
+function prtNotes(block, info) {
+  const n = [], start = info.last ? info.last + 2 : 1, end = start + block.rows.length - 1;
+  if (end > PRT_STAGING_LAST_RAW_ROW) n.push(`Rows ${start}-${end} go past row ${PRT_STAGING_LAST_RAW_ROW}: the Staging sheet only reads up to raw row ${PRT_STAGING_LAST_RAW_ROW}, so this report would not show in the party sheets until Staging is extended.`);
+  const mippl = block.rows.filter((r, i) => i >= block.bodyStart && /^mippl$/i.test(r[1].text)).length;
+  if (info.masterUsed !== null && info.masterUsed + mippl > PRT_MASTER_ROWS) n.push(`Master holds ${PRT_MASTER_ROWS} rows (${info.masterUsed} used); ${mippl} more MIPPL rows will not all fit.`);
+  const party = (block.top.party || "").trim().toLowerCase();
+  if (party && !info.blocks.some(b => b.party.toLowerCase() === party)) n.push(`"${block.top.party}" is a new party name (no earlier report has exactly this name) - its party sheet will only show it if the name matches.`);
+  const veh = prtNormVeh(block.top.vehicle);
+  const same = info.blocks.filter(b => veh && prtNormVeh(b.vehicle) === veh);
+  if (same.length) n.push(`Vehicle ${block.top.vehicle} is already in the sheet (row ${same.map(b => `${b.row}, date ${prtDateText(b.date)}`).join("; row ")}).`);
+  return n;
+}
+
+async function prtReadFile(file) {
+  const st = document.getElementById("prtAddStatus");
+  const addBtn = document.getElementById("prtAddBtn");
+  addBtn.classList.add("hidden");
+  prtAdd = null; prtRenderPreview();
+  if (!file) return;
+  let worker = null;
+  try {
+    st.className = "wait"; st.textContent = "Loading OCR (first time ~10 MB)...";
+    await rmLoadOcr();
+    const src = await rmFileToCanvas(file);
+    const token = await getToken();
+    const infoP = prtSheetInfo(token);
+    infoP.catch(() => {});
+    worker = await Tesseract.createWorker("eng");
+    await worker.setParameters({ tessedit_pageseg_mode: "7" });
+    const grid = await prtOcr(src, worker, (k, n) => { st.textContent = `Reading the report... ${Math.round(k * 100 / n)}%`; });
+    if (grid.R < 6 || grid.C < 6) throw new Error("Table lines not found. Send a clear, straight screenshot of the whole report table (with cell borders).");
+    const block = prtParse(grid);
+    st.textContent = "Checking the Excel sheet...";
+    const info = await infoP;
+    info.notes = prtNotes(block, info);
+    prtAdd = { block, info, imgUrl: URL.createObjectURL(file) };
+    prtRenderPreview();
+    st.className = "ok";
+    st.textContent = `Read: ${block.top.party || "?"} · ${block.top.vehicle || "?"} · ${block.top.dateText || "?"} · ${block.heats.length} heats. Check the preview, then Add to Excel.`;
+    addBtn.classList.remove("hidden");
+  } catch (e) {
+    st.className = "err"; st.textContent = "Error: " + e.message;
+  } finally {
+    if (worker) try { await worker.terminate(); } catch (e) { }
+  }
+}
+
+async function prtAddToExcel() {
+  if (!prtAdd || _prtBusy) return;
+  const st = document.getElementById("prtAddStatus");
+  const rows = prtReadPreview(), top = prtAdd.block.top;
+  top.vehicle = rows[1][1].text; top.party = rows[1][5].text;
+  if (typeof rows[0][1].v !== "number") { st.className = "err"; st.textContent = "Date is not valid - type it as dd-mm-yyyy in the preview."; return; }
+  if (!top.vehicle || !top.party) { st.className = "err"; st.textContent = "Vehicle No. and Party Name are needed."; return; }
+  _prtBusy = true;
+  const addBtn = document.getElementById("prtAddBtn");
+  addBtn.disabled = true;
+  try {
+    st.className = "wait"; st.textContent = "Checking the Excel sheet...";
+    const token = await getToken();
+    const info = await prtSheetInfo(token);   // fresh: someone may have added rows meanwhile
+    const S = info.last ? info.last + 2 : 1, E = S + rows.length - 1;
+    if (E > PRT_STAGING_LAST_RAW_ROW && !confirm(`These rows (${S}-${E}) go past row ${PRT_STAGING_LAST_RAW_ROW}, which the Staging sheet does not read. Add anyway?`)) throw new Error("Not added.");
+    const dup = info.blocks.find(b => prtNormVeh(b.vehicle) === prtNormVeh(top.vehicle) && b.date === rows[0][1].v);
+    if (dup && !confirm(`Vehicle ${top.vehicle} dated ${prtDateText(dup.date)} is already in the sheet (row ${dup.row}). Add it again?`)) throw new Error("Not added (already in the sheet).");
+    const sh = info.sh, rng = a => `${sh}/range(address='${a}')`;
+    const values = rows.map(r => r.map(c => c.v === undefined ? "" : c.v));
+    const numberFormat = rows.map(r => r.map(c => c.fmt || "General"));
+    const whole = `A${S}:J${E}`;
+    const reqs = [];
+    reqs.push({ method: "POST", url: `${rng(whole)}/unmerge`, body: {} });
+    reqs.push({ method: "PATCH", url: rng(whole), body: { numberFormat, values } });
+    reqs.push({ method: "PATCH", url: `${rng(whole)}/format`, body: { horizontalAlignment: "Center", verticalAlignment: "Center" } });
+    reqs.push({ method: "PATCH", url: `${rng(whole)}/format/font`, body: { name: "Calibri", size: 11, bold: true } });
+    reqs.push({ method: "PATCH", url: `${rng(`B${S}:J${S + 1}`)}/format`, body: { horizontalAlignment: "Left" } });
+    reqs.push({ method: "PATCH", url: `${rng(`D${S + 1}`)}/format`, body: { horizontalAlignment: "Right" } });
+    ["EdgeTop", "EdgeBottom", "EdgeLeft", "EdgeRight", "InsideHorizontal", "InsideVertical"].forEach(side =>
+      reqs.push({ method: "PATCH", url: `${rng(whole)}/format/borders('${side}')`, body: { style: "Continuous", weight: "Thin", color: "#000000" } }));
+    // cell colours from the picture (e.g. the blue PO row), same-colour runs in one write
+    rows.forEach((r, ri) => {
+      let c = 0;
+      while (c < 10) {
+        const f = r[c].fill; if (!f) { c++; continue; }
+        let k = c; while (k + 1 < 10 && r[k + 1].fill === f) k++;
+        reqs.push({ method: "PATCH", url: `${rng(`${colLetter(c)}${S + ri}:${colLetter(k)}${S + ri}`)}/format/fill`, body: { color: f } });
+        c = k + 1;
+      }
+    });
+    prtAdd.block.merges.forEach(([r0, c0, r1, c1]) =>
+      reqs.push({ method: "POST", url: `${rng(`${colLetter(c0)}${S + r0}:${colLetter(c1)}${S + r1}`)}/merge`, body: { across: false } }));
+    st.textContent = `Adding at rows ${S}-${E}...`;
+    const bad = await graphBatchWrite(token, reqs, (d, n) => { st.textContent = `Adding at rows ${S}-${E}... ${d}/${n}`; });
+    // read back the values to be sure they are there
+    const back = await graphFetch(`${rng(`A${S}:B${S + 1}`)}?$select=values`, token, { noCache: true });
+    if (!back.values || String(back.values[0][0]).trim() !== "Date:-" || prtNormVeh(back.values[1][1]) !== prtNormVeh(top.vehicle)) throw new Error("The rows could not be confirmed in the sheet - please open the Excel and check.");
+    prtLastAdd = { sh, start: S, end: E, vehicle: top.vehicle };
+    document.getElementById("prtUndoBtn").classList.remove("hidden");
+    // party list / party sheets now have new data
+    const sel = document.getElementById("partyRepParty"); sel.dataset.loaded = ""; partyRepSheet = null;
+    st.className = bad.length ? "err" : "ok";
+    st.textContent = `✅ Added ${top.party} · ${top.vehicle} at rows ${S}-${E} of R.M Billets Reports.` + (bad.length ? ` Some formatting did not apply: ${bad.slice(0, 3).join("; ")}` : "");
+    addBtn.classList.add("hidden");
+    prtAdd = null; prtRenderPreview();
+    document.getElementById("prtAddFile").value = "";
+    loadPartyReportList();
+  } catch (e) {
+    st.className = "err"; st.textContent = "Error: " + e.message;
+  } finally {
+    _prtBusy = false; addBtn.disabled = false;
+  }
+}
+
+async function prtUndo() {
+  if (!prtLastAdd || _prtBusy) return;
+  const { sh, start, end, vehicle } = prtLastAdd;
+  if (!confirm(`Remove rows ${start}-${end} (${vehicle}) that were just added to R.M Billets Reports?`)) return;
+  const st = document.getElementById("prtAddStatus");
+  _prtBusy = true;
+  try {
+    st.className = "wait"; st.textContent = "Removing...";
+    const token = await getToken();
+    const rng = a => `${sh}/range(address='${a}')`;
+    const back = await graphFetch(`${rng(`A${start}:B${start + 1}`)}?$select=values`, token, { noCache: true });
+    if (!back.values || String(back.values[0][0]).trim() !== "Date:-" || prtNormVeh(back.values[1][1]) !== prtNormVeh(vehicle)) throw new Error(`Rows ${start}-${end} no longer hold that report - nothing removed.`);
+    await graphFetch(`${rng(`A${start}:J${end}`)}/unmerge`, token, { method: "POST", body: "{}" });
+    await graphFetch(`${rng(`A${start}:J${end}`)}/clear`, token, { method: "POST", body: JSON.stringify({ applyTo: "All" }) });
+    prtLastAdd = null;
+    document.getElementById("prtUndoBtn").classList.add("hidden");
+    const sel = document.getElementById("partyRepParty"); sel.dataset.loaded = ""; partyRepSheet = null;
+    st.className = "ok"; st.textContent = `Removed rows ${start}-${end}.`;
+    loadPartyReportList();
+  } catch (e) {
+    st.className = "err"; st.textContent = "Error: " + e.message;
+  } finally { _prtBusy = false; }
+}
+document.getElementById("prtAddFile").addEventListener("change", e => prtReadFile(e.target.files[0]));
+document.getElementById("prtAddBtn").addEventListener("click", prtAddToExcel);
+document.getElementById("prtUndoBtn").addEventListener("click", prtUndo);
 
 async function loadDashboard() {
   const statusEl = document.getElementById("status");
