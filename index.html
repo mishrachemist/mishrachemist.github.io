@@ -7029,7 +7029,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.14.11";
+const APP_VERSION = "2026.11.14.12";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🏭 ERP Production + RM: the one RM line that lets the ERP save the voucher is now only 0.001 MT; the heat's consumption goes in with RM add",
@@ -28660,18 +28660,22 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
     doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(40);
     (rep.lines.length ? rep.lines : ["No raw material moves clearly with quality in this period (all |r| below 0.4)."]).forEach(t => { doc.text("• " + t, 46, y); y += 13; });
     doc.setFontSize(8); doc.setTextColor(110); doc.text("r: +1 = always rise together, -1 = one rises when the other falls, 0 = no link. Moving together is a clue, not proof.", 46, y + 2); y += 14;
-    try {   // the chart on screen (material and quality figure chosen there)
-      const cv = $("rmqChart"), img = cv.toDataURL("image/png"), cw = W - 80, ch = Math.min(cw * cv.height / cv.width, H - y - 40);
+    try {   // the chart on screen (material and quality figure chosen there), kept to its own shape and inside the page
+      const cv = $("rmqChart"), img = cv.toDataURL("image/png"), ratio = cv.height / cv.width;
+      let cw = W - 80, ch = cw * ratio;
+      if (ch > H - y - 60) { ch = Math.max(H - y - 60, 150); cw = ch / ratio; }
+      if (y + ch + 30 > H - 30) { doc.addPage(); y = 50; ch = Math.min((W - 80) * ratio, H - 120); cw = ch / ratio; }
       doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(31, 56, 100);
       doc.text(`Chart: ${$("rmqItem").selectedOptions[0].text} vs ${$("rmqMetric").selectedOptions[0].text}`, 40, y + 4);
-      doc.addImage(img, "PNG", 40, y + 10, cw * ch / (cw * cv.height / cv.width), ch); y += ch + 18;
+      doc.addImage(img, "PNG", 40 + (W - 80 - cw) / 2, y + 10, cw, ch); y += ch + 24;
     } catch (e) {}
-    doc.autoTable({ startY: y > H - 120 ? undefined : y, pageBreak: "auto",
+    if (y > H - 170) { doc.addPage(); y = 50; }   // the tables never start on top of the chart
+    doc.autoTable({ startY: y, pageBreak: "auto", margin: { top: 50 },
       head: [["Material share", ...METRICS.map(m => m[1])]],
       body: items.map(it => [it.label, ...METRICS.map(([mk]) => { const c = rep.cells.find(x => x.it === it && x.mk === mk); return c ? c.r.toFixed(2) : "-"; })]),
       styles: { fontSize: 8.5, cellPadding: 4, halign: "center" }, columnStyles: { 0: { halign: "left" } }, headStyles: { fillColor: [31, 56, 100] }, theme: "grid",
       didParseCell: d => { if (d.section === "body" && d.column.index > 0) { const v = parseFloat(d.cell.raw); if (!isNaN(v) && Math.abs(v) >= 0.4) { d.cell.styles.fontStyle = "bold"; d.cell.styles.textColor = v > 0 ? [198, 40, 40] : [46, 125, 50]; } } } });
-    doc.autoTable({ startY: doc.lastAutoTable.finalY + 14,
+    doc.autoTable({ startY: doc.lastAutoTable.finalY + 14, margin: { top: 50 },
       head: [["Date", "Heats", ...items.map(it => it.label + " %"), ...METRICS.map(m => m[1])]],
       body: days.map(d => [d.date.split("-").reverse().join("-"), d.n, ...items.map(it => d.mix[it.key] == null ? "-" : d.mix[it.key].toFixed(1)),
         ...METRICS.map(([mk]) => d.q[mk] == null ? "-" : mk === "off" ? d.q[mk].toFixed(0) : d.q[mk].toFixed(3))]),
