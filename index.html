@@ -4521,6 +4521,7 @@ window.__gmFS = {
     <button class="navDrawerItem" data-drawer-action="theme"><span class="navDrawerIcon">🎨</span><span>Theme Colour</span></button>
     <button class="navDrawerItem" data-drawer-action="games"><span class="navDrawerIcon">🎮</span><span>Games</span></button>
     <button class="navDrawerItem" data-drawer-action="iconstyle"><span class="navDrawerIcon">🧩</span><span>Icon Style</span></button>
+    <button class="navDrawerItem" data-drawer-action="fplock" id="navFpLockItem"><span class="navDrawerIcon">🔒</span><span>Fingerprint Lock: OFF</span></button>
   </div>
   <div class="navDrawerFooter">
     <span class="navDrawerVersion">Moltrix <span id="navDrawerVer" class="navDrawerVer"></span></span>
@@ -7042,10 +7043,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.15.2";
+const APP_VERSION = "2026.11.15.3";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
-  "🔒 New Fingerprint Lock (⋮ menu): Moltrix asks for the fingerprint every time it is opened on this phone (Microsoft sign-in stays once); if the fingerprint fails, open with the Microsoft account",
+  "🔒 New Fingerprint Lock (☰ menu): Moltrix asks for the fingerprint every time it is opened on this phone (Microsoft sign-in stays once); if the fingerprint fails, open with the Microsoft account",
   "🔒 Home and the other screens no longer zoom with two fingers - only the reports zoom (pinch / double-tap inside the report)",
   "🔢 Calibration Log: Sl. No. now runs 1, 2, 3 ... in the list order (no gaps or jumps like 35, 38, 37) - also in its PDF and the ISO pack",
   "📋 Next FY AOP (WIP) now in your new format word for word: A-Q quantities (Budgeted, Consumed (A), Expected (B), A+B, Opening, Pending / To-be / Total indent, Opening March, Annual Consumption / Indent / Inventory Budget, Remark), R empty, S-V value at old / new rate, difference and % variation; SUMMARY E / F / I / N",
@@ -27461,6 +27462,7 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
     if (action === "switchacct") { if (window.openSwitchAccount) window.openSwitchAccount(); return; }
     if (action === "iconstyle") { openIconStylePicker(); return; }
     if (action === "fpsignin") { openFpSignInSetup(); return; }
+    if (action === "fplock") { const b = document.getElementById("fpLockToggle"); if (b) b.click(); return; }
     if (action === "apk") { downloadAndroidApk(); return; }
     const map = {
       home: "backToMenuBtn",
@@ -32554,7 +32556,7 @@ async function downloadAndroidApk() {
   const msg = t => { box.querySelector(".mzlMsg").textContent = t || ""; };
   box.querySelector(".mzlGo").addEventListener("click", () => unlock());
   box.querySelector(".mzlAlt").addEventListener("click", async () => {
-    if (!confirm("Microsoft account se dobara sign-in karke kholein? Uske baad fingerprint lock band ho jayega - ⋮ menu se fir chalu kar sakte hain.")) return;
+    if (!confirm("Microsoft account se dobara sign-in karke kholein? Uske baad fingerprint lock band ho jayega - ☰ menu se fir chalu kar sakte hain.")) return;
     try { sessionStorage.setItem("mzLockRecover", "1"); } catch (e) {}
     try {
       await msalReady;
@@ -32568,7 +32570,7 @@ async function downloadAndroidApk() {
     if (!want) return;
     try { localStorage.removeItem(KEY); } catch (e) {}
     html.classList.remove("mzLocked"); label();
-    setTimeout(() => alert("Microsoft account se khul gaya. Fingerprint lock ab band hai - ⋮ menu → 🔒 Fingerprint Lock se dobara chalu karein."), 300);
+    setTimeout(() => alert("Microsoft account se khul gaya. Fingerprint lock ab band hai - ☰ menu → 🔒 Fingerprint Lock se dobara chalu karein."), 300);
   };
 
   async function verify() {
@@ -32610,9 +32612,13 @@ async function downloadAndroidApk() {
     if (!rec) setTimeout(unlock, 400); else msg("Microsoft sign-in ho raha hai…");
   }
 
-  // ---- ⋮ menu: switch on / off ----
+  // ---- ☰ menu / ⋮ menu: switch on / off ----
   const btn = document.getElementById("fpLockToggle");
-  function label() { if (btn) btn.textContent = `🔒 Fingerprint Lock: ${cred() ? "ON" : "OFF"}`; }
+  function label() {
+    const on = cred() ? "ON" : "OFF";
+    if (btn) btn.textContent = `🔒 Fingerprint Lock: ${on}`;
+    const d = document.querySelector("#navFpLockItem span:last-child"); if (d) d.textContent = `Fingerprint Lock: ${on}`;   // ☰ menu
+  }
   label();
   if (btn) btn.addEventListener("click", async () => {
     if (cred()) {      // off: only after the fingerprint
