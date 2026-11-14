@@ -7029,9 +7029,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.14.12";
+const APP_VERSION = "2026.11.14.13";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
+  "📋 Next FY AOP (WIP) now in your new format word for word: A-Q quantities (Budgeted, Consumed (A), Expected (B), A+B, Opening, Pending / To-be / Total indent, Opening March, Annual Consumption / Indent / Inventory Budget, Remark), R empty, S-V value at old / new rate, difference and % variation; SUMMARY E / F / I / N",
   "🏭 ERP Production + RM: the one RM line that lets the ERP save the voucher is now only 0.001 MT; the heat's consumption goes in with RM add",
   "✅ ERP Entry: new 📲 Approve - the Moltrix ERP app approves the day's saved production vouchers (✓ → Approve), so Production QC can go in next",
   "🧾 ERP Entry is shorter: on the phone only the date, Load / Excel and the four 📲 buttons; the entry sheet opens with a tap",
@@ -25208,46 +25209,46 @@ function calNameAlike(a, b) {
   });
   stockShow();
 
-  // Next FY AOP (WIP) in the CCM WIP format (AOP_CCM-Mech FY-27-28): A-AD per item, section totals in the section title row,
-  // SUMMARY at the top. Dates come from the data: consumption so far up to the end of its last month, opening the day after.
+  // Next FY AOP (WIP) in the WIP format (AOP_FORMAT_FY_27-28): A-Q per item (quantities), R empty, S-V the value check
+  // (next FY budget qty x old / new rate), SUMMARY at the top. Dates come from the data: consumption so far up to the end
+  // of its last month, opening the day after.
   function nextAopCtx(res, ws) {
     const n0 = res.fyStart + 1, FY = `${n0}-${n0 + 1}`, PFY = res.fy, cm = res.cm, rest = 12 - cm;
     const fyFrom = (2000 + res.fyStart) * 12 + 3, ml = k => `${MON[k % 12]}-${String(Math.floor(k / 12)).slice(2)}`;
     const soFar = `${ml(fyFrom)} to ${ml(fyFrom + cm - 1)}`, ahead = `${ml(fyFrom + cm)} to ${ml(fyFrom + 11)}`;
     const P = `20${res.fyStart}/${res.fyStart + 1}`, N = `20${n0}/${n0 + 1}`;
     const cutK = fyFrom + cm - 1, cutY = Math.floor(cutK / 12), cutM = cutK % 12, cutD = new Date(cutY, cutM + 1, 0).getDate();
-    const opK = cutK + 1, opY = Math.floor(opK / 12), opM = opK % 12, febD = new Date(2000 + n0, 2, 0).getDate();
-    // headings word for word as in the CCM WIP AOP (its dates: Sep cut-off, Oct opening, Feb / March of the start year), whatever month the data reaches
-    const Y = 2000 + res.fyStart;
-    const cutL = `30th Sep-${Y}`, openL = `01st Oct-${Y}`, openS = `01-Oct-${Y}`;
-    const endS = `31-Mar-${Y + 1}`, endL = `31st March-${Y}`, febL = `28th-Feb-${Y}`;
+    const opK = cutK + 1, opY = Math.floor(opK / 12), opM = opK % 12, YN = 2000 + n0, febD = new Date(YN, 2, 0).getDate();
+    const ord = d => String(d).padStart(2, "0") + ([1, 21, 31].includes(d) ? "st" : [2, 22].includes(d) ? "nd" : [3, 23].includes(d) ? "rd" : "th");
+    // headings word for word as in the WIP format file (its dates: Oct cut-off, Nov opening) - the months follow the data
+    const cutL = `${ord(cutD)} ${MON[cutM]}-${cutY}`, openL = `${ord(1)} ${MON[opM]}-${opY}`, openS = `01-${MON[opM]}-${opY}`;
+    const endS = `31-Mar-${YN}`, endL = `31st March-${YN}`, febL = `${ord(febD)}-Feb-${YN}`;
     const fill = argb => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
     const GREEN = fill("FF92D050"), YELLOW = fill("FFFFFF00"), GREY = fill("FFF2F2F2"), WIPF = fill("FFFCE4D6");
     const thin = { style: "thin", color: { argb: "FF000000" } }, BOX = { top: thin, left: thin, bottom: thin, right: thin };
     const NUM = '_(* #,##0.00_);_(* \\(#,##0.00\\);_(* "-"??_);_(@_)', NUM0 = '_(* #,##0_);_(* \\(#,##0\\);_(* "-"??_);_(@_)';
-    const NUMZ = '_ * #,##0.00_ ;_ * \\-#,##0.00_ ;_ * "-"??_ ;_ @_ ';
     const put = (r, c, v, o) => { o = o || {}; const x = ws.getCell(r, c); x.value = v; x.border = BOX; x.font = { name: "Calibri", size: o.size || 8, bold: !!o.bold };
       if (o.fmt) x.numFmt = o.fmt; if (o.fill) x.fill = o.fill; if (o.wrap || o.align) x.alignment = { wrapText: !!o.wrap, horizontal: o.align, vertical: "middle" }; return x; };
     const f = (formula, result) => ({ formula, result });
     const r2 = v => Math.round(v * 100) / 100, r4 = v => Math.round(v * 1e4) / 1e4;
-    const HEAD = ["S. No.", "Item Code", "Material Description", "UoM", "Consumption Rate (Actual)", "Consumption Rate (Budgeted)", `Budgeted Consumption Qty FY-${P}`,
-      `Total Consumed Qty Till ${cutL} FY-${P}\n (A)`, `Total Consumed Cost Till ${cutL} FY-${P} \n(A1)`,
-      `Total Expected Opening Qty Till ${openL}`, `Total Expected Opening Cost Till ${openL}`,
-      `Assumption\nTotal Expected Consumed Qty ${openS} to ${endS} \n(B)`, `Assumption\nTotal Expected Consumed Cost ${openS} to ${endS}\n (B1)`,
-      `Pending Indent Qty Till ${openS}`, `Pending Indent Cost Till ${openS}`, `To Be indent Qty. Till ${febL}`, `To Be indent Cost Till ${febL}`,
-      `Total Pending  Indent Qty. Till ${febL}`, `Total Pending  Indent Cost \nTill ${febL}`, `Total Expected Opening Qty Till ${endL}`, `Total Expected Opening Cost Till ${endL}`,
-      `Assumption Total Consumed Qty Till ${endS} \n(A+B)`, `Assumption Total Consumed Cost Till ${endS} \n(A1+B1)`,
-      `Annual Consumption Budget Qty FY-${N}`, `Annual Consumption Budget Cost FY-${N}`, `Annual Indent Budget Qty FY-${N}`, `Annual Indent Budget Cost FY-${N}`,
-      `Annual Inventory Budget Qty FY-${N}`, `Annual Inventory Budget Cost FY-${N}`, "Remark"];
-    const WIDTHS = [5.9, 10.1, 43.4, 7.3, 9.2, 12.3, 18.7, 17.3, 17.7, 15.3, 18.7, 9.2, 9.2, 18.7, 9.2, 9.2, 9.2, 9.2, 9.2, 9.2, 9.2, 18.7, 9.2, 17.3, 15.7, 15.1, 13.3, 12, 13.1, 12.4];
-    const COST = [9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29];     // I K M O Q S U W Y AA AC - summed in the section title row
+    const NY = `${n0}/${n0 + 1}`;
+    // 22 columns: A-Q, R empty (spacer), S-V - exactly as in the format file
+    const HEAD = ["S. No.", "Item Code", "Material Description", "UoM", `Budgeted Consumption Qty FY-${P}`,
+      `Total Consumed Qty Till ${cutL}\n FY-${P}\n (A)`, `Assumption\nTotal Expected Consumed Qty ${openS} to ${endS} \n(B)`,
+      `Assumption Total Consumed Qty Till ${endS} \n(A+B)`, `Expected Opening Qty Till ${openL}`, `Pending Indent Qty Till ${openS}`,
+      `To Be indent Qty. Till ${febL}`, `Total Pending  Indent Qty. Till ${febL}`, `Total Expected Opening Qty Till ${endL}`,
+      `Annual Consumption Budget Qty FY-${N}`, `Annual Indent Budget Qty FY-${N}`, `Annual Inventory Budget Qty FY-${N}`, "Remark", null,
+      `Actual Consumption FY-${NY}  Value As per Old Rate (Budgeted)`, `Actual Consumption FY-${NY}  Value As per New Rate`, "Diffrence Rate", "% Variation"];
+    const WIDTHS = [5.92, 10.09, 43.45, 7.26, 11.7, 17.35, 17.62, 17.62, 15.33, 18.7, 18.7, 18.7, 18.7, 17.35, 15.07, 11.97, 12.38, 1.61, 19.1, 11.3, 11.97, 11.3];
+    const NCOL = HEAD.length;
     const L = c => { let s = ""; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = (c - 1 - m) / 26; } return s; };
     const dkey = s => { const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})/.exec(String(s || "").trim()); if (!m) return 0;
       const mo = MON.findIndex(x => x.toLowerCase() === m[2].toLowerCase()); let y = +m[3]; if (y < 100) y += 2000; return y * 10000 + (mo + 1) * 100 + +m[1]; };
     const latest = (lines, q, v) => lines.filter(l => l[q] > 0 && l[v] > 0).sort((a, b) => dkey(b.date) - dkey(a.date))[0];
     const newKey = it => it.code ? "C:" + norm(it.code) : "N:" + norm(it.name);
     const secTitle = sec => sec.isNew ? `NEW ITEMS (NOT IN AOP FY ${PFY})` : String(sec.title || "").trim().toUpperCase();
-    // one item row at R0 (k = serial no. - 1); returns its money figures (by column) for the section totals
+    const isNewLayout = head => /^% Variation$/i.test(String(head[21] || "").trim()) && /^Annual Indent Budget Qty/i.test(String(head[14] || "").trim());
+    // one item row at R0 (k = serial no. - 1); returns its money figures for the SUMMARY (E F I N)
     function writeRow(R0, k, r, sec) {
       const it = r.it, svc = /^J/i.test(it.code || "") || /\bSRN\b/i.test(sec.title);
       const iLines = res.lines.filter(l => l.target === it), cLines = res.cLines.filter(l => l.target === it);
@@ -25257,7 +25258,7 @@ function calNameAlike(a, b) {
       let rate = it.isNew ? 0 : it.rate, src = "";
       if (li) { rate = li.val / li.qty; src = `rate: issue ${li.date}`; }
       else if (ln) { rate = ln.val / ln.net; src = `rate: indent ${ln.no}`; }
-      rate = r4(rate);
+      rate = r4(rate || 0);
       const Fr = it.isNew ? rate : r4(it.rate || 0);                  // budgeted rate (AOP FY now); a new item has none - its actual rate
       const est = r2(svc ? Math.max(0, G - actual) : (actual > 0 ? actual / cm * rest : Math.max(0, G - actual)));
       const stk = svc ? null : stockOf(it);
@@ -25265,32 +25266,36 @@ function calNameAlike(a, b) {
       const Pp = Math.max(0, est - J - Np), R = Pp + Np, T = J + R - est, V = actual + est;
       const X = r2(V), AB = svc ? 0 : (it.inv || 0), Z = X + AB - T;
       const remark = [it.remark, sec.isNew ? (r.c ? `issued ${soFar}` : `indented ${soFar}`) : "", svc ? `service: ${soFar} from indents` : "", src].filter(Boolean).join("; ");
-      const c = { align: "center", wrap: true };
+      const c = { align: "center", wrap: true }, m = Object.assign({ fmt: NUM }, c);
+      const sOld = X * Fr, sNew = X * rate, dif = sNew - sOld;
       put(R0, 1, k + 1, { align: "center" }); put(R0, 2, it.code || "-"); put(R0, 3, it.name); put(R0, 4, it.um, { align: "center" });
-      put(R0, 5, rate, c); put(R0, 6, Fr, c); put(R0, 7, G, c); put(R0, 8, actual, c);
-      put(R0, 9, f(`F${R0}*H${R0}`, Fr * actual), Object.assign({ fmt: NUM }, c));
-      put(R0, 10, stk === null ? null : J, c); put(R0, 11, f(`J${R0}*F${R0}`, J * Fr), Object.assign({ fmt: NUM }, c));
-      put(R0, 12, est, c); put(R0, 13, f(`L${R0}*F${R0}`, est * Fr), Object.assign({ fmt: NUM }, c));
-      put(R0, 14, Np, c); put(R0, 15, f(`N${R0}*F${R0}`, Np * Fr), Object.assign({ fmt: NUM }, c));
-      put(R0, 16, f(`MAX(0,L${R0}-J${R0}-N${R0})`, Pp), c); put(R0, 17, f(`P${R0}*F${R0}`, Pp * Fr), Object.assign({ fmt: NUM }, c));
-      put(R0, 18, f(`P${R0}+N${R0}`, R), c); put(R0, 19, f(`R${R0}*F${R0}`, R * Fr), Object.assign({ fmt: NUM }, c));
-      put(R0, 20, f(`(J${R0}+R${R0})-L${R0}`, T), c); put(R0, 21, f(`T${R0}*F${R0}`, T * Fr), Object.assign({ fmt: NUM }, c));
-      put(R0, 22, f(`H${R0}+L${R0}`, V), c); put(R0, 23, f(`V${R0}*F${R0}`, V * Fr), Object.assign({ fmt: NUM }, c));
-      put(R0, 24, X, c); put(R0, 25, f(`X${R0}*E${R0}`, X * rate), Object.assign({ fmt: NUM }, c));
-      put(R0, 26, f(`(X${R0}+AB${R0})-T${R0}`, Z), Object.assign({ fmt: NUMZ }, c)); put(R0, 27, f(`Z${R0}*E${R0}`, Z * rate), Object.assign({ fmt: NUM }, c));
-      put(R0, 28, AB, c); put(R0, 29, f(`AB${R0}*E${R0}`, AB * rate), Object.assign({ fmt: NUM }, c));
-      put(R0, 30, remark || null, { wrap: true });
-      ws.getRow(R0).height = 14.45;
-      return { 9: Fr * actual, 11: J * Fr, 13: est * Fr, 15: Np * Fr, 17: Pp * Fr, 19: R * Fr, 21: T * Fr, 23: V * Fr, 25: X * rate, 27: Z * rate, 29: AB * rate };
+      put(R0, 5, G, c); put(R0, 6, actual, c); put(R0, 7, est, c);
+      put(R0, 8, f(`F${R0}+G${R0}`, V), c);
+      put(R0, 9, stk === null ? null : J, c); put(R0, 10, Np, c);
+      put(R0, 11, f(`MAX(0,G${R0}-I${R0}-J${R0})`, Pp), c);
+      put(R0, 12, f(`K${R0}+J${R0}`, R), c);
+      put(R0, 13, f(`(I${R0}+L${R0})-G${R0}`, T), c);
+      put(R0, 14, X, c);
+      put(R0, 15, f(`(N${R0}+P${R0})-M${R0}`, Z), c);
+      put(R0, 16, AB, c);
+      put(R0, 17, remark || null, { wrap: true });
+      // S-V: next FY budget qty (N) x budgeted rate / x latest rate (the rates sit in the formulas, there is no rate column)
+      put(R0, 19, f(`N${R0}*${Fr}`, sOld), m); put(R0, 20, f(`N${R0}*${rate}`, sNew), m);
+      put(R0, 21, f(`T${R0}-S${R0}`, dif), m);
+      put(R0, 22, f(`IF(S${R0}=0,0,U${R0}/S${R0})`, sOld ? dif / sOld : 0), Object.assign({}, c, { fmt: "0.00%" }));
+      return { 5: V * Fr, 6: T * Fr, 9: sNew, 14: AB * rate };
     }
-    // section title row: name + the column totals (SUM over its item rows)
-    function titleRow(R0, title, first, last, sum) {
+    // section title row: name in A (yellow, as in the format: A-C)
+    function titleRow(R0, title) {
       put(R0, 1, title, { size: 14, bold: true, fill: YELLOW, align: "left" });
-      COST.forEach(cc => put(R0, cc, last >= first ? f(`SUM(${L(cc)}${first}:${L(cc)}${last})`, sum[cc] || 0) : 0, { size: 11, bold: true, fmt: NUM, align: "center" }));
+      put(R0, 2, null, { bold: true, fill: YELLOW, wrap: true, align: "center" }); put(R0, 3, null, { bold: true, fill: YELLOW, wrap: true, align: "center" });
       ws.getRow(R0).height = 19.5;
     }
-    function headRow(R0) { HEAD.forEach((t, i) => put(R0, i + 1, t, { bold: true, fill: GREEN, wrap: true, align: "center" })); ws.getRow(R0).height = 56.25; }
-    return { n0, FY, PFY, P, N, cm, rest, soFar, ahead, put, f, r2, L, GREEN, YELLOW, GREY, WIPF, NUM, NUM0, HEAD, WIDTHS, COST, newKey, writeRow, titleRow, headRow, secTitle,
+    function headRow(R0) {
+      HEAD.forEach((t, i) => { if (t === null) return; put(R0, i + 1, t, { bold: i < 17, fill: GREEN, wrap: i < 20, align: "center" }); });
+      ws.getRow(R0).height = 49.5;
+    }
+    return { n0, FY, PFY, P, N, cm, rest, soFar, ahead, put, f, r2, L, GREEN, YELLOW, GREY, WIPF, NUM, NUM0, HEAD, WIDTHS, NCOL, newKey, writeRow, titleRow, headRow, secTitle, isNewLayout,
       newRows: sec => sec.rows.filter(r => (r.a && r.a.qty > 0) || r.c) };
   }
 
@@ -25303,7 +25308,7 @@ function calNameAlike(a, b) {
       const wb = new ExcelJS.Workbook(); wb.calcProperties.fullCalcOnLoad = true;
       const ws0 = wb.addWorksheet(`QAD-SMS FY-${res.fyStart + 1}-${res.fyStart + 2}`);
       const X = nextAopCtx(res, ws0), ws = ws0;
-      const { n0, FY, PFY, P, N, put, f, r2, L, GREEN, YELLOW, GREY, NUM, NUM0, COST } = X;
+      const { n0, FY, PFY, P, N, put, f, r2, L, GREEN, YELLOW, GREY, NUM, NUM0 } = X;
       X.WIDTHS.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
       // sections and their rows (new items: only those really indented or issued)
       const secs = res.sections.map(sec => ({ sec, rows: sec.isNew ? X.newRows(sec) : sec.rows }));
@@ -25314,33 +25319,36 @@ function calNameAlike(a, b) {
       secs.forEach(({ sec, rows }) => {
         const title = X.secTitle(sec), tRow = row, hRow = row + 1, first = row + 2;
         X.headRow(hRow); if (!firstHead) firstHead = hRow;
-        const sum = {};
-        rows.forEach((r, k) => { const s1 = X.writeRow(first + k, k, r, sec); COST.forEach(c => { sum[c] = (sum[c] || 0) + s1[c]; }); nItems++; });
+        const sum = { 5: 0, 6: 0, 9: 0, 14: 0 };
+        rows.forEach((r, k) => { const s1 = X.writeRow(first + k, k, r, sec); Object.keys(sum).forEach(c => { sum[c] += s1[c]; }); nItems++; });
         const last = first + rows.length - 1;
-        X.titleRow(tRow, `QAD-SMS ${title} FY-${N}`, first, last, sum);
-        totals.push({ sec, title, row: tRow, sum });
+        X.titleRow(tRow, `QAD-SMS ${title} FY-${N}`);
+        totals.push({ sec, title, row: tRow, first, last, sum });
         row = Math.max(last, hRow) + 4;                             // 3 empty rows between sections
       });
-      // SUMMARY (formulas point at the section title rows)
+      // SUMMARY (as in the format: C Description, D UOM, E Actual Consumption Cost FY now, F Opening inventory value,
+      // I Annual Consumption Cost FY next = the section's T column (budget qty x new rate), N Inventory Cost; G H J-M empty)
       put(2, 3, "SUMMARY ", { size: 14, bold: true, fill: YELLOW });
-      const SH = { 3: "Description", 4: "UOM", 6: `Budget Cost \nFY-${P}`, 7: `Actual\u00a0 Consumption  Cost FY ${PFY}`, 8: `Opening inventory value as on 01-04-20${n0 - 1} `,
-        9: `Monthly Consumption Cost \nFY-${N}`, 10: `Annual Consumption Cost \nFY-${N}`, 11: `\u00a0Annual Indent\u00a0 Cost FY-${N}`, 24: `\u00a0Inventory Cost \nFY-${P}` };   // word for word as in the CCM file
-      Object.keys(SH).forEach(c => put(3, +c, SH[c], { bold: true, fill: GREEN, wrap: true, align: "center" }));
+      ws.getRow(2).height = 18.75;
+      const SH = { 3: "Description", 4: "UOM", 5: `Actual  Consumption  Cost FY ${PFY}`, 6: `Opening inventory value as on 01-04-20${n0 - 1} `,
+        9: `Annual Consumption Cost \nFY-${N}`, 14: ` Inventory Cost \nFY-${P}` };   // word for word as in the format file
+      for (let c = 3; c <= 14; c++) put(3, c, SH[c] || null, { bold: true, fill: GREEN, wrap: true, align: "center" });
       ws.getRow(3).height = 54.6;
       const gt = {};
       totals.forEach((t, i) => {
         const r = SR + i;
-        const sv = { 6: r2(t.sec.tot.cc || 0), 7: t.sum[23] || 0, 8: t.sum[21] || 0, 9: (t.sum[25] || 0) / 12, 10: t.sum[25] || 0, 11: t.sum[27] || 0, 24: t.sum[29] || 0 };
+        const sv = { 5: t.sum[5], 6: t.sum[6], 9: t.sum[9], 14: t.sum[14] };
         Object.keys(sv).forEach(c => { gt[c] = (gt[c] || 0) + sv[c]; });
-        put(r, 3, t.title, { wrap: true }); put(r, 4, "RS");
-        put(r, 6, sv[6], { fmt: NUM0 }); put(r, 7, f(`W${t.row}`, sv[7]), { fmt: NUM0 }); put(r, 8, f(`U${t.row}`, sv[8]), { fmt: NUM0 });
-        put(r, 9, f(`J${r}/12`, sv[9]), { fmt: NUM0 }); put(r, 10, f(`Y${t.row}`, sv[10]), { fmt: NUM0 }); put(r, 11, f(`AA${t.row}`, sv[11]), { fmt: NUM0 });
-        put(r, 24, f(`AC${t.row}`, sv[24]), { fmt: NUM0 });
+        put(r, 3, t.title, { bold: true, wrap: true }); put(r, 4, "RS", { align: "center" });
+        for (let c = 5; c <= 14; c++) put(r, c, null, { fmt: NUM0, align: "center" });
+        put(r, 5, r2(sv[5]), { fmt: NUM0, align: "center" }); put(r, 6, r2(sv[6]), { fmt: NUM0, align: "center" });
+        put(r, 9, t.last >= t.first ? f(`SUM(T${t.first}:T${t.last})`, sv[9]) : 0, { fmt: NUM0, align: "center" });
+        put(r, 14, r2(sv[14]), { fmt: NUM0, align: "center" });
       });
-      put(TOT, 3, "Total", { bold: true });
-      [6, 7, 8, 9, 10, 11, 24].forEach(c => put(TOT, c, f(`SUM(${L(c)}${SR}:${L(c)}${TOT - 1})`, gt[c] || 0), { fmt: NUM0, bold: true }));
-      ws.getRow(TOT).height = 19.15;
-      ws.views = [{ state: "frozen", xSplit: 0, ySplit: firstHead }];
+      put(TOT, 3, "Total", { bold: true, wrap: true }); put(TOT, 4, null, { bold: true, align: "center" });
+      for (let c = 5; c <= 14; c++) put(TOT, c, [5, 6, 9, 14].includes(c) ? f(`SUM(${L(c)}${SR}:${L(c)}${TOT - 1})`, gt[c] || 0) : null, { fmt: NUM0, bold: true });
+      ws.getRow(TOT).height = 19.15; ws.getRow(TOT + 2).height = 15.75;
+      ws.views = [{ state: "frozen", xSplit: 0, ySplit: firstHead, zoomScale: 130 }];
       const buf = await wb.xlsx.writeBuffer();
       // into OneDrive -> AOP -> WIP, then open it in the Next FY AOP tile
       const pre = `${res.fyStart}-${res.fyStart + 1}`;
@@ -25363,7 +25371,7 @@ function calNameAlike(a, b) {
         stockNote = ` Stock as on ${STOCK.asOn || "(date not set)"} used for ${STOCK.rows.length - miss.length} item(s)` +
           (miss.length ? `; ${miss.length} stock item(s) are not in this AOP and were left out: ${miss.map(x => x.name || x.code).join(", ")}.` : ".");
       }
-      st.className = "ok"; st.textContent = `${name} made (${nItems} items, CCM WIP format) and opened in Next FY AOP (WIP). ✅ Move to final AOP turns it into the final AOP format.` + stockNote;
+      st.className = "ok"; st.textContent = `${name} made (${nItems} items, WIP format A-Q + S-V) and opened in Next FY AOP (WIP). ✅ Move to final AOP turns it into the final AOP format.` + stockNote;
     } catch (e) { st.className = "err"; st.textContent = "Next FY AOP error: " + e.message; }
   }
 
@@ -25418,21 +25426,22 @@ function calNameAlike(a, b) {
       return "";
     }
     if (!title) throw new Error(`no "NEW ITEMS (NOT IN AOP ...)" section in ${name}`);
+    { const hd = []; for (let c = 1; c <= X.NCOL; c++) hd.push(txt(ws.getCell(title + 1, c).value));
+      if (!X.isNewLayout(hd)) throw new Error(`${name} is in the old WIP layout - make the Next FY AOP again (new format), then new items get added to it`); }
     const first = title + 2;
     let last = first - 1; while (/^\d+$/.test(txt(ws.getCell(last + 1, 1).value))) last++;
-    for (let rn = last + 1; rn <= last + want.length; rn++) for (let c = 1; c <= 30; c++)
+    for (let rn = last + 1; rn <= last + want.length; rn++) for (let c = 1; c <= X.NCOL; c++)
       if (txt(ws.getCell(rn, c).value)) throw new Error(`something is written below the "NEW ITEMS" list (row ${rn}) - not changed, add the items by hand`);
     const k0 = last - first + 1;
-    want.forEach((r, i) => X.writeRow(last + 1 + i, k0 + i, r, newSec));
+    const add = { 5: 0, 6: 0, 9: 0, 14: 0 };
+    want.forEach((r, i) => { const s1 = X.writeRow(last + 1 + i, k0 + i, r, newSec); Object.keys(add).forEach(c => { add[c] += s1[c]; }); });
     const nl = last + want.length;
-    // section totals in its title row, then the SUMMARY line and total (their formulas don't move - only the results)
-    const sum = {};
-    X.COST.forEach(c => { let t = 0; for (let rn = first; rn <= nl; rn++) t += numv(ws.getCell(rn, c).value); sum[c] = t;
-      ws.getCell(title, c).value = { formula: `SUM(${X.L(c)}${first}:${X.L(c)}${nl})`, result: t }; });
+    // its SUMMARY line: E / F / N go up by the new items, I sums its T column (now down to the last new item); then the Total
     if (sr && sr < title) {
-      const fset = (c, v) => { const x = ws.getCell(sr, c); if (x.value && typeof x.value === "object" && x.value.formula) x.value = { formula: x.value.formula, result: v }; };
-      fset(7, sum[23]); fset(8, sum[21]); fset(9, sum[25] / 12); fset(10, sum[25]); fset(11, sum[27]); fset(24, sum[29]);
-      if (tot) [6, 7, 8, 9, 10, 11, 24].forEach(c => {
+      [5, 6, 14].forEach(c => { const x = ws.getCell(sr, c); x.value = X.r2(numv(x.value) + add[c]); });
+      let t9 = 0; for (let rn = first; rn <= nl; rn++) t9 += numv(ws.getCell(rn, 20).value);
+      ws.getCell(sr, 9).value = { formula: `SUM(T${first}:T${nl})`, result: t9 };
+      if (tot) [5, 6, 9, 14].forEach(c => {
         const g = ws.getCell(tot, c).value; if (!g || typeof g !== "object" || !g.formula) return;
         const m = /^SUM\(([A-Z]+)(\d+):([A-Z]+)(\d+)\)$/i.exec(g.formula); if (!m) return;
         let t = 0; for (let q = +m[2]; q <= +m[4]; q++) t += numv(ws.getCell(q, c).value);
@@ -25454,10 +25463,12 @@ function calNameAlike(a, b) {
     return `➕ Next FY AOP (${name}): ${want.length} new item(s) added - ${want.map(r => r.it.code || r.it.name).slice(0, 8).join(", ")}${want.length > 8 ? " ..." : ""}`;
   }
 
-  // ---------- Move to final AOP: the CCM-style WIP sheet (A-AD) becomes the final AOP format (CCM's FY 26-27 sheet: A-Q) ----------
-  // final: Rate = actual rate (E), Budgeted Qty FY now = G, Total Consumed Qty FY now = V (A+B), Expected Opening Qty March = T,
-  // Annual Consumption Budget Qty = X, Annual Indent Budget Qty = K+O-I (same as Z), Annual Inventory Budget Qty = AB, Remark = AD
-  const isCcmWip = head => head.some(h => /^Consumption Rate \(Actual\)$/i.test(h)) && head.some(h => /^Annual Inventory Budget Qty/i.test(h));
+  // ---------- Move to final AOP: the WIP sheet becomes the final AOP format (CCM's FY 26-27 sheet: A-Q) ----------
+  // two WIP layouts are read (by their headings): the WIP format A-Q + S-V (no rate column - the rates sit in the S / T formulas
+  // "N16*rate") and the older CCM WIP layout A-AD (Consumption Rate columns).
+  // final: Rate = actual (new) rate, Budgeted Qty FY now, Total Consumed Qty FY now = A+B, Expected Opening Qty March,
+  // Annual Consumption Budget Qty, Annual Indent Budget Qty = K+O-I, Annual Inventory Budget Qty, Remark
+  const isCcmWip = head => (head.some(h => /^Consumption Rate \(Actual\)$/i.test(h)) || head.some(h => /^% Variation$/i.test(h))) && head.some(h => /^Annual Inventory Budget Qty/i.test(h));
   async function wipToFinal(ab) {
     await psvLoadExcelJs();
     const src = new ExcelJS.Workbook(); await src.xlsx.load(ab);
@@ -25466,26 +25477,43 @@ function calNameAlike(a, b) {
     const numv = v => { if (v && typeof v === "object") v = v.result; return typeof v === "number" && isFinite(v) ? v : (typeof v === "string" && v.trim() !== "" && isFinite(+v) ? +v : 0); };
     const raw = v => (v && typeof v === "object" && v.formula !== undefined) ? (v.result === undefined ? null : v.result) : v;
     const isHead = rn => /^s(r)?\.?\s*no/i.test(txt(ws.getCell(rn, 1).value));
+    // the rate written in a "N16*123.45" formula (else value / qty)
+    const fRate = (v, qty) => { const m = v && typeof v === "object" && v.formula ? /^\$?N\$?\d+\*([\d.]+(?:E[+-]?\d+)?)$/i.exec(String(v.formula).replace(/\s+/g, "")) : null;
+      return m ? +m[1] : (qty ? numv(v) / qty : 0); };
     // the WIP headings tell the years: "Budgeted Consumption Qty FY-2026/27", "Annual Consumption Budget Qty FY-2027/28"
     let P = "", N = "";
-    const secs = [], sumLines = [], maxR = ws.rowCount;   // (getCell past the end adds rows - so the end is fixed first)
+    const secs = [], sumLines = [], maxR = ws.rowCount, maxC = Math.min(40, ws.columnCount || 40);   // (getCell past the end adds rows - so the end is fixed first)
+    let newLayout = false;
     for (let rn = 1; rn < maxR; rn++) {
       if (!isHead(rn + 1)) continue;
-      const head = []; for (let c = 1; c <= 30; c++) head.push(txt(ws.getCell(rn + 1, c).value));
-      if (!isCcmWip(head)) throw new Error("this WIP sheet is not in the CCM WIP layout");
-      if (!P) { const m1 = /FY-(\d{4}\/\d{2})/.exec(head[6]), m2 = /FY-(\d{4}\/\d{2})/.exec(head[23]); P = m1 ? m1[1] : ""; N = m2 ? m2[1] : ""; }
+      const head = []; for (let c = 1; c <= maxC; c++) head.push(txt(ws.getCell(rn + 1, c).value));
+      if (!isCcmWip(head)) throw new Error("this WIP sheet is not in the WIP layout");
+      const col = re => head.findIndex(h => re.test(h)) + 1;          // 1-based, 0 = not there
+      const C = { bud: col(/^Budgeted Consumption Qty/i), used: col(/^Assumption Total Consumed Qty Till/i), open: col(/^Total Expected Opening Qty Till .*March/i),
+        next: col(/^Annual Consumption Budget Qty/i), inv: col(/^Annual Inventory Budget Qty/i), rem: col(/^Remark$/i),
+        rate: col(/^Consumption Rate \(Actual\)$/i), oldR: col(/As per Old Rate/i), newR: col(/As per New Rate/i) };
+      if (!C.bud || !C.used || !C.open || !C.next || !C.inv) throw new Error("WIP headings not found (Budgeted / Consumed / Opening / Annual budget qty)");
+      if (C.newR) newLayout = true;
+      if (!P) { const m1 = /FY-(\d{4}\/\d{2})/.exec(head[C.bud - 1]), m2 = /FY-(\d{4}\/\d{2})/.exec(head[C.next - 1]); P = m1 ? m1[1] : ""; N = m2 ? m2[1] : ""; }
       const title = txt(ws.getCell(rn, 1).value), items = [];
+      let budCost = 0;
       for (let k = rn + 2; k <= maxR && /^\d+$/.test(txt(ws.getCell(k, 1).value)); k++) {
-        const g = c => ws.getCell(k, c).value;
+        const g = c => c ? ws.getCell(k, c).value : null;
         const q4 = v => Math.round(v * 1e4) / 1e4;
-        items.push({ code: txt(g(2)), name: txt(g(3)), um: txt(g(4)), rate: q4(numv(g(5))), budQty: raw(g(7)), used: q4(numv(g(22))), open: q4(numv(g(20))),
-          next: q4(numv(g(24))), inv: q4(numv(g(28))), remark: txt(g(30)) });
+        const next = q4(numv(g(C.next)));
+        const rate = C.rate ? q4(numv(g(C.rate))) : q4(fRate(g(C.newR), next));
+        const budQty = raw(g(C.bud));
+        if (C.oldR) budCost += numv(budQty) * fRate(g(C.oldR), next);
+        items.push({ code: txt(g(2)), name: txt(g(3)), um: txt(g(4)), rate, budQty, used: q4(numv(g(C.used))), open: q4(numv(g(C.open))),
+          next, inv: q4(numv(g(C.inv))), remark: C.rem ? txt(g(C.rem)) : "" });
       }
-      secs.push({ title, items });
+      secs.push({ title, items, budCost });
     }
     if (!secs.length) throw new Error("no sections found");
-    // SUMMARY lines (Description / RS / Budget Cost) in the same order as the sections
-    for (let rn = 1; rn < maxR && sumLines.length < secs.length; rn++) if (/^rs$/i.test(txt(ws.getCell(rn, 4).value))) sumLines.push({ desc: txt(ws.getCell(rn, 3).value), budget: numv(ws.getCell(rn, 6).value) });
+    // SUMMARY lines (Description / RS) in the same order as the sections; the Budget Cost: old layout - its column F,
+    // WIP format - budgeted qty x budgeted rate of the section's items
+    for (let rn = 1; rn < maxR && sumLines.length < secs.length; rn++) if (/^rs$/i.test(txt(ws.getCell(rn, 4).value)))
+      sumLines.push({ desc: txt(ws.getCell(rn, 3).value), budget: newLayout ? Math.round(secs[sumLines.length].budCost) : numv(ws.getCell(rn, 6).value) });
     const yS = P ? +P.slice(2, 4) : 0, yN = N ? +N.slice(2, 4) : yS + 1, PFY = `${yS}-${yS + 1}`;
     const wb = new ExcelJS.Workbook(); wb.calcProperties.fullCalcOnLoad = true;
     const out = wb.addWorksheet(ws.name);
