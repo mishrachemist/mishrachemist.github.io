@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- long-press the Moltrix icon → ERP (ERP login ⚙ / run from clipboard 📋) -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="erp"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_erp"
+        android:shortcutLongLabel="@string/shortcut_erp_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.mishrachemist.moltrixerp"
+            android:targetClass="com.mishrachemist.moltrixerp.MainActivity" />
+    </shortcut>
+</shortcuts>

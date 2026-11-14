@@ -22,5 +22,17 @@
         "5D:17:05:B6:B2:0C:E8:B9:77:D6:F3:59:BE:E2:E6:2A:80:E2:43:1B:05:F7:C1:73:F8:D8:0A:89:5E:5F:49:91"
       ]
     }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.mishrachemist.moltrixerp",
+      "sha256_cert_fingerprints": [
+        "59:C3:30:39:AB:63:62:21:5B:D5:A0:36:30:36:C8:FE:E5:5C:D2:B4:55:FE:64:3E:CF:10:22:87:AE:74:B1:0B"
+      ]
+    }
   }
 ]
