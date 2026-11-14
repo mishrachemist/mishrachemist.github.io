@@ -1,4 +1,4 @@
-# Builds the "Moltrix ERP" Android app (android-erp/) and puts the APK on the release "moltrix-erp-apk":
+# Builds the "Moltrix" Android app (android-erp/: Moltrix itself + the ERP part) and puts the APK on the release "moltrix-erp-apk":
 #   https://github.com/mishrachemist/mishrachemist.github.io/releases/download/moltrix-erp-apk/MoltrixERP.apk
 # The signing key is made once and kept in the secrets ERP_APK_KEYSTORE / ERP_APK_KEYPASS (saved with GH_PAT),
 # so every new APK installs over the old one.
@@ -63,7 +63,15 @@ jobs:
           VERSION_CODE: ${{ github.run_number }}
         run: gradle -p android-erp :app:assembleRelease --no-daemon --stacktrace
 
+      - name: Keep the APK of a branch build (not put on the release)
+        if: github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoltrixERP-test
+          path: android-erp/app/build/outputs/apk/release/app-release.apk
+
       - name: Put the APK on the release
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
