@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="moltrix_navy">#1F3864</color>
+    <color name="icon_bg">#FFFFFF</color>
     <string name="asset_statements">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://mishrachemist.github.io\"}}]</string>
     <string name="shortcut_erp">ERP</string>
     <string name="shortcut_erp_long">Moltrix ERP</string>
