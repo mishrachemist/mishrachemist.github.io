@@ -3125,7 +3125,15 @@ html.mzLocked #mzLock{ display:block; }
 
 <body><script>
 /* Fingerprint lock on this device: hide the page from the first paint until it is unlocked */
-(function () { try { if (localStorage.getItem("mzLockCred")) document.documentElement.classList.add("mzLocked"); } catch (e) {} })();
+(function () { try {
+  if (!localStorage.getItem("mzLockCred")) return;
+  // a refresh (🔄 / pull down / app update) right after it was open and unlocked doesn't ask again: the page saved the moment
+  // it went away (sessionStorage = this tab only); opening the app again, or coming back after Android closed it, does ask
+  var ok = +sessionStorage.getItem("mzLockOk") || 0;
+  sessionStorage.removeItem("mzLockOk");
+  if (Date.now() - ok > 15000) document.documentElement.classList.add("mzLocked");
+  else window.__mzRefreshOk = true;
+} catch (e) { document.documentElement.classList.add("mzLocked"); } })();
 /* Paint the saved theme straight away, so a refresh never flashes the plain photo/colours. */
 (function () {
   try {
@@ -7036,9 +7044,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.15.4";
+const APP_VERSION = "2026.11.15.5";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
+  "🔒 Fingerprint Lock: a refresh (🔄) no longer asks for the fingerprint - only opening the app, or coming back after more than a minute",
   "🔒 The lock screen is now blank: tap anywhere for the fingerprint; hold 3 seconds to open with the Microsoft account. All app messages are now in English",
   "🔒 New Fingerprint Lock (☰ menu): Moltrix asks for the fingerprint every time it is opened on this phone (Microsoft sign-in stays once); if the fingerprint fails, open with the Microsoft account",
   "🔒 Home and the other screens no longer zoom with two fingers - only the reports zoom (pinch / double-tap inside the report)",
@@ -32604,7 +32613,11 @@ async function downloadAndroidApk() {
     hiddenAt = 0;
   });
   window.addEventListener("pageshow", e => { if (e.persisted && cred()) lock(); });
-  if (cred()) {
+  // the page is going away while open (refresh): remember the moment for the reload (see the first script in <body>)
+  window.addEventListener("pagehide", () => {
+    try { if (cred() && !html.classList.contains("mzLocked") && !busy) sessionStorage.setItem("mzLockOk", String(Date.now())); } catch (e) {}
+  });
+  if (cred() && !window.__mzRefreshOk) {
     html.classList.add("mzLocked");
     let rec = false; try { rec = sessionStorage.getItem("mzLockRecover") === "1"; } catch (e) {}
     if (!rec) setTimeout(unlock, 400);
