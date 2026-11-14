@@ -1,0 +1,26 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.mishrachemist.twa",
+      "sha256_cert_fingerprints": [
+        "B7:B0:39:97:DF:14:15:C4:21:65:B7:E6:A8:47:68:19:88:AF:42:94:53:57:A8:0E:D6:EC:9D:1E:84:36:3F:14"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.mishrachemist.janseva",
+      "sha256_cert_fingerprints": [
+        "5D:17:05:B6:B2:0C:E8:B9:77:D6:F3:59:BE:E2:E6:2A:80:E2:43:1B:05:F7:C1:73:F8:D8:0A:89:5E:5F:49:91"
+      ]
+    }
+  }
+]

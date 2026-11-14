@@ -1,0 +1,77 @@
+# Builds the "Moltrix ERP" Android app (android-erp/) and puts the APK on the release "moltrix-erp-apk":
+#   https://github.com/mishrachemist/mishrachemist.github.io/releases/download/moltrix-erp-apk/MoltrixERP.apk
+# The signing key is made once and kept in the secrets ERP_APK_KEYSTORE / ERP_APK_KEYPASS (saved with GH_PAT),
+# so every new APK installs over the old one.
+name: Moltrix ERP app (APK)
+
+on:
+  push:
+    paths:
+      - "android-erp/**"
+      - ".github/workflows/moltrix-erp-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: moltrix-erp-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Signing key
+        env:
+          KS_B64: ${{ secrets.ERP_APK_KEYSTORE }}
+          KS_PASS_SECRET: ${{ secrets.ERP_APK_KEYPASS }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          KS="$RUNNER_TEMP/release.jks"
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS_SECRET" ]; then
+            printf '%s' "$KS_B64" | base64 -d > "$KS"
+            P="$KS_PASS_SECRET"
+          else
+            P="$(openssl rand -hex 16)"
+            echo "::add-mask::$P"
+            keytool -genkeypair -keystore "$KS" -alias moltrix -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$P" -keypass "$P" -dname "CN=Moltrix ERP, O=Durgesh Mishra, C=IN" >/dev/null
+            if [ -z "$GH_PAT" ]; then echo "GH_PAT secret missing - cannot keep the signing key"; exit 1; fi
+            base64 -w0 "$KS" | GH_TOKEN="$GH_PAT" gh secret set ERP_APK_KEYSTORE --repo "$GITHUB_REPOSITORY"
+            printf '%s' "$P" | GH_TOKEN="$GH_PAT" gh secret set ERP_APK_KEYPASS --repo "$GITHUB_REPOSITORY"
+            echo "New signing key made and saved."
+          fi
+          echo "::add-mask::$P"
+          echo "KS_FILE=$KS" >> "$GITHUB_ENV"
+          echo "KS_PASS=$P" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: gradle -p android-erp :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Put the APK on the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android-erp/app/build/outputs/apk/release/app-release.apk MoltrixERP.apk
+          ls -l MoltrixERP.apk
+          if ! gh release view moltrix-erp-apk >/dev/null 2>&1; then
+            gh release create moltrix-erp-apk --title "Moltrix ERP (Android app)" --target "$GITHUB_SHA" \
+              --notes "Install MoltrixERP.apk on the phone. New builds replace this file; install it over the old app."
+          fi
+          gh release upload moltrix-erp-apk MoltrixERP.apk --clobber
+          echo "APK: https://github.com/$GITHUB_REPOSITORY/releases/download/moltrix-erp-apk/MoltrixERP.apk" >> "$GITHUB_STEP_SUMMARY"

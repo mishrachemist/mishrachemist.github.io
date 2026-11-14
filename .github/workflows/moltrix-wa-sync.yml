@@ -1,0 +1,149 @@
+# Moltrix - WhatsApp -> Excel sync in the cloud (runs even when the phone and the PC are off).
+# Every 15 minutes (at :07 :22 :37 :52) it only checks the shared OneDrive state (wa_inbox_state.json); the real Fetch runs
+# only when one of the app's fixed times (20:00, 06:00, 11:00 - or whatever is saved in the app) has
+# passed and no device has fetched since then. The app itself (mishrachemist.github.io) does the work
+# in a headless Chrome, so the parsing and Excel writing are exactly the same as on the phone.
+# Needs the secrets MS_REFRESH_TOKEN (made by "Moltrix Microsoft login") and GH_PAT.
+# This repo is public, so nothing from the messages is written to the log - only counts.
+name: Moltrix WhatsApp sync
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"   # off the busy :00/:15/:30/:45 minutes
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Fetch now (do not wait for the fixed time)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: moltrix-wa-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TZ: Asia/Kolkata
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: WhatsApp -> Excel
+        env:
+          MS_REFRESH_TOKEN: ${{ secrets.MS_REFRESH_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          mkdir -p /tmp/mx
+          cat > /tmp/mx/run.mjs <<'EOF'
+          import fs from "node:fs";
+          import { execFileSync, execSync } from "node:child_process";
+          import { createRequire } from "node:module";
+
+          const CLIENT_ID = "0602bf34-628d-4364-97a9-ae6f0f2327ce";   // same Azure app as Moltrix
+          const SCOPE = "offline_access https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/User.Read";
+          const APP_URL = "https://mishrachemist.github.io/";
+          const STATE_URL = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/wa_inbox_state.json:/content";
+          const SLOTS_DEFAULT = "20:00, 06:00, 11:00";
+          const force = process.env.FORCE === "true";
+          const out = t => { console.log(t); if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, t + "\n\n"); };
+          const fail = t => { out("❌ " + t); process.exit(1); };
+
+          if (!process.env.MS_REFRESH_TOKEN) { out("Not set up yet - run the workflow \"Moltrix Microsoft login\" first."); process.exit(0); }
+          if (!process.env.GH_PAT) fail("Secret GH_PAT is missing (needed to keep the Microsoft sign-in fresh).");
+
+          // ---- Microsoft token (refresh token turns into a new one on every use; the new one is saved back) ----
+          const r = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+            method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ client_id: CLIENT_ID, grant_type: "refresh_token", refresh_token: process.env.MS_REFRESH_TOKEN, scope: SCOPE })
+          });
+          const tk = await r.json().catch(() => ({}));
+          if (!r.ok || !tk.access_token) fail(`Microsoft sign-in has expired or was refused (${tk.error || r.status}). Run "Moltrix Microsoft login" again.`);
+          console.log("::add-mask::" + tk.access_token);
+          if (tk.refresh_token) {
+            console.log("::add-mask::" + tk.refresh_token);
+            try {
+              execFileSync("gh", ["secret", "set", "MS_REFRESH_TOKEN", "--repo", process.env.GITHUB_REPOSITORY],
+                { input: tk.refresh_token, env: { ...process.env, GH_TOKEN: process.env.GH_PAT }, stdio: ["pipe", "ignore", "pipe"] });
+            } catch (e) { fail("Could not save the fresh Microsoft sign-in (check that GH_PAT has Secrets: Read and write, and has not expired)."); }
+          }
+          const token = tk.access_token, exp = Date.now() + (Number(tk.expires_in) || 3600) * 1000;
+          const g = async url => { const x = await fetch(url, { headers: { Authorization: "Bearer " + token }, cache: "no-store" }); return x; };
+
+          const me = await (await g("https://graph.microsoft.com/v1.0/me?$select=userPrincipalName,mail")).json().catch(() => ({}));
+          const email = String(me.userPrincipalName || me.mail || "").toLowerCase();
+          if (!email) fail("Could not read the signed-in Microsoft account.");
+          console.log("::add-mask::" + email);
+
+          // ---- due? (same rule as the app: a fixed time has passed since the last fetch on any device) ----
+          const sr = await g(STATE_URL + "?t=" + Date.now());
+          if (sr.status === 404) fail("wa_inbox_state.json not found in this account's OneDrive - sign in (Moltrix Microsoft login) with the main account that the app uses.");
+          if (!sr.ok) fail("Could not read the WhatsApp state from OneDrive (" + sr.status + ").");
+          const keys = ((await sr.json().catch(() => ({}))) || {}).keys || {};
+          if (!keys.waInboxUrl || !keys.waInboxToken) fail("WhatsApp Inbox URL / TOKEN are not saved in the app (⚙️ Inbox Settings).");
+          const parse = txt => { const o = []; for (const p of String(txt || "").split(/[,;\s]+/).filter(Boolean)) { const m = /^(\d{1,2})(?:[:.](\d{2}))?$/.exec(p); if (!m || +m[1] > 23 || +(m[2] || 0) > 59) return null; o.push([+m[1], +(m[2] || 0)]); } return o; };
+          const slots = parse(keys.waSlots || SLOTS_DEFAULT) || parse(SLOTS_DEFAULT);
+          const now = Date.now();
+          let lastSlot = 0;
+          slots.forEach(v => { const d = new Date(now); d.setHours(v[0], v[1], 0, 0); let t = d.getTime(); if (t > now) t -= 86400000; if (t > lastSlot) lastSlot = t; });
+          const lastAt = parseInt(keys.waInboxLastAt || "0", 10) || 0;
+          const fmt = t => t ? new Date(t).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false }) : "never";
+          if (!force && !(lastSlot > lastAt)) { console.log(`Not due - last fetch ${fmt(lastAt)}, last fixed time ${fmt(lastSlot)}.`); process.exit(0); }
+          out(`Due - fixed time ${fmt(lastSlot)}, last fetch ${fmt(lastAt)}${force ? " (forced)" : ""}.`);
+
+          // ---- run the app's own Fetch in headless Chrome ----
+          execSync("npm install --prefix /tmp/mx --no-audit --no-fund --silent playwright-core@1", { stdio: "ignore" });
+          const { chromium } = createRequire("/tmp/mx/")("playwright-core");
+          const exe = ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium"].find(p => fs.existsSync(p));
+          if (!exe) fail("Chrome not found on the runner.");
+          const browser = await chromium.launch({ executablePath: exe, headless: true });
+          try {
+            const ctx = await browser.newContext({ timezoneId: "Asia/Kolkata", locale: "en-IN", serviceWorkers: "block", viewport: { width: 1280, height: 900 } });
+            await ctx.addInitScript(em => {
+              try {
+                localStorage.setItem("roleCache:" + em, JSON.stringify({ r: "owner", t: Date.now() }));
+                localStorage.setItem("ownerCfg", JSON.stringify({ owners: [em], viewers: [], revoke: [] }));
+                localStorage.setItem("waSlotOn", "0");   // the page's own 1-minute auto-fetch stays off; this script decides
+              } catch (e) {}
+            }, email);
+            const page = await ctx.newPage();
+            let dialogs = 0, pageErrors = 0;
+            page.on("dialog", d => { dialogs++; d.dismiss().catch(() => {}); });
+            page.on("pageerror", () => { pageErrors++; });
+            await page.goto(APP_URL, { waitUntil: "load", timeout: 120000 });
+            await page.waitForFunction(() => typeof waInboxFetch === "function" && typeof waCloudPull === "function" && typeof msalReady !== "undefined", null, { timeout: 120000 });
+            const res = await page.evaluate(async ({ email, token, exp, force }) => {
+              await msalReady;
+              account = { username: email, homeAccountId: "cloud-runner", localAccountId: "cloud-runner", idTokenClaims: { preferred_username: email } };
+              cachedAccessToken = token; cachedTokenExpiry = exp;
+              getToken = async () => token;            // the app's Microsoft token comes from this runner
+              waDeviceLabel = () => "Cloud";           // shown in the app as "(Cloud)" after the last fetch
+              if (!waSyncEnabled()) return { err: "owner check failed in the app" };
+              const pull = await waCloudPull();
+              const c = waInboxCfg();
+              if (!c.url || !c.token) return { err: "WhatsApp Inbox not set up in the app" };
+              if (!force && !(waLastSlotTime() > waAutoLastAt())) return { skipped: true };
+              waAutoRun = true;
+              try { await waInboxFetch(); } finally { waAutoRun = false; }
+              await waCloudPush();
+              const st = document.getElementById("status");
+              let retry = 0; try { retry = (JSON.parse(localStorage.getItem("waInboxRetry") || "[]") || []).length; } catch (e) {}
+              return { pull, cls: st ? st.className : "", first: String(st ? st.textContent : "").split("\n")[0].slice(0, 160),
+                       rowFrom: c.lastRow, rowTo: waInboxCfg().lastRow, retry };
+            }, { email, token, exp, force });
+            if (res.err) fail(res.err);
+            if (res.skipped) { out("Another device fetched just now - nothing to do."); }
+            else {
+              out(`${res.cls === "err" ? "⚠️" : "✅"} ${res.first}`);
+              out(`Inbox rows ${res.rowFrom} → ${res.rowTo}${res.retry ? ` · 🔁 ${res.retry} waiting for retry` : ""}${dialogs ? ` · ${dialogs} pop-up(s) closed` : ""}${pageErrors ? ` · ${pageErrors} page error(s)` : ""}`);
+            }
+          } finally { await browser.close(); }
+          EOF
+          node /tmp/mx/run.mjs

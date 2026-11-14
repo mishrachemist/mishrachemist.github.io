@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.mishrachemist.moltrixerp'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.mishrachemist.moltrixerp"
+        minSdk 26
+        targetSdk 34
+        versionCode Integer.parseInt(System.getenv("VERSION_CODE") ?: "1")
+        versionName "1." + (System.getenv("VERSION_CODE") ?: "0")
+    }
+
+    signingConfigs {
+        release {
+            // the CI keeps the key in the ERP_APK_KEYSTORE secret (same key every build, so updates install over the old app)
+            storeFile file(System.getenv("KS_FILE") ?: "release.jks")
+            storePassword System.getenv("KS_PASS") ?: ""
+            keyAlias "moltrix"
+            keyPassword System.getenv("KS_PASS") ?: ""
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.8.0'   // to stop the WebView's "X-Requested-With: <app>" header
+}
