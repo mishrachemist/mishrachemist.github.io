@@ -10,8 +10,9 @@ android {
         applicationId "com.mishrachemist.moltrixerp"
         minSdk 26
         targetSdk 34
-        versionCode Integer.parseInt(System.getenv("VERSION_CODE") ?: "1")
-        versionName "1." + (System.getenv("VERSION_CODE") ?: "0")
+        // + 1000: the builds in the old repo went up to 34 - a lower number here would be a "downgrade" the phone refuses
+        versionCode 1000 + Integer.parseInt(System.getenv("VERSION_CODE") ?: "1")
+        versionName "2." + (System.getenv("VERSION_CODE") ?: "0")
     }
 
     signingConfigs {
