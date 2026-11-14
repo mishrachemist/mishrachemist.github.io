@@ -119,9 +119,9 @@
   }
   function paramsOk(now) {     // "" when OK was pressed, else why not yet
     var d = divisionStep();
-    if (d) { S.divT = now; return "Division: SM chun raha hoon… (" + d + ")"; }
-    if (!yearReady()) return "Account Year load ho raha hai…";
-    if (S.divT && now - S.divT < 4000) return "Division set - ruk kar OK…";
+    if (d) { S.divT = now; return "Division: choosing SM… (" + d + ")"; }
+    if (!yearReady()) return "Loading the Account Year…";
+    if (S.divT && now - S.divT < 4000) return "Division set - waiting, then OK…";
     click(topBtn(/^OK$/i));
     return "";
   }
@@ -231,8 +231,8 @@
   }
   function load(json) {
     S.loadT = Date.now();
-    if (!window.MZF) { S.loadErr = "erpfill.js load nahi hua"; return "no-filler"; }
-    try { window.MZF.show(); window.MZF._t.loadPasted("MOLTRIX-ERP1 " + json); } catch (e) { S.loadErr = "Data load nahi hua: " + e.message; return "err"; }
+    if (!window.MZF) { S.loadErr = "erpfill.js did not load"; return "no-filler"; }
+    try { window.MZF.show(); window.MZF._t.loadPasted("MOLTRIX-ERP1 " + json); } catch (e) { S.loadErr = "Data did not load: " + e.message; return "err"; }
     setTimeout(function () {
       var p = document.getElementById("mzfPanel");
       if (!p) return;
@@ -245,13 +245,13 @@
   }
   function runState() {
     var lines = panelLog().slice(S.logN), last = lines.length ? lines[lines.length - 1].t : "";
-    if (window.MZF && window.MZF.busy) { S.sawBusy = true; return { s: "running", msg: last || "Entry chal rahi hai…" }; }
+    if (window.MZF && window.MZF.busy) { S.sawBusy = true; return { s: "running", msg: last || "Entry running…" }; }
     if (!S.sawBusy && Date.now() - S.startT < 6000) return { s: "running", msg: last || "Start…" };
     var isErr = function (l) { return /255,\s*138,\s*128|#ff8a80/i.test(l.c); }, isOk = function (l) { return /155,\s*231,\s*160|#9be7a0/i.test(l.c); };
     var fin = null;
     lines.forEach(function (l) { var m = /Finished:\s*(\d+)\s+of\s+(\d+)/i.exec(l.t); if (m) fin = { saved: +m[1], total: +m[2] }; });
     return { s: "done", ok: lines.filter(isOk).length, err: lines.filter(isErr).length, saved: fin ? fin.saved : -1, total: fin ? fin.total : -1,
-      msg: lines.slice(-10).map(function (l) { return l.t; }).join("\n") || "Kuch nahi hua - ERP ki screen dekhein." };
+      msg: lines.slice(-10).map(function (l) { return l.t; }).join("\n") || "Nothing happened - check the ERP screen." };
   }
 
   // the ERP opens in PC width from the very first page (login included): when it was started in the phone layout and
@@ -275,13 +275,13 @@
     if (S.loadT) {
       if (now - S.loadT > 20000) {
         var l = panelLog();
-        return { s: "error", msg: "Data load nahi hua" + (l.length ? ": " + l[l.length - 1].t : "") };
+        return { s: "error", msg: "Data did not load" + (l.length ? ": " + l[l.length - 1].t : "") };
       }
       return { s: "loading-data", msg: "data load…" };
     }
     if (isParams()) {
       if (!S.paramsT0) S.paramsT0 = now;
-      if (now - S.paramsT0 > 45000) return { s: "manual", msg: "Division mein SM-(STEEL MELTING SHOP (SMS)) chunein aur OK dabayein - phir aage apne aap chalega." };
+      if (now - S.paramsT0 > 45000) return { s: "manual", msg: "Choose SM-(STEEL MELTING SHOP (SMS)) in Division and press OK - it then carries on by itself." };
       if (now - S.paramsT < 2000) return { s: "params", msg: "Log In Parameters…" };
       S.paramsT = now;
       var pm = paramsOk(now);
@@ -302,7 +302,7 @@
         }
         return { s: "loading-filler", msg: "erpfill.js load…" };
       }
-      if (window.MZF.busy) return { s: "error", msg: "ERP panel pehle se kuch chala raha hai - khatam hone dein." };
+      if (window.MZF.busy) return { s: "error", msg: "The ERP panel is already running something - let it finish." };
       return { s: "need-data" };
     }
     // the ERP's "Loading ×" box can stay up forever and cover the page (nothing can be tapped) - close it after 15 s
@@ -315,16 +315,16 @@
           x = Array.prototype.slice.call(box.querySelectorAll("ion-icon, button, ion-button, span, div")).filter(function (e) {
             return vis(e) && (/close/i.test((e.getAttribute("name") || "") + " " + (e.getAttribute("class") || "")) || /^[×✕xX]$/.test(txt(e)));
           })[0] || null;
-        if (x) { click(x.closest("ion-button, button") || x); S.loadingT = now; return { s: "nav", msg: t.name + " - ERP ka atka hua Loading band kiya" }; }
+        if (x) { click(x.closest("ion-button, button") || x); S.loadingT = now; return { s: "nav", msg: t.name + " - closed the ERP's stuck Loading box" }; }
       }
     } else S.loadingT = 0;
     if (!S.navT0) S.navT0 = now;
-    if (now - S.navT0 > 120000) return { s: "manual", msg: "\"" + t.name + "\" screen khud kholiye - khulte hi entry shuru ho jayegi." };
-    if (now - S.lastAct < 2500) return { s: "nav", msg: t.name + " khol raha hoon…" };
-    if (S.openT && now - S.openT < 20000 && !searchOpen()) return { s: "nav", msg: t.name + " khul raha hai…" };   // Open pressed - let the page come up
+    if (now - S.navT0 > 120000) return { s: "manual", msg: "Open the \"" + t.name + "\" screen yourself - the entry starts as soon as it is open." };
+    if (now - S.lastAct < 2500) return { s: "nav", msg: t.name + ": opening…" };
+    if (S.openT && now - S.openT < 20000 && !searchOpen()) return { s: "nav", msg: t.name + ": opening…" };   // Open pressed - let the page come up
     S.lastAct = now;
     var did = nav(t);
-    return { s: "nav", msg: t.name + " khol raha hoon… (" + did + ")" };
+    return { s: "nav", msg: t.name + ": opening… (" + did + ")" };
   }
 
   window.MOLTRIX_DRIVER = { tick: tick, login: login, load: load, reset: reset, _screenTitle: screenTitle };

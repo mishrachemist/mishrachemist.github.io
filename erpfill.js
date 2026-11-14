@@ -21,7 +21,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.14.22";
+  const VERSION = "2026.11.15.1";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -53,7 +53,7 @@
     }
     const a = alertBox();
     if (a && /TypeError|Cannot read propert|of (null|undefined)/i.test(a.text))   // the ERP's own script broke - its login session is half restored
-      throw new Error(`ERP ki apni script mein galti (${a.text.replace(/Know More.*$/i, "").replace(/^\s*Information\s*/i, "").replace(/\s*OK\s*$/, "").slice(0, 120)}) while waiting for ${what || "the ERP"}`);
+      throw new Error(`The ERP's own script error (${a.text.replace(/Know More.*$/i, "").replace(/^\s*Information\s*/i, "").replace(/\s*OK\s*$/, "").slice(0, 120)}) while waiting for ${what || "the ERP"}`);
     throw new Error("Timed out waiting for " + (what || "the ERP") + (a ? ` (ERP message: ${a.text.replace(/Know More.*$/i, "").slice(0, 160)})` : ""));
   }
   let DEBUG = false, dbgT = Date.now();
@@ -1175,7 +1175,7 @@
     catch (e) {
       const a = alertBox();
       if (!a || !/TypeError|Cannot read propert|G_YRBEG/i.test(a.text)) throw e;
-      log(`   ERP ki apni galti on Default Details Ok (${a.text.replace(/^\s*Information\s*/i, "").replace(/\s*OK\s*$/, "").slice(0, 90)}) - box band karke item form par seedha bhar raha hoon`, "h");
+      log(`   The ERP's own error on Default Details Ok (${a.text.replace(/^\s*Information\s*/i, "").replace(/\s*OK\s*$/, "").slice(0, 90)}) - closing the box and filling the item form directly`, "h");
       await closeAlert(a); await sleep(600);
       let q2 = cost, cancel = null; while (q2 && !cancel) { q2 = q2.parentElement; cancel = q2 && [...q2.querySelectorAll("ion-button,button")].filter(vis).find(x => /^Cancel$/i.test(txt(x))); }
       if (cancel) click(cancel);
@@ -1255,7 +1255,7 @@
         if (!prRe.test(ngVal("Priority"))) { try { await itemSel("Priority", prRe); } catch (e) { log(`   Priority: ${e.message}`, "h"); } }   // the PC item form leaves it empty
         const rdI = [...document.querySelectorAll("input")].filter(vis).find(e => /Required Date/i.test(e.title || "") && !e.closest("#mzfPanel"));
         if (rdI && dmyOf(rdI.value) !== d.opts.reqDate) await setErpDate(rdI, d.opts.reqDate, "Item");
-        const a = alertBox(); if (a && /TypeError|G_YRBEG/i.test(a.text)) throw new Error("ERP ki apni galti item ki Required Date par bhi: " + a.text.slice(0, 90));
+        const a = alertBox(); if (a && /TypeError|G_YRBEG/i.test(a.text)) throw new Error("The ERP's own error on the item's Required Date too: " + a.text.slice(0, 90));
         bad.length = 0;
         if (!/^R\b/.test(ngVal("Stock Type"))) bad.push(`Stock Type shows "${ngVal("Stock Type")}"`);
         if (!new RegExp("^" + (d.opts.priority || "Medium") + "$", "i").test(ngVal("Priority"))) bad.push(`Priority shows "${ngVal("Priority")}"`);
@@ -1354,7 +1354,7 @@
       // "Problem in Approval of Indent/PR voucher"
       const pend = m === "indent" ? d.items.filter(it => it._bal > 0) : [];
       if (pend.length && /Stock Validation|Problem in Approval/i.test(e.message))
-        e.message += ` - pehle se pending Indent: ${pend.map(it => `${it.code} (indent balance ${it._bal})`).join(", ")}. Aisa item pehla Indent approve / cancel hone tak shayad na jaye - use list se hata kar bhejiye.`;
+        e.message += ` - already in a pending Indent: ${pend.map(it => `${it.code} (indent balance ${it._bal})`).join(", ")}. Such an item may not go in until the first Indent is approved / cancelled - remove it from the list and send again.`;
       throw e;
     }
   }

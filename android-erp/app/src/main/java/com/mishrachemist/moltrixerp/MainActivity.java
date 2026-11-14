@@ -94,7 +94,7 @@ public class MainActivity extends Activity {
         status.setText("Moltrix ERP");
         bar.addView(status, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         bar.addView(barButton("📋", v -> runFromClipboard()));
-        bar.addView(barButton("■", v -> stopJob("Rok diya.")));
+        bar.addView(barButton("■", v -> stopJob("Stopped.")));
         bar.addView(barButton("⚙", v -> askLogin(null)));
         root.addView(bar);
 
@@ -152,7 +152,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (running) { Toast.makeText(this, "Entry chal rahi hai - rokna ho to ■ dabayein.", Toast.LENGTH_SHORT).show(); return; }
+        if (running) { Toast.makeText(this, "An entry is running - press ■ to stop it.", Toast.LENGTH_SHORT).show(); return; }
         if (web.canGoBack()) web.goBack(); else super.onBackPressed();
     }
 
@@ -171,7 +171,7 @@ public class MainActivity extends Activity {
         ClipData cd = cm == null ? null : cm.getPrimaryClip();
         CharSequence t = cd != null && cd.getItemCount() > 0 ? cd.getItemAt(0).coerceToText(this) : null;
         if (t == null || !t.toString().trim().startsWith(TAG.trim())) {
-            alert("Clipboard mein Moltrix ka data nahi hai", "Moltrix mein 📲 button (ya \"Copy for ERP\") dabayein.");
+            alert("No Moltrix data on the clipboard", "Press a 📲 button (or \"Copy for ERP\") in Moltrix.");
             return;
         }
         offer(t.toString(), "clipboard");
@@ -183,33 +183,33 @@ public class MainActivity extends Activity {
 
     /** Shows what will go in and asks once (a link on any website could open this app, so nothing starts unseen). */
     private void offer(String raw, String from) {
-        if (running) { alert("Pehle wali entry abhi chal rahi hai", "Khatam hone dein, ya ■ dabakar rokein."); return; }
+        if (running) { alert("The previous entry is still running", "Let it finish, or press ■ to stop it."); return; }
         String json = raw.trim();
         if (json.startsWith(TAG.trim())) json = json.substring(TAG.trim().length()).trim();
         JSONObject d;
-        try { d = new JSONObject(json); } catch (Exception e) { alert("Data adhoora hai", "Moltrix mein button dobara dabayein."); return; }
+        try { d = new JSONObject(json); } catch (Exception e) { alert("The data is incomplete", "Press the button in Moltrix again."); return; }
         String eu = d.optString("erpUrl", "");
         if (!eu.isEmpty() && !eu.equals(erpUrl())) {
             Uri pu = Uri.parse(eu);
-            if (!("http".equals(pu.getScheme()) || "https".equals(pu.getScheme())) || pu.getHost() == null) { alert("ERP address theek nahi", eu); return; }
+            if (!("http".equals(pu.getScheme()) || "https".equals(pu.getScheme())) || pu.getHost() == null) { alert("ERP address is not valid", eu); return; }
             final String fr = raw, ff = from;
-            new AlertDialog.Builder(this).setTitle("ERP address save karein?")
-                    .setMessage(eu + "\n\nYahi aapka ERP hai? Haan dabane par app isi par login karegi.")
-                    .setPositiveButton("Haan", (x, y) -> { getSharedPreferences("erp", MODE_PRIVATE).edit().putString("erpUrl", eu).apply(); web.loadUrl(eu); offer(fr, ff); })
-                    .setNegativeButton("Nahi", null).show();
+            new AlertDialog.Builder(this).setTitle("Save the ERP address?")
+                    .setMessage(eu + "\n\nIs this your ERP? With Yes the app logs in here.")
+                    .setPositiveButton("Yes", (x, y) -> { getSharedPreferences("erp", MODE_PRIVATE).edit().putString("erpUrl", eu).apply(); web.loadUrl(eu); offer(fr, ff); })
+                    .setNegativeButton("No", null).show();
             return;
         }
-        if (erpUrl().isEmpty()) { alert("ERP address nahi hai", "Moltrix ka naya version kholkar 📲 button dobara dabayein."); return; }
+        if (erpUrl().isEmpty()) { alert("No ERP address", "Open the latest Moltrix and press the 📲 button again."); return; }
         String mode = d.optString("mode", ""), label = null;
         for (String[] m : MODES) if (m[0].equals(mode)) label = m[1];
-        if (label == null) { alert("Yeh kaam pehchana nahi", "mode: " + mode); return; }
+        if (label == null) { alert("Unknown task", "mode: " + mode); return; }
         JSONArray heats = d.optJSONArray("heats"), items = d.optJSONArray("items");
         String what = heats != null ? heats.length() + (mode.equals("m2m") ? " voucher" : " heat") + " · " + d.optString("date", "")
                 : items != null ? items.length() + " item" : "";
         final String fj = json, fm = mode, fl = label;
         new AlertDialog.Builder(this)
                 .setTitle(label)
-                .setMessage(what + (fm.equals("approve") ? "\n\nERP mein seedha Approve hoga." : "\n\nERP mein seedha Save hoga (Trial nahi)."))
+                .setMessage(what + (fm.equals("approve") ? "\n\nIt is approved in the ERP straight away." : "\n\nIt is saved in the ERP straight away (no Trial)."))
                 .setPositiveButton("Start", (x, y) -> {
                     if (!creds.has()) askLogin(() -> startJob(fm, fj, fl)); else startJob(fm, fj, fl);
                 })
@@ -223,9 +223,9 @@ public class MainActivity extends Activity {
         dataSent = false; loginTries = 0; lastLoginAt = 0;
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         web.keepAlive = true;                       // page stays "visible" for the ERP / erpfill with the screen locked
-        try { RunService.start(this, label + ": shuru…"); } catch (Exception ignored) { }
+        try { RunService.start(this, label + ": starting…"); } catch (Exception ignored) { }
         askBackgroundOnce();
-        setStatus(label + ": shuru…");
+        setStatus(label + ": starting…");
         h.removeCallbacks(tick);
         if (!driverJs.contains("var FRESH_LOGIN = true")) {      // fresh ERP login per job: off (the ERP then forgot Division / its series lists)
             keepJs = getSharedPreferences("erp", MODE_PRIVATE).getString("keep", null);   // put back anything an earlier wipe left
@@ -258,10 +258,10 @@ public class MainActivity extends Activity {
         web.evaluateJavascript(js, v -> {
             String keep = null;
             try { Object o = new JSONTokener(v).nextValue(); if (o instanceof String) { new JSONObject((String) o); keep = (String) o; } } catch (Exception ignored) { }
-            if (keep == null) { setStatus(jobLabel + ": shuru… (purana ERP login)"); then.run(); return; }   // couldn't read - keep the session rather than lose the done lists
+            if (keep == null) { setStatus(jobLabel + ": starting… (existing ERP login)"); then.run(); return; }   // couldn't read - keep the session rather than lose the done lists
             sp.edit().putString("keep", keep).apply();                        // survives the app being killed before it is put back
             keepJs = keep;
-            setStatus(jobLabel + ": ERP fresh login…");
+            setStatus(jobLabel + ": fresh ERP login…");
             WebStorage.getInstance().deleteAllData();
             web.clearCache(false);
             CookieManager.getInstance().removeAllCookies(ok -> {
@@ -306,14 +306,14 @@ public class MainActivity extends Activity {
             if (o instanceof String) st = new JSONObject((String) o);
         } catch (Exception ignored) { }
         long next = 1500;
-        if (st == null) { setStatus(jobLabel + ": ERP khul raha hai…"); h.postDelayed(tick, next); return; }
+        if (st == null) { setStatus(jobLabel + ": opening the ERP…"); h.postDelayed(tick, next); return; }
         String u = web.getUrl();
         if (keepJs != null && onErp(u)) restoreKeep();   // before data is loaded / erpfill reads its lists
         String s = st.optString("s"), msg = st.optString("msg");
         switch (s) {
             case "login":
-                if (System.currentTimeMillis() - lastLoginAt < 8000) { setStatus(jobLabel + ": login ho raha hai…"); break; }
-                if (++loginTries > 3) { stopJob("Login nahi hua - ⚙ mein ERP ID / password check karein."); alert("Login nahi hua", "ERP ID / password check karein (⚙)."); return; }
+                if (System.currentTimeMillis() - lastLoginAt < 8000) { setStatus(jobLabel + ": logging in…"); break; }
+                if (++loginTries > 3) { stopJob("Login failed - check the ERP ID / password in ⚙."); alert("Login failed", "Check the ERP ID / password (⚙)."); return; }
                 lastLoginAt = System.currentTimeMillis();
                 setStatus(jobLabel + ": login…");
                 web.evaluateJavascript(driverJs + "\n;window.MOLTRIX_DRIVER.login(" + JSONObject.quote(creds.id()) + "," + JSONObject.quote(creds.pw()) + ")", null);
@@ -327,18 +327,18 @@ public class MainActivity extends Activity {
                 break;
             case "done": {
                 int ok = st.optInt("ok"), err = st.optInt("err"), saved = st.optInt("saved", -1), total = st.optInt("total", -1);
-                stopJob(jobLabel + ": khatam - " + (saved >= 0 ? saved + " of " + total + " save" : ok + " ✓" + (err > 0 ? ", " + err + " ✗" : "")));
+                stopJob(jobLabel + ": finished - " + (saved >= 0 ? saved + " of " + total + " saved" : ok + " ✓" + (err > 0 ? ", " + err + " ✗" : "")));
                 // erpfill's "Finished: X of N" decides (red lines from a first try that worked the 2nd time don't count)
                 boolean allDone = saved >= 0 ? saved == total : err == 0;
-                String head = jobLabel + (allDone ? " - ho gaya" : " - kuch entry nahi hui");
+                String head = jobLabel + (allDone ? " - done" : " - some entries did not go in");
                 RunService.done(this, head, msg);
                 alert(head, msg);
                 return;
             }
             case "error":
                 stopJob(jobLabel + ": ✗ " + msg);
-                RunService.done(this, jobLabel + " - ruk gaya", msg);
-                alert(jobLabel + " - ruk gaya", msg);
+                RunService.done(this, jobLabel + " - stopped", msg);
+                alert(jobLabel + " - stopped", msg);
                 return;
             default:   // params, nav, manual, loading-filler, loading-data, running
                 setStatus(jobLabel + (msg.isEmpty() ? ": " + s + "…" : ": " + msg));
@@ -362,7 +362,7 @@ public class MainActivity extends Activity {
         box.addView(id);
         box.addView(pw);
         TextView note = new TextView(this);
-        note.setText("Sirf is phone mein encrypted rahega.");
+        note.setText("Kept only on this phone, encrypted.");
         note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         box.addView(note);
         new AlertDialog.Builder(this)
@@ -370,12 +370,12 @@ public class MainActivity extends Activity {
                 .setView(box)
                 .setPositiveButton("Save", (x, y) -> {
                     String i = id.getText().toString().trim(), p = pw.getText().toString();
-                    if (i.isEmpty() || p.isEmpty()) { Toast.makeText(this, "ID aur password dono chahiye", Toast.LENGTH_SHORT).show(); return; }
-                    if (!creds.save(i, p)) { alert("Save nahi hua", "Phone ka secure storage kaam nahi kar raha."); return; }
+                    if (i.isEmpty() || p.isEmpty()) { Toast.makeText(this, "Both the ID and the password are needed", Toast.LENGTH_SHORT).show(); return; }
+                    if (!creds.save(i, p)) { alert("Not saved", "The phone's secure storage is not working."); return; }
                     Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show();
                     if (after != null) after.run();
                 })
-                .setNeutralButton("Delete", (x, y) -> { creds.clear(); Toast.makeText(this, "Login hata diya", Toast.LENGTH_SHORT).show(); })
+                .setNeutralButton("Delete", (x, y) -> { creds.clear(); Toast.makeText(this, "Login removed", Toast.LENGTH_SHORT).show(); })
                 .setNegativeButton("Cancel", null)
                 .show();
     }
