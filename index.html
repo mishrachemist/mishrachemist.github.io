@@ -3117,10 +3117,22 @@ body:not(.erpPhone) .irqAppTile{display:none}
 .irqBot label input{margin:0;padding:6px 8px}.irqBot label:first-child input{width:84px}.irqRem{flex:1;min-width:0}.irqUm{font-size:12.5px;font-weight:700;padding-bottom:9px;min-width:30px}
 .irqName{font-size:12.5px;font-weight:600;margin:5px 0 0 26px;line-height:1.3}.irqChk,.irqOcr{margin-left:26px}
 .irqChk{font-size:11.5px;color:#a2560b;font-weight:600;margin-top:3px}.irqOcr{font-size:11px;color:#6b7383;margin-top:2px}
+html.mzLocked body > *:not(#mzLock){ visibility:hidden !important; }
+#mzLock{ position:fixed; inset:0; z-index:2147483647; display:none; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  background:#f6f0e6; color:#1f3864; font-family:inherit; text-align:center; padding:24px; }
+html.mzLocked #mzLock{ display:flex; }
+#mzLock .mzlIcon{ font-size:64px; line-height:1; }
+#mzLock h2{ margin:0; font-size:22px; color:#1f3864; }
+#mzLock p{ margin:0; font-size:14px; color:#4a5568; max-width:320px; }
+#mzLock button{ border:none; border-radius:14px; padding:14px 22px; font-size:16px; font-weight:700; cursor:pointer; }
+#mzLock .mzlGo{ background:#1f3864; color:#fff; min-width:240px; }
+#mzLock .mzlAlt{ background:transparent; color:#1f3864; text-decoration:underline; font-size:13px; font-weight:600; padding:6px; }
 </style>
 </head>
 
 <body><script>
+/* Fingerprint lock on this device: hide the page from the first paint until it is unlocked */
+(function () { try { if (localStorage.getItem("mzLockCred")) document.documentElement.classList.add("mzLocked"); } catch (e) {} })();
 /* Paint the saved theme straight away, so a refresh never flashes the plain photo/colours. */
 (function () {
   try {
@@ -4461,6 +4473,7 @@ window.__gmFS = {
     <button id="darkModeToggle" title="Toggle dark mode">🌙 Dark Mode</button>
     <button id="refreshPageBtn" title="Refresh the page">🔄 Refresh</button>
     <button id="vibrationToggle" title="Toggle vibration">📳 Vibration: ON</button>
+    <button id="fpLockToggle" title="Fingerprint lock">🔒 Fingerprint Lock: OFF</button>
     <div class="settingsDivider"></div>
     <button id="signOutBtn" class="hidden">🚪 Sign Out</button>
   </div>
@@ -7029,9 +7042,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.15.1";
+const APP_VERSION = "2026.11.15.2";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
+  "🔒 New Fingerprint Lock (⋮ menu): Moltrix asks for the fingerprint every time it is opened on this phone (Microsoft sign-in stays once); if the fingerprint fails, open with the Microsoft account",
   "🔒 Home and the other screens no longer zoom with two fingers - only the reports zoom (pinch / double-tap inside the report)",
   "🔢 Calibration Log: Sl. No. now runs 1, 2, 3 ... in the list order (no gaps or jumps like 35, 38, 37) - also in its PDF and the ISO pack",
   "📋 Next FY AOP (WIP) now in your new format word for word: A-Q quantities (Budgeted, Consumed (A), Expected (B), A+B, Opening, Pending / To-be / Total indent, Opening March, Annual Consumption / Indent / Inventory Budget, Remark), R empty, S-V value at old / new rate, difference and % variation; SUMMARY E / F / I / N",
@@ -10383,6 +10397,7 @@ async function init() {
   if (resp && resp.account) {
     account = resp.account;
     if (!isAllowedAccount(account)) { blockAccount(); return; }
+    if (window.mzLockRecovered) try { window.mzLockRecovered(account); } catch (e) {}
     if (resp.accessToken) {
       cachedAccessToken = resp.accessToken;
       cachedTokenExpiry = resp.expiresOn ? resp.expiresOn.getTime() : Date.now() + 3300000;
@@ -32508,6 +32523,126 @@ async function downloadAndroidApk() {
   window.openSwitchAccount = () => { if (open0) open0(); fill(); };
   setTimeout(chip, 3000); setInterval(chip, 15000);
   window._mirrorTest = { idPath, theirId, failed, state: () => ({ pending, done, failed: failed.length }) };
+})();
+</script>
+<script>
+/* ===================== FINGERPRINT LOCK =====================
+   Microsoft (Outlook) sign-in stays once; with the lock ON this device asks for the fingerprint (or the phone's screen lock)
+   every time Moltrix is opened, and again when it comes back after more than a minute away. It uses the phone's own
+   screen-lock check through the browser (WebAuthn, platform authenticator, user verification required) - nothing is
+   sent anywhere and no fingerprint data reaches Moltrix. Per device: the PC is not affected. Way out if the fingerprint
+   no longer works: sign in again with the Microsoft account (then the lock is switched off and can be set again). */
+(function () {
+  const KEY = "mzLockCred", GRACE = 60 * 1000;
+  const html = document.documentElement;
+  const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const unb64 = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+  const rnd = n => crypto.getRandomValues(new Uint8Array(n));
+  const cred = () => { try { return localStorage.getItem(KEY); } catch (e) { return null; } };
+  const supported = async () => {
+    try { return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch (e) { return false; }
+  };
+  let busy = false, hiddenAt = 0;
+
+  // ---- lock screen ----
+  const box = document.createElement("div");
+  box.id = "mzLock";
+  box.innerHTML = `<div class="mzlIcon">🔒</div><h2>Moltrix locked</h2><p>Kholne ke liye fingerprint lagayein (ya phone ka screen lock).</p>
+    <button type="button" class="mzlGo">👆 Fingerprint se kholein</button><p class="mzlMsg" style="color:#c0392b;min-height:18px;"></p>
+    <button type="button" class="mzlAlt">Fingerprint nahi chal raha? Microsoft account se kholein</button>`;
+  document.body.appendChild(box);
+  const msg = t => { box.querySelector(".mzlMsg").textContent = t || ""; };
+  box.querySelector(".mzlGo").addEventListener("click", () => unlock());
+  box.querySelector(".mzlAlt").addEventListener("click", async () => {
+    if (!confirm("Microsoft account se dobara sign-in karke kholein? Uske baad fingerprint lock band ho jayega - ⋮ menu se fir chalu kar sakte hain.")) return;
+    try { sessionStorage.setItem("mzLockRecover", "1"); } catch (e) {}
+    try {
+      await msalReady;
+      const acc = (typeof account !== "undefined" && account) ? account : null;
+      await msalInstance.loginRedirect({ scopes: graphScopes, prompt: "login", loginHint: acc ? acc.username : undefined });
+    } catch (e) { msg("Sign-in nahi khula: " + ((e && e.message) || e)); }
+  });
+  // after that Microsoft sign-in (called from init, only for the allowed account)
+  window.mzLockRecovered = () => {
+    let want = false; try { want = sessionStorage.getItem("mzLockRecover") === "1"; sessionStorage.removeItem("mzLockRecover"); } catch (e) {}
+    if (!want) return;
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    html.classList.remove("mzLocked"); label();
+    setTimeout(() => alert("Microsoft account se khul gaya. Fingerprint lock ab band hai - ⋮ menu → 🔒 Fingerprint Lock se dobara chalu karein."), 300);
+  };
+
+  async function verify() {
+    const id = cred(); if (!id) return true;
+    const a = await navigator.credentials.get({ publicKey: {
+      challenge: rnd(32), rpId: location.hostname, timeout: 60000, userVerification: "required",
+      allowCredentials: [{ type: "public-key", id: unb64(id), transports: ["internal"] }] } });
+    if (!a || b64(a.rawId) !== id) throw new Error("dusri chaabi");
+    const flags = new Uint8Array(a.response.authenticatorData)[32];
+    if (!(flags & 0x04)) throw new Error("fingerprint / screen lock check nahi hua");   // UV flag
+    return true;
+  }
+  async function unlock() {
+    if (busy || !html.classList.contains("mzLocked")) return;
+    busy = true; msg("");
+    try { await verify(); html.classList.remove("mzLocked"); }
+    catch (e) { msg(e && e.name === "NotAllowedError" ? "Fingerprint nahi mila / cancel hua - button dobara dabayein." : "Nahi khula: " + ((e && e.message) || e)); }
+    finally { busy = false; hiddenAt = 0; }
+  }
+  function lock() {
+    if (!cred()) return;
+    html.classList.add("mzLocked"); msg("");
+    try { document.activeElement && document.activeElement.blur(); } catch (e) {}
+    if (document.visibilityState === "visible") setTimeout(unlock, 250);
+  }
+
+  // when to ask: every open (page start) and after more than a minute away (a quick switch - file picker, share - doesn't ask)
+  document.addEventListener("visibilitychange", () => {
+    if (!cred() || busy) return;
+    if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
+    if (html.classList.contains("mzLocked")) { setTimeout(unlock, 250); return; }
+    if (hiddenAt && Date.now() - hiddenAt > GRACE) lock();
+    hiddenAt = 0;
+  });
+  window.addEventListener("pageshow", e => { if (e.persisted && cred()) lock(); });
+  if (cred()) {
+    html.classList.add("mzLocked");
+    let rec = false; try { rec = sessionStorage.getItem("mzLockRecover") === "1"; } catch (e) {}
+    if (!rec) setTimeout(unlock, 400); else msg("Microsoft sign-in ho raha hai…");
+  }
+
+  // ---- ⋮ menu: switch on / off ----
+  const btn = document.getElementById("fpLockToggle");
+  function label() { if (btn) btn.textContent = `🔒 Fingerprint Lock: ${cred() ? "ON" : "OFF"}`; }
+  label();
+  if (btn) btn.addEventListener("click", async () => {
+    if (cred()) {      // off: only after the fingerprint
+      if (!confirm("Fingerprint lock band karein? Pehle fingerprint lagana hoga.")) return;
+      try { busy = true; await verify(); localStorage.removeItem(KEY); label(); alert("Fingerprint lock band ho gaya."); }
+      catch (e) { alert("Band nahi hua - fingerprint check nahi hua."); }
+      finally { busy = false; }
+      return;
+    }
+    if (!(await supported())) { alert("Is phone / browser mein fingerprint lock nahi chal sakta (phone mein fingerprint ya screen lock set hona chahiye)."); return; }
+    if (!confirm("Fingerprint lock chalu karein?\n\nIs phone par Moltrix har baar kholne par (aur 1 minute se zyada bahar rehne ke baad) fingerprint maangega. Microsoft sign-in pehle jaisa ek hi baar rahega. Fingerprint ka data phone mein hi rehta hai.\n\nAgle step mein phone fingerprint maangega - Moltrix ke liye ek \"chaabi\" (passkey) save hogi, phir ek baar check hoga.")) return;
+    try {
+      busy = true;
+      const c = await navigator.credentials.create({ publicKey: {
+        rp: { name: "Moltrix", id: location.hostname },
+        user: { id: rnd(16), name: "Moltrix lock", displayName: "Moltrix lock" },
+        challenge: rnd(32), timeout: 60000, attestation: "none",
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+        authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "discouraged" } } });
+      if (!c) throw new Error("no key");
+      localStorage.setItem(KEY, b64(c.rawId));
+      await verify();                          // opens once with it, so the lock never starts with a key that doesn't work
+      label();
+      alert("✅ Fingerprint lock chalu. Ab Moltrix har baar kholne par fingerprint maangega.");
+    } catch (e) {
+      try { localStorage.removeItem(KEY); } catch (x) {}
+      label();
+      alert("Lock chalu nahi hua: " + ((e && e.name === "NotAllowedError") ? "fingerprint cancel hua / time khatam." : ((e && e.message) || e)));
+    } finally { busy = false; hiddenAt = 0; }
+  });
 })();
 </script>
 </body>
