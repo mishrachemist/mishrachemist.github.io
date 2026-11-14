@@ -5563,6 +5563,7 @@ window.__gmFS = {
                 <select id="rmqMetric" style="flex:1;min-width:140px"></select>
               </div>
               <canvas id="rmqChart" height="150"></canvas>
+              <div class="btnRow"><button class="secondary" id="rmqPdfBtn" type="button">Download report (PDF)</button></div>
               <div id="rmqMatrix" style="margin-top:12px;overflow-x:auto"></div>
               <div id="rmqTable" style="margin-top:12px;overflow-x:auto"></div>
             </div>
@@ -7028,7 +7029,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.14.10";
+const APP_VERSION = "2026.11.14.11";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🏭 ERP Production + RM: the one RM line that lets the ERP save the voucher is now only 0.001 MT; the heat's consumption goes in with RM add",
@@ -28476,19 +28477,23 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
       if (!rows.length) { st.className = "ok"; st.textContent = `No inward lots of these materials in ${P.label}.`; out.innerHTML = `<div class="aovNote" style="display:block">No Sponge Iron / Silico Manganese lots in ${E(P.label)}.</div>`; $("scPdfBtn").classList.add("hidden"); last = null; return; }
       last = { P, rows };
       const mats = [...new Set(rows.map(r => r.material))];
+      const pc = v => v == null ? "#78909c" : v >= 85 ? "#2e7d32" : v >= 70 ? "#ef6c00" : "#c62828";
+      const chip = (t, bad) => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 7px;border-radius:999px;font-size:11.5px;background:${bad ? "rgba(198,40,40,.10)" : "rgba(31,56,100,.07)"};color:${bad ? "#c62828" : "inherit"}">${t}</span>`;
       out.innerHTML = `<div style="font-size:13px;color:var(--muted);margin-bottom:6px">${E(P.label)} · ${rows.reduce((s, r) => s + r.lots, 0)} lots · ${rows.length} supplier-material pairs</div>` +
         mats.map(mt => {
           const rs = rows.filter(r => r.material === mt), best = rs.find(r => r.tested >= 3 && r.pct != null);
-          return `<h3 style="margin:14px 0 6px">${E(mt)}${best ? ` <span style="font-size:12px;font-weight:600;color:#2e7d32">· best: ${E(best.party)} (${best.pct.toFixed(0)}%)</span>` : ""}</h3>
-          <div class="tableScroll"><table class="matrixTable stockTable"><tr><th>Supplier</th><th>Lots</th><th>Qty</th><th>Tested</th><th>In spec</th><th>Rating</th><th>Fails most on</th><th>Average vs PO</th><th>Month-wise in spec</th></tr>` +
-          rs.map(r => `<tr><td style="text-align:left">${E(r.party)}</td><td>${r.lots}</td><td>${r.qty ? r.qty.toFixed(1) : "-"}</td><td>${r.tested}</td>
-            <td style="font-weight:700;color:${r.pct == null ? "inherit" : r.pct >= 85 ? "#2e7d32" : r.pct >= 70 ? "#ef6c00" : "#c62828"}">${r.pct == null ? "-" : r.pct.toFixed(0) + "%"}</td>
-            <td style="color:#d4a017;white-space:nowrap">${stars(r.q)}</td><td style="text-align:left">${E(r.topFail || "-")}</td>
-            <td style="text-align:left;font-size:12px">${r.avg.map(a => `<span style="color:${a.okv ? "inherit" : "#c62828"}">${E(a.n.replace(/ %$/, ""))} ${a.av.toFixed(a.av >= 10 ? 1 : 3)} (${a.t === "max" ? "≤" : "≥"}${a.lim})</span>`).join("<br>")}</td>
-            <td style="font-size:12px;white-space:nowrap">${r.trend.map(t => `${ymLab(t.ym)}: ${t.pct == null ? "-" : t.pct.toFixed(0) + "%"}`).join("<br>")}</td></tr>`).join("") +
-          `</table></div>`;
+          return `<h3 style="margin:14px 0 6px">${E(mt)}${best ? ` <span style="font-size:12px;font-weight:600;color:${pc(best.pct)}">· top: ${E(best.party)} (${best.pct.toFixed(0)}%)</span>` : ""}</h3>` +
+          rs.map(r => `<div style="border:1px solid rgba(31,56,100,.15);border-left:5px solid ${pc(r.pct)};border-radius:10px;padding:9px 11px;margin:7px 0;background:rgba(255,255,255,.55)">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+              <div style="font-weight:700;line-height:1.25">${E(r.party)}</div>
+              <div style="text-align:right;white-space:nowrap"><div style="font-size:20px;font-weight:800;color:${pc(r.pct)};line-height:1">${r.pct == null ? "-" : r.pct.toFixed(0) + "%"}</div>
+                <div style="color:#d4a017;font-size:13px;letter-spacing:1px">${stars(r.q)}</div></div></div>
+            <div style="font-size:12.5px;color:var(--muted);margin:3px 0 4px">${r.lots} lots · ${r.qty ? r.qty.toFixed(1) : "-"} qty · ${r.tested} tested${r.topFail ? ` · fails most on <b style="color:#c62828">${E(r.topFail)}</b>` : ""}</div>
+            ${r.avg.length ? `<div>${r.avg.map(a => chip(`${E(a.n.replace(/ %$/, ""))} ${a.av.toFixed(a.av >= 10 ? 1 : 3)} <span style="opacity:.65">${a.t === "max" ? "≤" : "≥"}${a.lim}</span>`, !a.okv)).join("")}</div>` : ""}
+            ${r.trend.length > 1 ? `<div style="margin-top:3px">${r.trend.map(t => chip(`${ymLab(t.ym)} <b style="color:${pc(t.pct)}">${t.pct == null ? "-" : t.pct.toFixed(0) + "%"}</b>`)).join("")}</div>` : ""}
+          </div>`).join("");
         }).join("") +
-        `<div class="aovNote" style="display:block;margin-top:8px">Rating: ★5 ≥95% in spec · ★4 ≥85% · ★3 ≥70% · ★2 ≥50% · ★1 below. Red averages are outside the PO limit. Lots with no test values are counted but not judged.</div>`;
+        `<div class="aovNote" style="display:block;margin-top:8px">% = lots in PO spec out of tested lots. Rating: ★5 ≥95% · ★4 ≥85% · ★3 ≥70% · ★2 ≥50% · ★1 below. Red chips: average outside the PO limit. Lots with no test values are counted but not judged.</div>`;
       $("scPdfBtn").classList.remove("hidden");
       try { localStorage.setItem("scLastMade", new Date().toISOString()); } catch (e) {}
       st.className = "ok"; st.textContent = `Scorecard ready - ${P.label}.`;
@@ -28531,7 +28536,7 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
   const $ = id => document.getElementById(id);
   const E = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => "&#" + c.charCodeAt(0) + ";");
   const METRICS = [["off", "Off-spec heats %"], ["s", "Avg S %"], ["p", "Avg P %"], ["c", "Avg C %"], ["mn", "Avg Mn %"]];
-  let days = [], items = [], chart = null;
+  let days = [], items = [], chart = null, rep = { from: "", to: "", lines: [], cells: [] };
 
   (function defaults() {
     const d = new Date(), ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -28582,6 +28587,7 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
     let from = $("rmqFrom").value, to = $("rmqTo").value;
     if (!from || !to) { alert("Choose the months."); return; }
     if (from > to) [from, to] = [to, from];
+    rep.from = from; rep.to = to;
     const yms = []; for (let d = new Date(+from.slice(0, 4), +from.slice(5) - 1, 1); ; d.setMonth(d.getMonth() + 1)) {
       const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; yms.push(ym); if (ym >= to || yms.length >= 12) break; }
     days = [];
@@ -28603,6 +28609,8 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
     items.forEach(it => METRICS.forEach(([mk, ml]) => { const [xs, ys] = pairs(it.key, mk); const r = pearson(xs, ys); if (r != null) cells.push({ it, mk, ml, r, n: xs.length }); }));
     const strong = cells.filter(c => Math.abs(c.r) >= 0.4).sort((a, b) => Math.abs(b.r) - Math.abs(a.r)).slice(0, 5);
     const word = r => Math.abs(r) >= 0.6 ? "strongly" : "clearly";
+    rep.cells = cells.slice();
+    rep.lines = strong.map(c => `When ${c.it.label} share goes up, ${c.ml} ${word(c.r)} goes ${c.r > 0 ? "up" : "down"} (r = ${c.r.toFixed(2)}, ${c.n} days)`);
     $("rmqInsights").innerHTML = strong.length
       ? `<b>What moves together</b><ul style="margin:6px 0 4px 18px;padding:0">${strong.map(c => `<li>When <b>${E(c.it.label)}</b> share goes up, <b>${E(c.ml)}</b> ${word(c.r)} goes ${c.r > 0 ? "up" : "down"} <span style="color:var(--muted)">(r = ${c.r.toFixed(2)}, ${c.n} days)</span></li>`).join("")}</ul>
          <div class="aovNote" style="display:block">Moving together is a clue, not proof - check the furnace practice on those days before changing the mix.</div>`
@@ -28636,7 +28644,44 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
     });
   }
 
+  function pdf() {
+    if (!days.length) return;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+    const mLab = ym => { const [y, m] = ym.split("-").map(Number); return `${MONTH_ABBR[m - 1]} ${y}`; };
+    addLogoHeader(doc);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(31, 56, 100);
+    doc.text("Raw Material Mix vs Quality", W / 2, 30, { align: "center" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(60);
+    doc.text(`${rep.from === rep.to ? mLab(rep.from) : mLab(rep.from) + " to " + mLab(rep.to)} · ${days.length} days · ${days.reduce((s, d) => s + d.n, 0)} heats · RM share from the RM Report sheet, quality from the Prod. sheet`, W / 2, 46, { align: "center" });
+    let y = 64;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(31, 56, 100); doc.text("What moves together", 40, y); y += 14;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(40);
+    (rep.lines.length ? rep.lines : ["No raw material moves clearly with quality in this period (all |r| below 0.4)."]).forEach(t => { doc.text("• " + t, 46, y); y += 13; });
+    doc.setFontSize(8); doc.setTextColor(110); doc.text("r: +1 = always rise together, -1 = one rises when the other falls, 0 = no link. Moving together is a clue, not proof.", 46, y + 2); y += 14;
+    try {   // the chart on screen (material and quality figure chosen there)
+      const cv = $("rmqChart"), img = cv.toDataURL("image/png"), cw = W - 80, ch = Math.min(cw * cv.height / cv.width, H - y - 40);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(31, 56, 100);
+      doc.text(`Chart: ${$("rmqItem").selectedOptions[0].text} vs ${$("rmqMetric").selectedOptions[0].text}`, 40, y + 4);
+      doc.addImage(img, "PNG", 40, y + 10, cw * ch / (cw * cv.height / cv.width), ch); y += ch + 18;
+    } catch (e) {}
+    doc.autoTable({ startY: y > H - 120 ? undefined : y, pageBreak: "auto",
+      head: [["Material share", ...METRICS.map(m => m[1])]],
+      body: items.map(it => [it.label, ...METRICS.map(([mk]) => { const c = rep.cells.find(x => x.it === it && x.mk === mk); return c ? c.r.toFixed(2) : "-"; })]),
+      styles: { fontSize: 8.5, cellPadding: 4, halign: "center" }, columnStyles: { 0: { halign: "left" } }, headStyles: { fillColor: [31, 56, 100] }, theme: "grid",
+      didParseCell: d => { if (d.section === "body" && d.column.index > 0) { const v = parseFloat(d.cell.raw); if (!isNaN(v) && Math.abs(v) >= 0.4) { d.cell.styles.fontStyle = "bold"; d.cell.styles.textColor = v > 0 ? [198, 40, 40] : [46, 125, 50]; } } } });
+    doc.autoTable({ startY: doc.lastAutoTable.finalY + 14,
+      head: [["Date", "Heats", ...items.map(it => it.label + " %"), ...METRICS.map(m => m[1])]],
+      body: days.map(d => [d.date.split("-").reverse().join("-"), d.n, ...items.map(it => d.mix[it.key] == null ? "-" : d.mix[it.key].toFixed(1)),
+        ...METRICS.map(([mk]) => d.q[mk] == null ? "-" : mk === "off" ? d.q[mk].toFixed(0) : d.q[mk].toFixed(3))]),
+      styles: { fontSize: 7, cellPadding: 2.5, halign: "center" }, headStyles: { fillColor: [31, 56, 100], fontSize: 7 }, theme: "grid" });
+    stampLogoOnAllPages(doc);
+    showPdfPreview(doc, `RM_Mix_vs_Quality_${rep.from}_to_${rep.to}.pdf`, "RM Mix vs Quality");
+  }
+
   $("rmqLoadBtn").addEventListener("click", load);
+  $("rmqPdfBtn").addEventListener("click", pdf);
   $("rmqItem").addEventListener("change", drawChart);
   $("rmqMetric").addEventListener("change", drawChart);
 })();
