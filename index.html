@@ -5539,12 +5539,35 @@ window.__gmFS = {
             <button class="navItem" data-subtrend="pie"><span class="navIcon">🥧</span> Composition Breakdown</button>
             <button class="navItem" data-subtrend="sizewise"><span class="navIcon">📏</span> Size-wise Breakdown</button>
             <button class="navItem" data-subtrend="chemical"><span class="navIcon">🧪</span> Chemical Composition</button>
+            <button class="navItem" data-subtrend="rmquality"><span class="navIcon">🔬</span> RM Mix vs Quality</button>
           </div>
 
           <div class="contentArea hidden" id="trendsSubContent">
             <div class="backBar">
               <button class="backBtn" id="backToTrendsMenuBtn">← Back to Trend Charts Menu</button>
             </div>
+
+          <div class="sub-sectionPanel hidden" id="subtrend-rmquality">
+          <div class="card">
+            <h2>🔬 RM Mix vs Quality</h2>
+            <div class="aovNote" style="display:block;margin:0 0 8px">Day by day: the share of each raw material (RM Report) against the heats' quality (Prod. sheet) - off-spec %, average C, Mn, S, P - and how strongly they move together.</div>
+            <label for="rmqFrom">From month</label>
+            <input type="month" id="rmqFrom">
+            <label for="rmqTo">To month</label>
+            <input type="month" id="rmqTo">
+            <div class="btnRow"><button class="primary" id="rmqLoadBtn" type="button">Load</button></div>
+            <div id="rmqOut" class="hidden" style="margin-top:14px">
+              <div id="rmqInsights"></div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
+                <select id="rmqItem" style="flex:1;min-width:140px"></select>
+                <select id="rmqMetric" style="flex:1;min-width:140px"></select>
+              </div>
+              <canvas id="rmqChart" height="150"></canvas>
+              <div id="rmqMatrix" style="margin-top:12px;overflow-x:auto"></div>
+              <div id="rmqTable" style="margin-top:12px;overflow-x:auto"></div>
+            </div>
+          </div>
+          </div>
 
           <div class="sub-sectionPanel hidden" id="subtrend-linechart">
           <div class="card">
@@ -6271,6 +6294,7 @@ window.__gmFS = {
             <button class="navItem" data-subiso="traceability"><span class="navIcon">🔗</span> Traceability</button>
             <button class="navItem" data-subiso="objectives"><span class="navIcon">🎯</span> Quality Objectives</button>
             <button class="navItem" data-subiso="pack"><span class="navIcon">📦</span> Monthly ISO Pack</button>
+            <button class="navItem" data-subiso="audit"><span class="navIcon">🧾</span> Audit Ready</button>
           </div>
 
           <div class="contentArea hidden" id="iso9001SubContent">
@@ -6371,6 +6395,17 @@ window.__gmFS = {
           </div>
 
           <div class="sub-sectionPanel hidden" id="subiso-vendor">
+          <div class="card" id="scCard">
+            <h2>📊 RM Supplier Scorecard <span style="font-size:12px;font-weight:600;color:var(--muted)">auto</span></h2>
+            <div class="aovNote" style="display:block;margin:0 0 8px">From <b>Inward Raw Material Data</b>: every tested lot is checked against the PO spec (Sponge Iron Lumps / Fines, Silico Manganese).</div>
+            <label for="scPeriod">Period</label>
+            <select id="scPeriod"><option value="1">This month</option><option value="3" selected>Last 3 months</option><option value="6">Last 6 months</option><option value="fy">This financial year</option></select>
+            <div class="btnRow">
+              <button class="primary" id="scBuildBtn" type="button">Make scorecard</button>
+              <button class="secondary hidden" id="scPdfBtn" type="button">Download PDF</button>
+            </div>
+            <div id="scOut" style="margin-top:12px"></div>
+          </div>
           <div class="card">
             <h2>Vendor / Supplier Performance Evaluation</h2>
             <label for="venName">Vendor Name</label>
@@ -6410,6 +6445,22 @@ window.__gmFS = {
               <button class="primary" id="traceSearchBtn">Search</button>
             </div>
             <div id="traceResultWrap" class="hidden" style="margin-top:20px;"></div>
+          </div>
+          </div>
+
+          <div class="sub-sectionPanel hidden" id="subiso-audit">
+          <div class="card">
+            <h2>🧾 Audit Ready - ISO 9001 &amp; NABL (ISO/IEC 17025)</h2>
+            <div class="aovNote" style="display:block;margin:0 0 8px">Green items are checked by the app from its own records (calibration, NCR, vendors, objectives, SOP / WI, ISO packs). The rest you tick once with the date - kept in your OneDrive, the same on every device.</div>
+            <div class="btnRow">
+              <button class="primary" id="auStd9001" type="button">ISO 9001</button>
+              <button class="secondary" id="auStd17025" type="button">NABL 17025</button>
+            </div>
+            <div id="auScore" style="margin:10px 0;font-weight:700"></div>
+            <div id="auList"></div>
+            <div class="btnRow">
+              <button class="secondary" id="auPdfBtn" type="button">Download readiness report (PDF)</button>
+            </div>
           </div>
           </div>
 
@@ -6977,7 +7028,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.14.09";
+const APP_VERSION = "2026.11.14.10";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🏭 ERP Production + RM: the one RM line that lets the ERP save the voucher is now only 0.001 MT; the heat's consumption goes in with RM add",
@@ -28358,6 +28409,418 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
     if (a.k === "go") run(ym); else LSset("isoPackSnooze", today);
   };
   window.isoPackRun = run;
+  window.__iso = { VEN_RULES, qualityRating, loadHeats };   // used by the RM Supplier Scorecard / RM Mix vs Quality below
+})();
+/* ===================== ISO 9001 - RM SUPPLIER SCORECARD (auto, from Inward Raw Material Data) ===================== */
+(function supplierScorecard() {
+  const $ = id => document.getElementById(id);
+  const E = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => "&#" + c.charCodeAt(0) + ";");
+  const num = v => typeof v === "number" ? v : (v === "" || v == null ? null : (isNaN(parseFloat(v)) ? null : parseFloat(v)));
+  const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const ymLab = ym => { const [y, m] = ym.split("-").map(Number); return `${MON[m - 1]} ${String(y).slice(2)}`; };
+  const stars = q => q == null ? "-" : "★".repeat(q) + "☆".repeat(5 - q);
+  let last = null;
+
+  function period(v) {   // → { from, to, label }
+    const t = new Date(), y = t.getFullYear(), m = t.getMonth();
+    const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const to = iso(t);
+    if (v === "fy") { const fy = m >= 3 ? y : y - 1; return { from: `${fy}-04-01`, to, label: `FY ${fy}-${String(fy + 1).slice(2)} (till today)` }; }
+    const n = +v || 1, f = new Date(y, m - (n - 1), 1);
+    return { from: iso(f), to, label: n === 1 ? `${MON[m]} ${y}` : `${MON[f.getMonth()]} ${f.getFullYear()} - ${MON[m]} ${y}` };
+  }
+
+  async function build() {
+    const st = $("status"), out = $("scOut");
+    if (!window.__iso) { alert("Please wait for the app to finish loading."); return; }
+    const { VEN_RULES, qualityRating } = window.__iso;
+    const P = period($("scPeriod").value);
+    st.className = "wait"; st.textContent = "Reading Inward Raw Material Data...";
+    out.innerHTML = "";
+    try {
+      const token = await getToken();
+      const { data, col: col0, rowCol, isHeader } = await readInwardRmTable1(token);
+      const colErr = inwardRmMissingColsError(col0); if (colErr) throw new Error(colErr);
+      const groups = {};
+      for (let i = 1; i < data.values.length; i++) {
+        if (isHeader(i)) continue;
+        const row = data.values[i], txt = data.text[i], col = rowCol[i];
+        const bucket = classifyInwardItem(row[col.itemName]); if (!bucket) continue;
+        const iso = inwardRmDateToISO(row[col.grnDate], txt[col.grnDate]);
+        if (!iso || iso < P.from || iso > P.to) continue;
+        const party = String(row[col.partyName] || "").trim() || "(no party name)";
+        const k = party.toUpperCase() + "|" + bucket;
+        const g = groups[k] || (groups[k] = { party, material: VEN_RULES[bucket].label, lots: 0, qty: 0, tested: 0, ok: 0, fails: {}, par: {}, months: {} });
+        g.lots++;
+        const q = num(row[col.reachedQty]); if (q != null) g.qty += q;
+        const r = {}; ["plus150", "plus20", "minus1", "minus25", "minus4", "c", "fem", "mn", "nmag", "p", "s", "si", "minLimit"].forEach(f => { r[f] = num(row[col[f]]); });
+        const checks = VEN_RULES[bucket].rules(r).filter(([, v, , lim]) => v != null && lim != null);
+        checks.forEach(([n, v, t, lim]) => { const a = g.par[n] || (g.par[n] = { sum: 0, n: 0, t, lim }); a.sum += v; a.n++; a.lim = lim; });
+        if (!checks.length) continue;
+        g.tested++;
+        const ym = iso.slice(0, 7), mo = g.months[ym] || (g.months[ym] = { tested: 0, ok: 0 });
+        mo.tested++;
+        const bad = checks.filter(([, v, t, lim]) => { const x = Math.round(v * 1000) / 1000; return t === "max" ? x > lim : x < lim; });
+        if (!bad.length) { g.ok++; mo.ok++; } else bad.forEach(([n]) => { g.fails[n] = (g.fails[n] || 0) + 1; });
+      }
+      const rows = Object.values(groups).map(g => {
+        g.pct = g.tested ? g.ok / g.tested * 100 : null; g.q = qualityRating(g.pct);
+        g.topFail = Object.entries(g.fails).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([n, c]) => `${n} ×${c}`).join(", ");
+        g.avg = Object.entries(g.par).map(([n, a]) => {
+          const av = a.sum / a.n, okv = a.t === "max" ? av <= a.lim : av >= a.lim;
+          return { n, av, lim: a.lim, t: a.t, okv };
+        });
+        g.trend = Object.keys(g.months).sort().map(ym => ({ ym, pct: g.months[ym].tested ? g.months[ym].ok / g.months[ym].tested * 100 : null }));
+        return g;
+      }).sort((a, b) => a.material.localeCompare(b.material) || (b.pct == null ? -1 : a.pct == null ? 1 : b.pct - a.pct) || b.lots - a.lots);
+      if (!rows.length) { st.className = "ok"; st.textContent = `No inward lots of these materials in ${P.label}.`; out.innerHTML = `<div class="aovNote" style="display:block">No Sponge Iron / Silico Manganese lots in ${E(P.label)}.</div>`; $("scPdfBtn").classList.add("hidden"); last = null; return; }
+      last = { P, rows };
+      const mats = [...new Set(rows.map(r => r.material))];
+      out.innerHTML = `<div style="font-size:13px;color:var(--muted);margin-bottom:6px">${E(P.label)} · ${rows.reduce((s, r) => s + r.lots, 0)} lots · ${rows.length} supplier-material pairs</div>` +
+        mats.map(mt => {
+          const rs = rows.filter(r => r.material === mt), best = rs.find(r => r.tested >= 3 && r.pct != null);
+          return `<h3 style="margin:14px 0 6px">${E(mt)}${best ? ` <span style="font-size:12px;font-weight:600;color:#2e7d32">· best: ${E(best.party)} (${best.pct.toFixed(0)}%)</span>` : ""}</h3>
+          <div class="tableScroll"><table class="matrixTable stockTable"><tr><th>Supplier</th><th>Lots</th><th>Qty</th><th>Tested</th><th>In spec</th><th>Rating</th><th>Fails most on</th><th>Average vs PO</th><th>Month-wise in spec</th></tr>` +
+          rs.map(r => `<tr><td style="text-align:left">${E(r.party)}</td><td>${r.lots}</td><td>${r.qty ? r.qty.toFixed(1) : "-"}</td><td>${r.tested}</td>
+            <td style="font-weight:700;color:${r.pct == null ? "inherit" : r.pct >= 85 ? "#2e7d32" : r.pct >= 70 ? "#ef6c00" : "#c62828"}">${r.pct == null ? "-" : r.pct.toFixed(0) + "%"}</td>
+            <td style="color:#d4a017;white-space:nowrap">${stars(r.q)}</td><td style="text-align:left">${E(r.topFail || "-")}</td>
+            <td style="text-align:left;font-size:12px">${r.avg.map(a => `<span style="color:${a.okv ? "inherit" : "#c62828"}">${E(a.n.replace(/ %$/, ""))} ${a.av.toFixed(a.av >= 10 ? 1 : 3)} (${a.t === "max" ? "≤" : "≥"}${a.lim})</span>`).join("<br>")}</td>
+            <td style="font-size:12px;white-space:nowrap">${r.trend.map(t => `${ymLab(t.ym)}: ${t.pct == null ? "-" : t.pct.toFixed(0) + "%"}`).join("<br>")}</td></tr>`).join("") +
+          `</table></div>`;
+        }).join("") +
+        `<div class="aovNote" style="display:block;margin-top:8px">Rating: ★5 ≥95% in spec · ★4 ≥85% · ★3 ≥70% · ★2 ≥50% · ★1 below. Red averages are outside the PO limit. Lots with no test values are counted but not judged.</div>`;
+      $("scPdfBtn").classList.remove("hidden");
+      try { localStorage.setItem("scLastMade", new Date().toISOString()); } catch (e) {}
+      st.className = "ok"; st.textContent = `Scorecard ready - ${P.label}.`;
+    } catch (e) {
+      st.className = "err"; st.textContent = "Scorecard: " + (typeof shortError === "function" ? shortError(e.message || e) : (e.message || e));
+    }
+  }
+
+  function pdf() {
+    if (!last) return;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    addLogoHeader(doc);
+    const W = doc.internal.pageSize.getWidth();
+    doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(31, 56, 100);
+    doc.text("Raw Material Supplier Scorecard", W / 2, 30, { align: "center" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(60);
+    doc.text(`${last.P.label} · from Inward Raw Material Data (each tested lot against the PO spec)`, W / 2, 46, { align: "center" });
+    doc.autoTable({
+      startY: 58,
+      head: [["Material", "Supplier", "Lots", "Qty", "Tested", "In spec %", "Rating (1-5)", "Fails most on", "Average vs PO", "Month-wise in spec"]],
+      body: last.rows.map(r => [r.material, r.party, r.lots, r.qty ? r.qty.toFixed(1) : "-", r.tested, r.pct == null ? "-" : r.pct.toFixed(0) + "%", r.q == null ? "-" : r.q,
+        r.topFail || "-", r.avg.map(a => `${a.n.replace(/ %$/, "")} ${a.av.toFixed(a.av >= 10 ? 1 : 3)} (${a.t === "max" ? "max" : "min"} ${a.lim})${a.okv ? "" : " !"}`).join("\n"),
+        r.trend.map(t => `${ymLab(t.ym)}: ${t.pct == null ? "-" : t.pct.toFixed(0) + "%"}`).join("\n")]),
+      styles: { fontSize: 8, cellPadding: 4, valign: "middle" }, headStyles: { fillColor: [31, 56, 100] }, theme: "grid",
+      didParseCell: d => { if (d.section === "body" && d.column.index === 5) { const v = parseFloat(d.cell.raw); if (!isNaN(v)) d.cell.styles.textColor = v >= 85 ? [46, 125, 50] : v >= 70 ? [239, 108, 0] : [198, 40, 40]; } }
+    });
+    doc.setFontSize(8); doc.setTextColor(90);
+    doc.text("Rating: 5 = 95% or more lots in spec, 4 = 85%+, 3 = 70%+, 2 = 50%+, 1 = below 50%. '!' = average outside the PO limit.", 40, doc.lastAutoTable.finalY + 16);
+    stampLogoOnAllPages(doc);
+    showPdfPreview(doc, `RM_Supplier_Scorecard_${last.P.from}_to_${last.P.to}.pdf`, "RM Supplier Scorecard");
+  }
+
+  $("scBuildBtn").addEventListener("click", build);
+  $("scPdfBtn").addEventListener("click", pdf);
+})();
+
+/* ===================== TRENDS - RM MIX vs QUALITY ===================== */
+(function rmMixVsQuality() {
+  const $ = id => document.getElementById(id);
+  const E = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => "&#" + c.charCodeAt(0) + ";");
+  const METRICS = [["off", "Off-spec heats %"], ["s", "Avg S %"], ["p", "Avg P %"], ["c", "Avg C %"], ["mn", "Avg Mn %"]];
+  let days = [], items = [], chart = null;
+
+  (function defaults() {
+    const d = new Date(), ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const p = new Date(d.getFullYear(), d.getMonth() - 1, 1), pym = `${p.getFullYear()}-${String(p.getMonth() + 1).padStart(2, "0")}`;
+    if (!$("rmqFrom").value) $("rmqFrom").value = pym;
+    if (!$("rmqTo").value) $("rmqTo").value = ym;
+  })();
+
+  function pearson(xs, ys) {
+    const n = xs.length; if (n < 5) return null;
+    const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+    let sxy = 0, sxx = 0, syy = 0;
+    for (let i = 0; i < n; i++) { const dx = xs[i] - mx, dy = ys[i] - my; sxy += dx * dy; sxx += dx * dx; syy += dy * dy; }
+    if (sxx < 1e-12 || syy < 1e-12) return null;
+    return sxy / Math.sqrt(sxx * syy);
+  }
+  const pairs = (key, mk) => { const xs = [], ys = []; days.forEach(d => { const x = d.mix[key], y = d.q[mk]; if (x != null && y != null) { xs.push(x); ys.push(y); } }); return [xs, ys]; };
+  const avg = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
+  const nums = (hs, k) => hs.map(h => h[k]).filter(v => typeof v === "number");
+
+  async function monthData(token, ym) {
+    const [y, m] = ym.split("-").map(Number);
+    const { path, heats } = await window.__iso.loadHeats(token, ym);
+    const wb = await resolveWorkbook(token, path);
+    const sh = `worksheets('${encodeURIComponent(String(CONSUMPTION_SHEET_NAME).replace(/'/g, "''"))}')`;
+    const [a, b] = await Promise.all([
+      graphFetch(`${wb}/${sh}/range(address='A1:A2000')?$select=values`, token),
+      graphFetch(`${wb}/${sh}/range(address='AI1:AR2000')?$select=values`, token)]);
+    const cons = {};
+    (a.values || []).forEach((r, i) => {
+      if (typeof r[0] !== "number") return;
+      const iso = excelSerialToISODate(r[0]); if (!iso || iso.slice(0, 7) !== ym || cons[iso]) return;
+      cons[iso] = ((b.values || [])[i] || []).map(v => typeof v === "number" ? v : 0);
+    });
+    const byDay = {};
+    heats.forEach(h => { (byDay[h.date] = byDay[h.date] || []).push(h); });
+    return Object.keys(byDay).sort().map(date => {
+      const hs = byDay[date], rm = cons[date] || null, tot = rm ? rm.reduce((s, v) => s + v, 0) : 0;
+      const mix = {}; HEAT_CONSUMPTION_ITEMS.forEach((it, k) => { mix[it.key] = rm && tot > 0 ? rm[k] / tot * 100 : null; });
+      return { date, n: hs.length, mix, tot, q: { off: hs.length ? hs.filter(h => (h.issues || []).length).length / hs.length * 100 : null,
+        s: avg(nums(hs, "s")), p: avg(nums(hs, "p")), c: avg(nums(hs, "c")), mn: avg(nums(hs, "mn")) } };
+    }).filter(d => d.tot > 0);
+  }
+
+  async function load() {
+    const st = $("status");
+    if (!window.__iso) { alert("Please wait for the app to finish loading."); return; }
+    let from = $("rmqFrom").value, to = $("rmqTo").value;
+    if (!from || !to) { alert("Choose the months."); return; }
+    if (from > to) [from, to] = [to, from];
+    const yms = []; for (let d = new Date(+from.slice(0, 4), +from.slice(5) - 1, 1); ; d.setMonth(d.getMonth() + 1)) {
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; yms.push(ym); if (ym >= to || yms.length >= 12) break; }
+    days = [];
+    try {
+      const token = await getToken();
+      for (const ym of yms) {
+        st.className = "wait"; st.textContent = `RM mix vs quality: reading ${ym}...`;
+        try { days.push(...await monthData(token, ym)); } catch (e) { st.textContent = `${ym}: ${e.message || e}`; }
+      }
+      if (days.length < 5) { st.className = "err"; st.textContent = `Only ${days.length} day(s) with both heats and RM consumption - need at least 5.`; $("rmqOut").classList.add("hidden"); return; }
+      items = HEAT_CONSUMPTION_ITEMS.filter(it => days.some(d => d.mix[it.key] > 0));
+      render();
+      st.className = "ok"; st.textContent = `RM mix vs quality: ${days.length} days, ${days.reduce((s, d) => s + d.n, 0)} heats.`;
+    } catch (e) { st.className = "err"; st.textContent = "RM mix vs quality: " + (e.message || e); }
+  }
+
+  function render() {
+    const cells = [];
+    items.forEach(it => METRICS.forEach(([mk, ml]) => { const [xs, ys] = pairs(it.key, mk); const r = pearson(xs, ys); if (r != null) cells.push({ it, mk, ml, r, n: xs.length }); }));
+    const strong = cells.filter(c => Math.abs(c.r) >= 0.4).sort((a, b) => Math.abs(b.r) - Math.abs(a.r)).slice(0, 5);
+    const word = r => Math.abs(r) >= 0.6 ? "strongly" : "clearly";
+    $("rmqInsights").innerHTML = strong.length
+      ? `<b>What moves together</b><ul style="margin:6px 0 4px 18px;padding:0">${strong.map(c => `<li>When <b>${E(c.it.label)}</b> share goes up, <b>${E(c.ml)}</b> ${word(c.r)} goes ${c.r > 0 ? "up" : "down"} <span style="color:var(--muted)">(r = ${c.r.toFixed(2)}, ${c.n} days)</span></li>`).join("")}</ul>
+         <div class="aovNote" style="display:block">Moving together is a clue, not proof - check the furnace practice on those days before changing the mix.</div>`
+      : `<div class="aovNote" style="display:block">No raw material moves clearly with quality in these ${days.length} days (all |r| below 0.4).</div>`;
+    const color = r => r == null ? "" : Math.abs(r) < 0.2 ? "" : `background:${r > 0 ? "rgba(198,40,40," : "rgba(46,125,50,"}${Math.min(Math.abs(r), 0.8) * 0.45})`;
+    $("rmqMatrix").innerHTML = `<b>Strength (r) - every material against every quality figure</b><div class="tableScroll"><table class="matrixTable stockTable"><tr><th>Material share</th>${METRICS.map(([, ml]) => `<th>${E(ml)}</th>`).join("")}</tr>` +
+      items.map(it => `<tr><td style="text-align:left">${E(it.label)}</td>${METRICS.map(([mk]) => { const c = cells.find(x => x.it === it && x.mk === mk); return `<td style="${color(c && c.r)}">${c ? c.r.toFixed(2) : "-"}</td>`; }).join("")}</tr>`).join("") +
+      `</table></div><div class="aovNote" style="display:block">+1 = always rise together, -1 = one rises when the other falls, 0 = no link. Red: more of that material, higher figure.</div>`;
+    $("rmqTable").innerHTML = `<b>Day by day</b><div class="tableScroll"><table class="matrixTable stockTable"><tr><th>Date</th><th>Heats</th>${items.map(it => `<th>${E(it.label)} %</th>`).join("")}${METRICS.map(([, ml]) => `<th>${E(ml)}</th>`).join("")}</tr>` +
+      days.map(d => `<tr><td>${d.date.split("-").reverse().join("-")}</td><td>${d.n}</td>${items.map(it => `<td>${d.mix[it.key] == null ? "-" : d.mix[it.key].toFixed(1)}</td>`).join("")}${METRICS.map(([mk]) => `<td>${d.q[mk] == null ? "-" : mk === "off" ? d.q[mk].toFixed(0) : d.q[mk].toFixed(3)}</td>`).join("")}</tr>`).join("") + `</table></div>`;
+    const top = strong[0] || cells.sort((a, b) => Math.abs(b.r) - Math.abs(a.r))[0];
+    $("rmqItem").innerHTML = items.map(it => `<option value="${it.key}">${E(it.label)} %</option>`).join("");
+    $("rmqMetric").innerHTML = METRICS.map(([mk, ml]) => `<option value="${mk}">${E(ml)}</option>`).join("");
+    if (top) { $("rmqItem").value = top.it.key; $("rmqMetric").value = top.mk; }
+    $("rmqOut").classList.remove("hidden");
+    drawChart();
+  }
+
+  function drawChart() {
+    const key = $("rmqItem").value, mk = $("rmqMetric").value;
+    const it = items.find(x => x.key === key), ml = (METRICS.find(x => x[0] === mk) || [])[1];
+    if (!it) return;
+    if (chart) chart.destroy();
+    chart = new Chart($("rmqChart").getContext("2d"), {
+      type: "line",
+      data: { labels: days.map(d => d.date.slice(8) + "/" + d.date.slice(5, 7)), datasets: [
+        { label: it.label + " %", data: days.map(d => d.mix[key]), borderColor: "#d4a017", backgroundColor: "rgba(212,160,23,.15)", yAxisID: "y", tension: .25, spanGaps: true },
+        { label: ml, data: days.map(d => d.q[mk]), borderColor: "#c62828", backgroundColor: "rgba(198,40,40,.12)", yAxisID: "y1", tension: .25, spanGaps: true }] },
+      options: { responsive: true, interaction: { mode: "index", intersect: false },
+        scales: { y: { position: "left", title: { display: true, text: it.label + " %" } }, y1: { position: "right", grid: { drawOnChartArea: false }, title: { display: true, text: ml } } } }
+    });
+  }
+
+  $("rmqLoadBtn").addEventListener("click", load);
+  $("rmqItem").addEventListener("change", drawChart);
+  $("rmqMetric").addEventListener("change", drawChart);
+})();
+
+/* ===================== ISO 9001 - AUDIT READY (ISO 9001 + NABL / ISO/IEC 17025) ===================== */
+(function auditReady() {
+  const $ = id => document.getElementById(id);
+  const E = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => "&#" + c.charCodeAt(0) + ";");
+  const AU_URL = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/audit_checklist.json:/content";
+  const LS = "auditChecklist";
+  const today = () => (typeof todayISO === "function" ? todayISO() : new Date().toISOString().slice(0, 10));
+  const daysAgo = iso => iso ? Math.floor((new Date(today()) - new Date(iso)) / 864e5) : null;
+  const dmy = iso => iso ? iso.split("-").reverse().join("-") : "";
+  let std = "9001", state = {}, saveT = null;
+  try { state = JSON.parse(localStorage.getItem(LS) || "{}") || {}; } catch (e) { state = {}; }
+
+  // ---- checks the app can do from its own records ----
+  const A = {
+    cal() {
+      const l = getCalList(); if (!l.length) return [false, "No instruments in the Calibration Log"];
+      const noDate = l.filter(r => !r.dueDate).length, over = l.filter(r => r.dueDate && r.dueDate < today()).length;
+      const soon = l.filter(r => r.dueDate && r.dueDate >= today() && daysAgo(r.dueDate) >= -30).length;
+      return [!noDate && !over, `${l.length} instruments · ${over} overdue · ${soon} due in 30 days · ${noDate} without due date`];
+    },
+    calCert() {
+      const l = getCalList(); if (!l.length) return [false, "No instruments in the Calibration Log"];
+      const miss = l.filter(r => !String(r.certNo || "").trim()).length;
+      return [!miss, miss ? `${miss} of ${l.length} without certificate no.` : `All ${l.length} have a certificate no.`];
+    },
+    ncr() {
+      const l = getNcrList(), open = l.filter(r => r.status !== "closed");
+      const late = open.filter(r => r.targetDate && r.targetDate < today()).length;
+      const thin = l.filter(r => !String(r.rootCause || "").trim() || !String(r.action || "").trim()).length;
+      return [!late && !thin, `${l.length} NCRs · ${open.length} open · ${late} past target date · ${thin} without root cause / action`];
+    },
+    ven() {
+      const l = getVenList().filter(r => daysAgo(r.date) != null && daysAgo(r.date) <= 365);
+      let sc = ""; try { sc = localStorage.getItem("scLastMade") || ""; } catch (e) {}
+      const scOk = sc && daysAgo(sc.slice(0, 10)) <= 92;
+      return [l.length > 0 || scOk, `${l.length} evaluation(s) in the last 12 months${scOk ? ` · RM scorecard made ${dmy(sc.slice(0, 10))}` : " · RM scorecard not made in the last 3 months"}`];
+    },
+    obj() {
+      let t = {}; try { t = getObjTargets() || {}; } catch (e) {}
+      const n = Object.keys(t).length; return [n > 0, n ? `${n} objective target(s) set` : "No quality objective target set"];
+    },
+    packs() {
+      let done = {}; try { done = JSON.parse(localStorage.getItem("isoPackDone") || "{}") || {}; } catch (e) {}
+      const want = [1, 2, 3].map(k => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - k); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; });
+      const miss = want.filter(ym => !done[ym]);
+      return [!miss.length, miss.length ? `Monthly ISO pack missing for ${miss.join(", ")}` : "ISO packs made for the last 3 months"];
+    },
+    sop() {
+      const n = (typeof SOP_LIST !== "undefined" && SOP_LIST.length) || 0;
+      return [n > 0, n ? `${n} SOP / WI in the app (DM/QA series)` : (typeof SOP_LOADED !== "undefined" && !SOP_LOADED ? "SOP list still loading - open again" : "No SOP / WI")];
+    },
+    report() {
+      const sig = typeof SIGNATURE_IMG !== "undefined" && !!SIGNATURE_IMG, co = typeof COMPANY !== "undefined" && !!(COMPANY.name && COMPANY.logo);
+      return [sig && co, `Signature ${sig ? "set" : "not set"} · company name / logo ${co ? "set" : "not set"}`];
+    }
+  };
+
+  // ---- the checklists: [id, clause, item, auto check | null, needs a date within N days] ----
+  const LISTS = {
+    "9001": [
+      ["q1", "4.3", "Scope of the QMS written and approved", null],
+      ["q2", "5.2", "Quality policy displayed and known to the team", null],
+      ["q3", "6.1", "Risks and opportunities register reviewed", null, 365],
+      ["q4", "6.2", "Quality objectives set and monitored", "obj"],
+      ["q5", "7.1.5", "Measuring equipment calibrated, none overdue", "cal"],
+      ["q6", "7.2", "Training / competence records of the team up to date", null, 365],
+      ["q7", "7.5", "Documents controlled (no., revision, approval)", "sop"],
+      ["q8", "8.4", "External providers evaluated (vendor rating / RM scorecard)", "ven"],
+      ["q9", "8.5.2", "Heat-wise traceability available", null],
+      ["q10", "8.7", "Nonconforming product (off-spec heats) recorded and handled", "packs"],
+      ["q11", "9.1.2", "Customer complaints / feedback register", null],
+      ["q12", "9.2", "Internal audit done", null, 365],
+      ["q13", "9.3", "Management review done (minutes signed)", null, 365],
+      ["q14", "10.2", "NCR / CAPA closed with root cause and action", "ncr"]
+    ],
+    "17025": [
+      ["n1", "4.1", "Impartiality declaration signed by lab staff", null, 365],
+      ["n2", "4.2", "Confidentiality undertaking signed", null, 365],
+      ["n3", "6.2", "Personnel: qualification, training and authorisation records", null, 365],
+      ["n4", "6.3", "Environmental conditions (temperature / humidity) monitored and recorded", null, 31],
+      ["n5", "6.4", "Equipment calibrated, none overdue", "cal"],
+      ["n6", "6.5", "Metrological traceability: calibration certificates on file", "calCert"],
+      ["n7", "6.6", "CRMs / reference materials and consumables from evaluated suppliers", null],
+      ["n8", "7.2", "Test methods (SOP / WI) documented; validation / verification records", "sop"],
+      ["n9", "7.4", "Sample receipt, identification and retention", null],
+      ["n10", "7.6", "Measurement uncertainty estimated for each test", null, 365],
+      ["n11", "7.7", "Proficiency testing / ILC done", null, 365],
+      ["n12", "7.7", "Internal quality control (control charts, CRM checks, duplicates)", null, 31],
+      ["n13", "7.8", "Test report format: signature, company details, CML no.", "report"],
+      ["n14", "7.9 / 7.10", "Complaints and nonconforming work recorded (NCR / CAPA)", "ncr"],
+      ["n15", "8.8", "Internal audit done", null, 365],
+      ["n16", "8.9", "Management review done", null, 365]
+    ]
+  };
+
+  function status(row) {
+    const [id, , , auto, within] = row, m = state[id] || {};
+    if (auto) { const [ok, note] = A[auto](); return { ok, note, auto: true }; }
+    if (!m.ok) return { ok: false, note: m.note || "Not ticked yet" };
+    if (within && (!m.date || daysAgo(m.date) > within)) return { ok: false, note: m.date ? `Last on ${dmy(m.date)} - older than ${within >= 365 ? "12 months" : within + " days"}` : "Date not entered" };
+    return { ok: true, note: (m.date ? `Done ${dmy(m.date)}` : "Done") + (m.note ? " · " + m.note : "") };
+  }
+
+  function render() {
+    $("auStd9001").className = std === "9001" ? "primary" : "secondary";
+    $("auStd17025").className = std === "17025" ? "primary" : "secondary";
+    const list = LISTS[std], sts = list.map(status), ok = sts.filter(s => s.ok).length, pct = Math.round(ok / list.length * 100);
+    $("auScore").innerHTML = `${std === "9001" ? "ISO 9001" : "NABL (ISO/IEC 17025)"}: <span style="color:${pct >= 85 ? "#2e7d32" : pct >= 60 ? "#ef6c00" : "#c62828"}">${ok} of ${list.length} ready (${pct}%)</span>`;
+    $("auList").innerHTML = list.map((row, i) => {
+      const [id, cl, item, auto, within] = row, s = sts[i], m = state[id] || {};
+      return `<div class="card" style="margin:8px 0;padding:10px 12px;border-left:4px solid ${s.ok ? "#2e7d32" : "#c62828"}">
+        <div style="display:flex;gap:8px;align-items:flex-start"><span>${s.ok ? "✅" : "❌"}</span>
+          <div style="flex:1"><div style="font-weight:600">${E(item)} <span style="font-size:11px;color:var(--muted)">cl. ${E(cl)}${auto ? " · checked by the app" : ""}</span></div>
+          <div style="font-size:12px;color:var(--muted)">${E(s.note)}</div>
+          ${auto ? "" : `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
+            <label style="display:flex;gap:4px;align-items:center;margin:0;font-size:12px"><input type="checkbox" data-au="${id}" data-f="ok" ${m.ok ? "checked" : ""} style="width:auto;margin:0"> Done</label>
+            <input type="date" data-au="${id}" data-f="date" value="${E(m.date || "")}" style="width:auto;flex:0 0 150px;margin:0" title="${within ? "Date done" : "Date (optional)"}">
+            <input type="text" data-au="${id}" data-f="note" value="${E(m.note || "")}" placeholder="Note / document no." style="flex:1;min-width:120px;margin:0"></div>`}</div></div></div>`;
+    }).join("");
+    $("auList").querySelectorAll("[data-au]").forEach(el => el.addEventListener("change", () => {
+      const m = state[el.dataset.au] || (state[el.dataset.au] = {});
+      m[el.dataset.f] = el.type === "checkbox" ? el.checked : el.value.trim();
+      if (el.dataset.f === "ok" && el.checked && !m.date) m.date = today();
+      save(); render();
+    }));
+  }
+
+  function save() {
+    state._at = new Date().toISOString();
+    try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {}
+    clearTimeout(saveT);
+    saveT = setTimeout(async () => {
+      try { const token = await getToken(); if (!token) return;
+        await fetch(AU_URL, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(state) });
+      } catch (e) { /* kept on this device; goes up with the next change */ }
+    }, 1500);
+  }
+  async function loadCloud() {
+    try {
+      if (!account) return;
+      const token = await getToken(); if (!token) return;
+      const r = await fetch(AU_URL, { headers: { Authorization: "Bearer " + token } }); if (!r.ok) return;
+      const o = await r.json();
+      if (o && (!state._at || (o._at || "") > state._at)) { state = o; try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} render(); }
+    } catch (e) {}
+  }
+
+  function pdf() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+    const W = doc.internal.pageSize.getWidth();
+    addLogoHeader(doc);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(31, 56, 100);
+    doc.text("Audit Readiness Report", W / 2, 32, { align: "center" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(80);
+    doc.text(`As on ${dmy(today())}${typeof COMPANY !== "undefined" && COMPANY.name ? " · " + COMPANY.name : ""}`, W / 2, 46, { align: "center" });
+    let y = 60;
+    [["9001", "ISO 9001:2015 - Quality Management System"], ["17025", "NABL - ISO/IEC 17025:2017 (Testing Laboratory)"]].forEach(([k, title]) => {
+      const list = LISTS[k], sts = list.map(status), ok = sts.filter(s => s.ok).length;
+      doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(31, 56, 100);
+      doc.text(`${title}: ${ok} of ${list.length} ready (${Math.round(ok / list.length * 100)}%)`, 40, y + 12);
+      doc.autoTable({
+        startY: y + 18,
+        head: [["Clause", "Requirement", "Status", "Evidence / gap"]],
+        body: list.map((r, i) => [r[1], r[2], sts[i].ok ? "Ready" : "Gap", sts[i].note]),
+        styles: { fontSize: 8, cellPadding: 4 }, headStyles: { fillColor: [31, 56, 100] }, theme: "grid",
+        columnStyles: { 0: { cellWidth: 48 }, 2: { cellWidth: 42 } },
+        didParseCell: d => { if (d.section === "body" && d.column.index === 2) d.cell.styles.textColor = d.cell.raw === "Ready" ? [46, 125, 50] : [198, 40, 40]; }
+      });
+      y = doc.lastAutoTable.finalY + 14;
+    });
+    stampLogoOnAllPages(doc);
+    showPdfPreview(doc, `Audit_Readiness_${today()}.pdf`, "Audit Readiness Report");
+  }
+
+  $("auStd9001").addEventListener("click", () => { std = "9001"; render(); });
+  $("auStd17025").addEventListener("click", () => { std = "17025"; render(); });
+  $("auPdfBtn").addEventListener("click", pdf);
+  document.querySelectorAll('#iso9001SubNav .navItem[data-subiso="audit"]').forEach(b => b.addEventListener("click", () => { render(); loadCloud(); }));
+  render();
 })();
 </script>
 <script>
