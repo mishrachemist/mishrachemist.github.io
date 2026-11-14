@@ -7029,9 +7029,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.14.13";
+const APP_VERSION = "2026.11.14.14";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
+  "🔢 Calibration Log: Sl. No. now runs 1, 2, 3 ... in the list order (no gaps or jumps like 35, 38, 37) - also in its PDF and the ISO pack",
   "📋 Next FY AOP (WIP) now in your new format word for word: A-Q quantities (Budgeted, Consumed (A), Expected (B), A+B, Opening, Pending / To-be / Total indent, Opening March, Annual Consumption / Indent / Inventory Budget, Remark), R empty, S-V value at old / new rate, difference and % variation; SUMMARY E / F / I / N",
   "🏭 ERP Production + RM: the one RM line that lets the ERP save the voucher is now only 0.001 MT; the heat's consumption goes in with RM add",
   "✅ ERP Entry: new 📲 Approve - the Moltrix ERP app approves the day's saved production vouchers (✓ → Approve), so Production QC can go in next",
@@ -7667,6 +7668,7 @@ function getCalList() {
   try { return JSON.parse(localStorage.getItem("iso9001_cal") || "[]"); } catch (e) { return []; }
 }
 function saveCalList(list, localOnly) {   // a change you make is copied to OneDrive
+  list.forEach((r, i) => { r.sl = i + 1; });   // Sl. runs 1, 2, 3 ... in the log's order (no gaps after a removal / merge)
   localStorage.setItem("iso9001_cal", JSON.stringify(list));
   if (!localOnly) { try { localStorage.setItem("calSavedAt", new Date().toISOString()); } catch (e) {} calQueuePush(); }
 }
@@ -7706,7 +7708,7 @@ function renderCalTable() {
   const d = iso => iso ? iso.split("-").reverse().join("-") : "-";
   table.innerHTML = "<tr><th>Sl.</th><th>Equipment</th><th>ID</th><th>Make</th><th>Model</th><th>Range / Accuracy</th><th>Last Cal.</th><th>Due Date</th><th>Agency</th><th>Cert No.</th><th>Certificate</th><th>Status</th><th></th></tr>" +
     list.map((r, idx) => `<tr${idx === calEditIdx ? ' style="outline:2px solid var(--gold);"' : ""}>
-      <td>${e(r.sl || "")}</td><td>${e(r.name)}</td><td style="white-space:nowrap;">${e(r.id)}</td><td>${e(r.make || "")}</td><td>${e(r.model || "")}</td><td>${e(r.range || "")}</td>
+      <td>${idx + 1}</td><td>${e(r.name)}</td><td style="white-space:nowrap;">${e(r.id)}</td><td>${e(r.make || "")}</td><td>${e(r.model || "")}</td><td>${e(r.range || "")}</td>
       <td style="white-space:nowrap;">${d(r.lastDate)}</td><td style="white-space:nowrap;">${d(r.dueDate)}</td><td>${e(r.agency)}</td><td>${e(r.certNo)}</td><td>${r.certFile ? `<button class="secondary" onclick="calDownloadCert(${idx})" style="padding:4px 8px;font-size:11px;" title="Download ${e(r.certFile)}">📄 PDF</button>` : "-"}</td><td style="white-space:nowrap;">${calStatusFor(r.dueDate).text}</td>
       <td style="white-space:nowrap;"><button class="secondary" onclick="editCalEntry(${idx})" style="padding:4px 8px;font-size:11px;">Edit</button>
         <button class="secondary" onclick="deleteCalEntry(${idx})" style="padding:4px 8px;font-size:11px;">Remove</button></td>
@@ -7761,7 +7763,7 @@ document.getElementById("calPdfBtn").addEventListener("click", () => {
   doc.autoTable({
     startY: 45,
     head: [["Sl.", "Equipment", "ID", "Make", "Model", "Range / Accuracy", "Last Cal.", "Due Date", "Agency", "Cert No.", "Status"]],
-    body: list.map(r => [r.sl || "", r.name, r.id, r.make || "", r.model || "", r.range || "", d(r.lastDate), d(r.dueDate), r.agency, r.certNo, calStatusFor(r.dueDate).text.replace(/[🔴🟠🟢⚪]/gu, "").trim()]),
+    body: list.map((r, i) => [i + 1, r.name, r.id, r.make || "", r.model || "", r.range || "", d(r.lastDate), d(r.dueDate), r.agency, r.certNo, calStatusFor(r.dueDate).text.replace(/[🔴🟠🟢⚪]/gu, "").trim()]),
     styles: { fontSize: 8, cellPadding: 4 },
     headStyles: { fillColor: [31, 56, 100] },
     margin: { left: 20, right: 20, bottom: 30 },
@@ -28357,7 +28359,7 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
     // ---- Calibration
     y = page("Equipment Calibration Log", "7.1.5", "cal");
     if (cal.length) y = table(y, ["Sl.", "Equipment", "ID", "Make", "Model", "Range / Accuracy", "Last calibration", "Next due", "Agency", "Certificate No.", `Status on ${genDate}`],
-      cal.map(c => [c.sl || "", c.name, c.id || "-", c.make || "", c.model || "", c.range || "", dmy(c.lastDate) || "Not provided", dmy(c.dueDate) || "Not provided", c.agency || "Not provided", c.certNo || "Not provided",
+      cal.map((c, i) => [i + 1, c.name, c.id || "-", c.make || "", c.model || "", c.range || "", dmy(c.lastDate) || "Not provided", dmy(c.dueDate) || "Not provided", c.agency || "Not provided", c.certNo || "Not provided",
         !c.dueDate ? "Date not entered" : c.dueDate < today ? "Overdue" : (new Date(c.dueDate) - new Date(today)) / 86400000 <= 30 ? "Due within 30 days" : "OK"]),
       { styles: { fontSize: 7.5, cellPadding: 3 } });
     else y = note(y, ["No equipment registered in the Calibration Log."]);
