@@ -3118,15 +3118,8 @@ body:not(.erpPhone) .irqAppTile{display:none}
 .irqName{font-size:12.5px;font-weight:600;margin:5px 0 0 26px;line-height:1.3}.irqChk,.irqOcr{margin-left:26px}
 .irqChk{font-size:11.5px;color:#a2560b;font-weight:600;margin-top:3px}.irqOcr{font-size:11px;color:#6b7383;margin-top:2px}
 html.mzLocked body > *:not(#mzLock){ visibility:hidden !important; }
-#mzLock{ position:fixed; inset:0; z-index:2147483647; display:none; flex-direction:column; align-items:center; justify-content:center; gap:14px;
-  background:#f6f0e6; color:#1f3864; font-family:inherit; text-align:center; padding:24px; }
-html.mzLocked #mzLock{ display:flex; }
-#mzLock .mzlIcon{ font-size:64px; line-height:1; }
-#mzLock h2{ margin:0; font-size:22px; color:#1f3864; }
-#mzLock p{ margin:0; font-size:14px; color:#4a5568; max-width:320px; }
-#mzLock button{ border:none; border-radius:14px; padding:14px 22px; font-size:16px; font-weight:700; cursor:pointer; }
-#mzLock .mzlGo{ background:#1f3864; color:#fff; min-width:240px; }
-#mzLock .mzlAlt{ background:transparent; color:#1f3864; text-decoration:underline; font-size:13px; font-weight:600; padding:6px; }
+#mzLock{ position:fixed; inset:0; z-index:2147483647; display:none; background:#f6f0e6; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
+html.mzLocked #mzLock{ display:block; }
 </style>
 </head>
 
@@ -3182,7 +3175,7 @@ html.mzLocked #mzLock{ display:flex; }
     <img src="img/13ee24b95c6c.webp" alt="">
     <div><div class="kvName">Kashvi</div><div class="kvSub">Ask anything about Moltrix</div></div>
     <button id="kashviVoiceSet" aria-label="Voice settings" title="Aawaz chuniye" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;padding:4px 6px;">🎙️</button>
-    <button id="kashviVoiceBtn" aria-label="Voice on/off" title="Kashvi ki aawaz on/off" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:4px 6px;">🔊</button>
+    <button id="kashviVoiceBtn" aria-label="Voice on/off" title="Kashvi voice on/off" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:4px 6px;">🔊</button>
     <button id="kashviClose" aria-label="Close">✕</button>
   </div>
   <div id="kvVoicePanel" class="hidden">
@@ -5489,8 +5482,8 @@ window.__gmFS = {
             <div id="irqCatSt" class="aovNote" style="margin-top:8px;"></div>
             <div id="irqList" style="margin-top:12px;"></div>
             <div id="irqBtns">
-              <div class="irqPhoneNote">🖥️ Indent / Requisition ki ERP entry <b>desktop Moltrix</b> se karein: PC par Moltrix → yahi tile → list banayein → <b>🏭 Send to ERP</b> → ERP mein Start.</div>
-              <div class="erpAppGrid irqAppTile"><button type="button" id="irqApp" class="wide" style="--g1:#14532d;--g2:#2fae5f"><span class="ic">🛒</span><span class="lb" id="irqAppLb">ERP mein entry</span></button></div>
+              <div class="irqPhoneNote">🖥️ Make the Indent / Requisition ERP entry from <b>Moltrix on the desktop</b>: Moltrix on the PC → this tile → make the list → <b>🏭 Send to ERP</b> → Start in the ERP.</div>
+              <div class="erpAppGrid irqAppTile"><button type="button" id="irqApp" class="wide" style="--g1:#14532d;--g2:#2fae5f"><span class="ic">🛒</span><span class="lb" id="irqAppLb">ERP entry</span></button></div>
               <div class="btnRow irqPcBtns">
                 <button class="primary" id="irqSend" type="button">🏭 Send to ERP</button>
                 <button class="secondary" id="irqCopy" type="button">📋 Copy for ERP (phone)</button>
@@ -5889,7 +5882,7 @@ window.__gmFS = {
             <label for="rmQtyInput">Quantity (MT)</label>
             <input type="text" id="rmQtyInput" placeholder="jaise 38.340">
             <label for="rmGradeInput">Grade (optional)</label>
-            <input type="text" id="rmGradeInput" placeholder="khaali chhod sakte hain">
+            <input type="text" id="rmGradeInput" placeholder="Can be left blank">
 
             <div class="btnRow">
               <button class="primary" id="rmBtn">Next</button>
@@ -7043,9 +7036,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.15.3";
+const APP_VERSION = "2026.11.15.4";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
+  "🔒 The lock screen is now blank: tap anywhere for the fingerprint; hold 3 seconds to open with the Microsoft account. All app messages are now in English",
   "🔒 New Fingerprint Lock (☰ menu): Moltrix asks for the fingerprint every time it is opened on this phone (Microsoft sign-in stays once); if the fingerprint fails, open with the Microsoft account",
   "🔒 Home and the other screens no longer zoom with two fingers - only the reports zoom (pinch / double-tap inside the report)",
   "🔢 Calibration Log: Sl. No. now runs 1, 2, 3 ... in the list order (no gaps or jumps like 35, 38, 37) - also in its PDF and the ISO pack",
@@ -9298,7 +9292,7 @@ function loadSignature(force) {
 }
 function sigMissingWarn() {
   if (_sigWarned) return; _sigWarned = true;
-  alert("Signature not found in your OneDrive, so the PDF is made without it.\nMenu (☰) → Get Started → \"✍️ Upload signature\" se ek baar signature.png upload kar dijiye.");
+  alert("Signature not found in your OneDrive, so the PDF is made without it.\nMenu (☰) → Get Started → \"✍️ Upload signature\" to upload signature.png once.");
 }
 async function uploadSignatureFile(file) {
   try {
@@ -10384,7 +10378,7 @@ async function init() {
   if (isFileProtocol) {
     showAuthError(
       "This page was opened directly from a file (file://). Microsoft sign-in only works when the page is served from a server. " +
-      "Folder me terminal kholein aur chalayein:  python -m http.server 8000  — phir kholein: http://localhost:8000/index.html"
+      "Open a terminal in the folder and run:  python -m http.server 8000  — then open: http://localhost:8000/index.html"
     );
     return;
   }
@@ -11399,7 +11393,7 @@ function kvSpeechText(t) {
     .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, " ")
     .replace(/\bMT\b/g, " metric ton").replace(/%/g, " percent").replace(/\s*[|•·]\s*/g, ", ")
     .replace(/\n+/g, ". ").replace(/\s{2,}/g, " ").trim();
-  if (s.length > 420) { const cut = s.lastIndexOf(". ", 420); s = s.slice(0, cut > 150 ? cut + 1 : 420) + " Baaki screen par dekhiye."; }
+  if (s.length > 420) { const cut = s.lastIndexOf(". ", 420); s = s.slice(0, cut > 150 ? cut + 1 : 420) + " See the rest on the screen."; }
   return s;
 }
 function kvSpeak(text, cfg, force) {
@@ -11427,7 +11421,7 @@ function kvStopSpeaking() { try { if (window.speechSynthesis) speechSynthesis.ca
     const on = !kvVoiceOn();
     try { localStorage.setItem("kashviVoice", on ? "on" : "off"); } catch (e) {}
     paint();
-    if (on) kvSpeak("Ab main bol kar bhi bataungi"); else kvStopSpeaking();
+    if (on) kvSpeak("I will speak the answers too."); else kvStopSpeaking();
   });
 })();
 
@@ -11452,10 +11446,10 @@ function kvStopSpeaking() { try { if (window.speechSynthesis) speechSynthesis.ca
     const cur = kvSettings().voice || (_kvVoice && _kvVoice.name) || "";
     const list = voices();
     sel.innerHTML = list.map(v => `<option value="${v.name.replace(/"/g, "&quot;")}">${v.name} (${v.lang})</option>`).join("") ||
-      '<option value="">(is phone par koi English/Hindi voice nahi mili)</option>';
+      '<option value="">(no English / Hindi voice found on this phone)</option>';
     if (cur) sel.value = cur;
-    note.textContent = `Is phone par ${list.length} voice(s) mili (Google wali sabse upar). ` +
-      "Aur achchhi aawaz chahiye to phone Settings → Text-to-speech → Google engine ⚙️ → Install voice data → English (India) / हिन्दी me Voice I, II, III, IV download kijiye, phir app dobara kholiye.";
+    note.textContent = `${list.length} voice(s) found on this phone (Google voices at the top). ` +
+      "For a better voice: phone Settings → Text-to-speech → Google engine ⚙️ → Install voice data → English (India) / हिन्दी → download Voice I, II, III, IV, then open the app again.";
   };
   const show = () => { pv.textContent = (+pitch.value).toFixed(1); rv.textContent = (+rate.value).toFixed(2); };
   const cfg = () => ({ voice: sel.value, pitch: 1, rate: +rate.value });
@@ -15862,17 +15856,17 @@ async function answerExcelQuery(question) {
   if (/\brhf\b/.test(q) && !/\b(report|pdf)\b/.test(q)) {
     if (!account) return null;
     const pr = aqParsePeriod(q);
-    if (!pr) return `RHF feed for which date or period? e.g. "kal RHF me kitna billet feed hua", "september RHF".`;
+    if (!pr) return `RHF feed for which date or period? e.g. "RHF billet feed yesterday", "september RHF".`;
     const r = await aqRhf(await getToken(), pr.from, pr.to);
     if (!r) return `${pr.label}: no RHF block found in the Prod. sheet.`;
     const pc = (a) => [3, 4, 5, 6].map((L, i) => `${L}M ${a[i]}`).join(" · ");
-    return `${pr.label}: RHF me ${r.total.toFixed(3)} MT billet feed hua` + (r.days > 1 ? ` (${r.days} days)` : "") +
+    return `${pr.label}: RHF billet feed ${r.total.toFixed(3)} MT` + (r.days > 1 ? ` (${r.days} days)` : "") +
       `\n130: ${pc(r.pcs130)} → ${r.q130.toFixed(3)} MT\n160: ${pc(r.pcs160)} → ${r.q160.toFixed(3)} MT`;
   }
   const heatReq = aqHeatRequest(aqNormalize(q));
   if (heatReq) {
     if (!account) return null;
-    if (!heatReq.day) return `Heat no. ${heatReq.n} of which date? e.g. "kal ke ${heatReq.n}th heat", "5 oct heat ${heatReq.n}" or "heat 5.10.${heatReq.n}".`;
+    if (!heatReq.day) return `Heat no. ${heatReq.n} of which date? e.g. "5 oct heat ${heatReq.n}" or "heat 5.10.${heatReq.n}".`;
     const det = await aqHeatDetails(await getToken(), heatReq.day, heatReq.n);
     // "rolled" = Hot Charging: put that figure first when asked
     if (/\b(rolled|rolling|roll|hot\s*charg\w*)\b/.test(q)) {
@@ -15946,7 +15940,7 @@ function openKashvi() {
   if (!chat.dataset.greeted) {
     chat.dataset.greeted = "1";
     _askChatTarget = "kashviChat";
-    askDataAppendMessage("Hi, I am Kashvi, how may I help you?\nAsk for any report with a date, e.g. \"logsheet 1 to 15 october\", \"MIS august\", \"kal ka summary\".", false);
+    askDataAppendMessage("Hi, I am Kashvi, how may I help you?\nAsk for any report with a date, e.g. \"logsheet 1 to 15 october\", \"MIS august\", \"today's summary\".", false);
     if (!account) askDataAppendMessage("You can ask me about Indian Standards and SOPs without signing in. Plant figures need sign-in.", false);
   }
   setTimeout(() => document.getElementById("kashviInput").focus(), 200);
@@ -16505,7 +16499,7 @@ async function tryReportRequest(question) {
   if (/(kaun|kon|which|what|list|kya\s*kya).*(report)/.test(q) && !KR_REPORTS.some(r => r.re.test(q))) {
     askDataAppendMessage("I can make these reports for you - just say the name with a date or month:\n" +
       KR_REPORTS.map(r => "• " + r.name).join("\n") +
-      "\n\nExamples: \"logsheet 1 to 15 october\", \"september ka billet stock\", \"MIS august\", \"Q2 quarter report\", \"kal ka summary\".", false);
+      "\n\nExamples: \"logsheet 1 to 15 october\", \"september billet stock\", \"MIS august\", \"Q2 quarter report\", \"today's summary\".", false);
     return true;
   }
   const rep = KR_REPORTS.find(r => r.re.test(q));
@@ -18137,7 +18131,7 @@ window._erpEntryTest = { erpEntryBuild, erpBatchOf };
     sendLog(ok ? (inApp ? `Copied ${payload.items.length} item(s). Now open the Chrome app (not this app) → ERP tab → ${scr} → address bar → "Moltrix ERP" bookmark → Paste → Start.`
                         : `Copied ${payload.items.length} item(s). In the ERP tab: open ${scr} → address bar → "Moltrix ERP" bookmark → Paste → Start.`)
                : "Couldn't copy - press 📋 Copy for ERP below, then use the ERP tab.", ok ? "h" : "err");
-    if (ok && inApp) alert(`Copied ✓\n\nAb Chrome app kholiye → ERP tab → ${scr} → address bar mein "Moltrix ERP" → bookmark → Paste → Start.`);
+    if (ok && inApp) alert(`Copied ✓\n\nNow open the Chrome app → ERP tab → ${scr} → type "Moltrix ERP" in the address bar → the bookmark → Paste → Start.`);
     if (!w) sendLog(`The ERP tab didn't open (pop-up blocked?) - open ${ERP_ORIGIN}${ERP_PATH} in Chrome yourself.`, "err");
   });
   $("irqCopy").addEventListener("click", async () => {
@@ -18212,7 +18206,7 @@ async function submitHotOut() {
   if (hoParty !== "MIPPL") { await submitHotOutToParty(dateVal, section, hoParty, data); return; }
 
   statusEl.className = "wait";
-  statusEl.textContent = "Hot Out entry ho rahi hai...";
+  statusEl.textContent = "Hot Out entry in progress...";
 
   try {
     const token = await getToken();
@@ -18231,7 +18225,7 @@ async function submitHotOut() {
       return;
     }
 
-    statusEl.textContent = "Hot Out entry ho rahi hai...";
+    statusEl.textContent = "Hot Out entry in progress...";
     const wb = await resolveWorkbook(token, filePath);
 
     const colA = await graphFetch(
@@ -18324,7 +18318,7 @@ async function submitHotOutToParty(dateVal, section, party, data) {
   const asOn = `${dd}.${mm}.${yy}`;
   if (!confirm(`Hot Out → ${party}\nDate: ${asOn} · Section: ${section}\n${parts.map(x => `${x.l}mtr: ${x.n}`).join(" · ")}\n\nAdd "+${pcs}" in Billet Stock Format (column E, ${party} ${section} row)?`)) return;
   statusEl.className = "wait";
-  statusEl.textContent = `Hot Out (${party}) entry ho rahi hai...`;
+  statusEl.textContent = `Hot Out (${party}) entry in progress...`;
   try {
     const token = await getToken();
     const path = await detectFilePathForMonth(token, +yy, +mm - 1) || document.getElementById("filePath").value.trim();
@@ -18382,7 +18376,7 @@ async function submitRHF() {
   }
 
   statusEl.className = "wait";
-  statusEl.textContent = "RHF billets entry ho rahi hai...";
+  statusEl.textContent = "RHF billets entry in progress...";
 
   try {
     const token = await getToken();
@@ -18402,7 +18396,7 @@ async function submitRHF() {
       return;
     }
 
-    statusEl.textContent = "RHF billets entry ho rahi hai...";
+    statusEl.textContent = "RHF billets entry in progress...";
     const wb = await resolveWorkbook(token, filePath);
 
     const colA = await graphFetch(
@@ -19987,12 +19981,12 @@ async function createNextDayBlock() {
     if (_nextDayWarn.length) msg += `\n⚠️ ${_nextDayWarn.length} formatting write(s) Excel did not accept:\n` + _nextDayWarn.slice(0, 5).join("\n");
 
     const dt = blockDateText(r);
-    if (dt) msg = `📅 ${dt} ka block ban gaya\n\n` + msg;
+    if (dt) msg = `📅 ${dt} block made\n\n` + msg;
     if (dt) { try { localStorage.setItem("lastBlockDate", dt); } catch (e) {} updateNavSubs(); }
     statusEl.className = "ok";
     statusEl.textContent = msg;
     showCompletionPopup(msg);
-    phoneNotify(`📅 ${dt || "Next day"} ka block ban gaya`, `${label} - row ${r && r.newTitleRow}`);
+    phoneNotify(`📅 ${dt || "Next day"} block made`, `${label} - row ${r && r.newTitleRow}`);
 
   } catch (e) {
     statusEl.className = "err";
@@ -20054,7 +20048,7 @@ async function createAllNextDayBlocks(ev, opts) {
       }
       warnAll.push(..._nextDayWarn);
     }
-    const dHead = dates.size ? `📅 ${[...dates].join(", ")} ka block ban gaya` : "";
+    const dHead = dates.size ? `📅 ${[...dates].join(", ")} block made` : "";
     if (dates.size) { try { localStorage.setItem("lastBlockDate", [...dates].sort().pop()); } catch (e) {} updateNavSubs(); }
     result.fails = fails;
     const msg = (auto ? "🤖 Automatic daily blocks\n" : "") + (dHead ? dHead + "\n" : "") + (fails ? `⚠️ ${jobs.length - fails} of ${jobs.length} sheets done.` : result.upToDate ? `✅ ${jobs.length - result.upToDate} created, ${result.upToDate} already there.` : `✅ All ${jobs.length} next-day blocks created.`) + "\n\n" + lines.join("\n") +
@@ -20065,7 +20059,7 @@ async function createAllNextDayBlocks(ev, opts) {
     statusEl.textContent = msg;
     if (!auto || result.created.length || fails) {
       showCompletionPopup(msg);
-      phoneNotify((auto ? "🤖 " : "") + (dHead || "Next day blocks"), fails ? `${jobs.length - fails} of ${jobs.length} sheets done - ${fails} failed, app kholkar dekhiye` : `All ${jobs.length} sheets done`);
+      phoneNotify((auto ? "🤖 " : "") + (dHead || "Next day blocks"), fails ? `${jobs.length - fails} of ${jobs.length} sheets done - ${fails} failed - open the app to check` : `All ${jobs.length} sheets done`);
     }
   } catch (e) {
     result.error = e.message;
@@ -32549,28 +32543,32 @@ async function downloadAndroidApk() {
   // ---- lock screen ----
   const box = document.createElement("div");
   box.id = "mzLock";
-  box.innerHTML = `<div class="mzlIcon">🔒</div><h2>Moltrix locked</h2><p>Kholne ke liye fingerprint lagayein (ya phone ka screen lock).</p>
-    <button type="button" class="mzlGo">👆 Fingerprint se kholein</button><p class="mzlMsg" style="color:#c0392b;min-height:18px;"></p>
-    <button type="button" class="mzlAlt">Fingerprint nahi chal raha? Microsoft account se kholein</button>`;
+  // the lock screen is blank on purpose: a tap anywhere asks for the fingerprint again; holding a finger on it for
+  // 3 seconds offers the Microsoft sign-in (the way out if the fingerprint no longer works)
   document.body.appendChild(box);
-  const msg = t => { box.querySelector(".mzlMsg").textContent = t || ""; };
-  box.querySelector(".mzlGo").addEventListener("click", () => unlock());
-  box.querySelector(".mzlAlt").addEventListener("click", async () => {
-    if (!confirm("Microsoft account se dobara sign-in karke kholein? Uske baad fingerprint lock band ho jayega - ☰ menu se fir chalu kar sakte hain.")) return;
+  const msg = () => {};
+  let holdT = 0, held = false;
+  box.addEventListener("pointerdown", () => { held = false; clearTimeout(holdT); holdT = setTimeout(() => { held = true; recover(); }, 3000); });
+  ["pointerup", "pointercancel", "pointerleave"].forEach(ev => box.addEventListener(ev, () => clearTimeout(holdT)));
+  box.addEventListener("click", () => { if (!held) unlock(); held = false; });   // a long press is not a tap
+  box.addEventListener("contextmenu", e => e.preventDefault());
+  async function recover() {
+    if (busy) return;
+    if (!confirm("Open Moltrix by signing in again with the Microsoft account? The fingerprint lock is then switched off - switch it on again from the ☰ menu.")) return;
     try { sessionStorage.setItem("mzLockRecover", "1"); } catch (e) {}
     try {
       await msalReady;
       const acc = (typeof account !== "undefined" && account) ? account : null;
       await msalInstance.loginRedirect({ scopes: graphScopes, prompt: "login", loginHint: acc ? acc.username : undefined });
-    } catch (e) { msg("Sign-in nahi khula: " + ((e && e.message) || e)); }
-  });
+    } catch (e) { alert("Microsoft sign-in did not open: " + ((e && e.message) || e)); }
+  }
   // after that Microsoft sign-in (called from init, only for the allowed account)
   window.mzLockRecovered = () => {
     let want = false; try { want = sessionStorage.getItem("mzLockRecover") === "1"; sessionStorage.removeItem("mzLockRecover"); } catch (e) {}
     if (!want) return;
     try { localStorage.removeItem(KEY); } catch (e) {}
     html.classList.remove("mzLocked"); label();
-    setTimeout(() => alert("Microsoft account se khul gaya. Fingerprint lock ab band hai - ☰ menu → 🔒 Fingerprint Lock se dobara chalu karein."), 300);
+    setTimeout(() => alert("Opened with the Microsoft account. The fingerprint lock is now off - switch it on again from ☰ menu → 🔒 Fingerprint Lock."), 300);
   };
 
   async function verify() {
@@ -32578,16 +32576,16 @@ async function downloadAndroidApk() {
     const a = await navigator.credentials.get({ publicKey: {
       challenge: rnd(32), rpId: location.hostname, timeout: 60000, userVerification: "required",
       allowCredentials: [{ type: "public-key", id: unb64(id), transports: ["internal"] }] } });
-    if (!a || b64(a.rawId) !== id) throw new Error("dusri chaabi");
+    if (!a || b64(a.rawId) !== id) throw new Error("a different key was used");
     const flags = new Uint8Array(a.response.authenticatorData)[32];
-    if (!(flags & 0x04)) throw new Error("fingerprint / screen lock check nahi hua");   // UV flag
+    if (!(flags & 0x04)) throw new Error("the fingerprint / screen lock was not checked");   // UV flag
     return true;
   }
   async function unlock() {
     if (busy || !html.classList.contains("mzLocked")) return;
     busy = true; msg("");
     try { await verify(); html.classList.remove("mzLocked"); }
-    catch (e) { msg(e && e.name === "NotAllowedError" ? "Fingerprint nahi mila / cancel hua - button dobara dabayein." : "Nahi khula: " + ((e && e.message) || e)); }
+    catch (e) { try { navigator.vibrate && navigator.vibrate(60); } catch (x) {} }      // stays blank - tap to try again
     finally { busy = false; hiddenAt = 0; }
   }
   function lock() {
@@ -32609,7 +32607,7 @@ async function downloadAndroidApk() {
   if (cred()) {
     html.classList.add("mzLocked");
     let rec = false; try { rec = sessionStorage.getItem("mzLockRecover") === "1"; } catch (e) {}
-    if (!rec) setTimeout(unlock, 400); else msg("Microsoft sign-in ho raha hai…");
+    if (!rec) setTimeout(unlock, 400);
   }
 
   // ---- ☰ menu / ⋮ menu: switch on / off ----
@@ -32622,14 +32620,14 @@ async function downloadAndroidApk() {
   label();
   if (btn) btn.addEventListener("click", async () => {
     if (cred()) {      // off: only after the fingerprint
-      if (!confirm("Fingerprint lock band karein? Pehle fingerprint lagana hoga.")) return;
-      try { busy = true; await verify(); localStorage.removeItem(KEY); label(); alert("Fingerprint lock band ho gaya."); }
-      catch (e) { alert("Band nahi hua - fingerprint check nahi hua."); }
+      if (!confirm("Switch the fingerprint lock off? The fingerprint is needed first.")) return;
+      try { busy = true; await verify(); localStorage.removeItem(KEY); html.classList.remove("mzLocked"); label(); alert("Fingerprint lock is off."); }
+      catch (e) { alert("Not switched off - the fingerprint was not checked."); }
       finally { busy = false; }
       return;
     }
-    if (!(await supported())) { alert("Is phone / browser mein fingerprint lock nahi chal sakta (phone mein fingerprint ya screen lock set hona chahiye)."); return; }
-    if (!confirm("Fingerprint lock chalu karein?\n\nIs phone par Moltrix har baar kholne par (aur 1 minute se zyada bahar rehne ke baad) fingerprint maangega. Microsoft sign-in pehle jaisa ek hi baar rahega. Fingerprint ka data phone mein hi rehta hai.\n\nAgle step mein phone fingerprint maangega - Moltrix ke liye ek \"chaabi\" (passkey) save hogi, phir ek baar check hoga.")) return;
+    if (!(await supported())) { alert("The fingerprint lock cannot work on this phone / browser (a fingerprint or screen lock must be set on the phone)."); return; }
+    if (!confirm("Switch the fingerprint lock on?\n\nOn this phone Moltrix will ask for the fingerprint every time it is opened (and after more than 1 minute away). The Microsoft sign-in stays as it is (once). The fingerprint never leaves the phone.\n\nNext the phone asks for the fingerprint: a key (passkey) is saved for Moltrix, then checked once.")) return;
     try {
       busy = true;
       const c = await navigator.credentials.create({ publicKey: {
@@ -32642,11 +32640,11 @@ async function downloadAndroidApk() {
       localStorage.setItem(KEY, b64(c.rawId));
       await verify();                          // opens once with it, so the lock never starts with a key that doesn't work
       label();
-      alert("✅ Fingerprint lock chalu. Ab Moltrix har baar kholne par fingerprint maangega.");
+      alert("✅ Fingerprint lock is on. Moltrix will now ask for the fingerprint every time it is opened.");
     } catch (e) {
       try { localStorage.removeItem(KEY); } catch (x) {}
       label();
-      alert("Lock chalu nahi hua: " + ((e && e.name === "NotAllowedError") ? "fingerprint cancel hua / time khatam." : ((e && e.message) || e)));
+      alert("Lock not switched on: " + ((e && e.name === "NotAllowedError") ? "the fingerprint was cancelled or timed out." : ((e && e.message) || e)));
     } finally { busy = false; hiddenAt = 0; }
   });
 })();

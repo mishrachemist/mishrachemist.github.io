@@ -31,7 +31,7 @@ public class RunService extends Service {
     /** progress line in the running notification */
     static void update(Context c, String text) {
         NotificationManager nm = c.getSystemService(NotificationManager.class);
-        if (nm != null) nm.notify(ID_RUN, build(c, CH_RUN, "Moltrix ERP - entry chal rahi hai", text, true));
+        if (nm != null) nm.notify(ID_RUN, build(c, CH_RUN, "Moltrix ERP - entry running", text, true));
     }
 
     /** result when the run ends (stays after the service stops) */
@@ -67,8 +67,8 @@ public class RunService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         channels(this);
-        String text = intent != null && intent.getStringExtra("text") != null ? intent.getStringExtra("text") : "shuru…";
-        Notification n = build(this, CH_RUN, "Moltrix ERP - entry chal rahi hai", text, true);
+        String text = intent != null && intent.getStringExtra("text") != null ? intent.getStringExtra("text") : "starting…";
+        Notification n = build(this, CH_RUN, "Moltrix ERP - entry running", text, true);
         if (Build.VERSION.SDK_INT >= 29) startForeground(ID_RUN, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         else startForeground(ID_RUN, n);
         if (wl == null) {
