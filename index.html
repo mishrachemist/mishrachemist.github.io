@@ -4622,7 +4622,6 @@ window.__gmFS = {
         <button class="navItem" data-section="reports"><span class="navPin">☆</span><span class="navIcon">📄</span><span class="navLabel" data-en="Reports" data-hi="रिपोर्ट्स">Reports</span><span class="navShort">Reports</span></button>
         <button class="navItem" data-section="edgecrack"><span class="navPin">☆</span><span class="navIcon">🔬</span><span class="navLabel" data-en="Edge Crack QC Analysis" data-hi="एज क्रैक क्यूसी विश्लेषण">Edge Crack QC Analysis</span><span class="navShort">Edge Crack</span></button>
         <button class="navItem" data-section="iso9001"><span class="navPin">☆</span><span class="navIcon">📜</span><span class="navLabel" data-en="ISO 9001" data-hi="आईएसओ 9001">ISO 9001</span><span class="navShort">ISO 9001</span></button>
-        <button class="navItem" data-section="smartsummary"><span class="navPin">☆</span><span class="navIcon">📖</span><span class="navLabel" data-en="Smart Summary" data-hi="स्मार्ट सारांश">Smart Summary</span><span class="navShort">Summary</span></button>
         <button class="navItem" data-section="whatif"><span class="navPin">☆</span><span class="navIcon">🎯</span><span class="navLabel" data-en="What-If Simulator" data-hi="व्हाट-इफ सिम्युलेटर">What-If Simulator</span><span class="navShort">What-If</span></button>
         <button class="navItem askDataTileHidden" data-section="askdata"><span class="navPin">☆</span><span class="navIcon">💬</span><span class="navLabel" data-en="Ask Your Data" data-hi="डेटा से पूछें">Ask Your Data</span><span class="navShort">Ask Data</span></button>
         <button class="navItem" data-section="indstd"><span class="navPin">☆</span><span class="navIcon">📚</span><span class="navLabel" data-en="Indian Standards" data-hi="भारतीय मानक">Indian Standards</span><span class="navShort">Ind Std.</span></button>
@@ -7044,9 +7043,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.15.5";
+const APP_VERSION = "2026.11.15.6";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
+  "🧹 Smart Summary tile removed from the home screen",
   "🔒 Fingerprint Lock: a refresh (🔄) no longer asks for the fingerprint - only opening the app, or coming back after more than a minute",
   "🔒 The lock screen is now blank: tap anywhere for the fingerprint; hold 3 seconds to open with the Microsoft account. All app messages are now in English",
   "🔒 New Fingerprint Lock (☰ menu): Moltrix asks for the fingerprint every time it is opened on this phone (Microsoft sign-in stays once); if the fingerprint fails, open with the Microsoft account",
