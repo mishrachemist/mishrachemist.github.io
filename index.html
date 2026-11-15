@@ -4646,6 +4646,7 @@ window.__gmFS = {
             <button class="navItem" data-subgs="company"><span class="navIcon">🏢</span> Company Details</button>
             <button class="navItem" data-subgs="formats"><span class="navIcon">📦</span> Excel Formats</button>
             <button class="navItem" data-subgs="whatsapp"><span class="navIcon">📲</span> WhatsApp Setup</button>
+            <button class="navItem" data-subgs="msgformats"><span class="navIcon">💬</span> Message Formats</button>
             <button class="navItem ownerOnly" data-subgs="access"><span class="navIcon">🔑</span> App Access</button>
           </div>
 
@@ -4737,6 +4738,30 @@ window.__gmFS = {
               </div>
               <div id="waGuideInfo" style="font-size:12.5px;margin-top:6px;"></div>
             </div>
+          </div>
+          </div>
+
+          <div class="sub-sectionPanel hidden" id="subgs-msgformats">
+          <div class="card">
+            <h2>💬 WhatsApp Message Formats</h2>
+            <p style="font-size:13px;line-height:1.5;margin:6px 0 4px;">Tell Moltrix which words your WhatsApp messages use, so it can read them if the format changes, or in another company's format. Separate words with commas - any one of them is enough (except "Message has ALL of these"). Upper / lower case and extra spaces don't matter. An empty box uses the default words.</p>
+            <details style="font-size:12.5px;margin:4px 0 8px;"><summary style="cursor:pointer;font-weight:600;">What stays fixed</summary>
+              <ul style="margin:6px 0;padding-left:18px;line-height:1.5;">
+                <li>Heat number written D.M.N (5.11.3); a furnace as F-A / F-B.</li>
+                <li>Billet lines: <code>4mtr=10</code>, <code>12x4m</code> or <code>160×160MM=02pcs4mtr</code>; <code>TOTAL PCS=17</code>; sizes 160 / 130.</li>
+                <li>Chemistry: <code>label% = value</code> (or <code>label = value</code>) after the chemistry heading.</li>
+                <li>Consumption: <code>label = value</code>; date dd/mm/yyyy. RHF transfer: <code>120 pcs 160×6m (party)</code>; date dd.mm.yyyy.</li>
+              </ul></details>
+            <div id="wfForm"></div>
+            <label for="wfTestBox" style="margin-top:14px;">🔍 Try a message (uses the words in the boxes above, before saving)</label>
+            <textarea id="wfTestBox" rows="8" placeholder="Paste a WhatsApp message here" style="width:100%;"></textarea>
+            <div class="btnRow"><button class="secondary" id="wfTestBtn" type="button">🔍 Read this message</button></div>
+            <div id="wfTestOut" style="margin-top:8px;font-size:13.5px;"></div>
+            <div class="btnRow" style="margin-top:14px;">
+              <button class="primary" id="wfSaveBtn" type="button">💾 Save (OneDrive)</button>
+              <button class="secondary" id="wfResetBtn" type="button">↺ Default words</button>
+            </div>
+            <div id="wfStatus" style="font-size:13px;margin-top:6px;"></div>
           </div>
           </div>
 
@@ -7043,9 +7068,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.15.6";
+const APP_VERSION = "2026.11.15.7";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
+  "💬 New Get Started → Message Formats: teach Moltrix the words of your WhatsApp messages (heat / consumption / RHF transfer), try a message, save to OneDrive",
   "🧹 Smart Summary tile removed from the home screen",
   "🔒 Fingerprint Lock: a refresh (🔄) no longer asks for the fingerprint - only opening the app, or coming back after more than a minute",
   "🔒 The lock screen is now blank: tap anywhere for the fingerprint; hold 3 seconds to open with the Microsoft account. All app messages are now in English",
@@ -10535,7 +10561,7 @@ function showSignedIn() {
   document.body.classList.toggle("userMode", isUserMode());
   refreshMarketAccess();
   companyLoadLocal();   // company details for the reports (Get Started > Company details)
-  if (!isViewer()) setTimeout(() => { companyLoadCloud(); erpConfigLoad(); }, 1500);
+  if (!isViewer()) setTimeout(() => { companyLoadCloud(); erpConfigLoad(); waFmtLoad(); }, 1500);
   if (isUserMode()) {
     if (typeof closeKashvi === "function") closeKashvi();
     const em = accountEmail(account);
@@ -12157,6 +12183,198 @@ async function refreshAccessToken(oldToken) {
   } catch (e) { return null; }
 }
 
+/* ===================== WHATSAPP MESSAGE FORMATS (Get Started → Message Formats) =====================
+   The words the WhatsApp parser looks for are kept here, so a changed message format (or another company's format)
+   can be taught to Moltrix without new code. The defaults are the words the parser always used. Saved in OneDrive
+   (Apps → Moltrix → wa_formats.json), so the phone, the PC and the cloud sync all read the messages the same way. */
+const WA_FMT_URL = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/wa_formats.json:/content";
+const WA_FMT_DEFAULT = {
+  heat: {
+    heat: ["heat", "h.no", "h no"],               // the heat number line (the number itself is D.M.N, e.g. 5.11.3)
+    date: ["date"],                                // "Date 05/11" line
+    chem: ["chemical report"],                     // the chemistry block starts after this line
+    el: { C: ["C"], MN: ["Mn"], SI: ["Si"], S: ["S"], P: ["P"] },   // "C% = 0.18"
+    hot: ["feed"],                                 // billets sent to the strip mill (hot charging)
+    hotout: ["hot out"],
+    bypass: ["bypass", "by pass"],                 // billets kept at the CCM
+    stripmill: ["strip mill"],                     // "Strip Mill:" block / "For Strip Mill Bypass in CCM"
+    remark: ["remark"]                             // reading stops at this line (free text)
+  },
+  cons: {
+    ident: ["consumption"],
+    exclude: ["power consumption"],
+    date: ["date"],                                // "Date: 05/11/2026"
+    mat: { lumps: ["lumps"], fines: ["fines"], pellets: ["pellets", "pellet"], steelMeltingScrap: ["steel melting scrap"],
+      magMaterial: ["mag material"], rollingMillScrap: ["rolling mill scrap"], msScrap: ["M.S. Scrap"], ciMixScrap: ["CI Mix Scrap"],
+      pigIron: ["pig iron"], overSizeMag: ["over size mag"] }
+  },
+  rhf: {
+    ident: ["billet transferred", "sms to rhf"],   // all of these must be in the message
+    own: ["mippl"]                                 // "(MIPPL)" after a line = our own billets; another name = a party
+  }
+};
+const WF_CHEM_NAMES = { C: "Carbon (C)", MN: "Manganese (Mn)", SI: "Silicon (Si)", S: "Sulphur (S)", P: "Phosphorus (P)" };
+const WF_MAT_NAMES = { lumps: "Lumps", fines: "Fines", pellets: "Pellets", steelMeltingScrap: "Steel melting scrap", magMaterial: "Mag material",
+  rollingMillScrap: "Rolling mill scrap", msScrap: "M.S. scrap", ciMixScrap: "CI mix scrap", pigIron: "Pig iron", overSizeMag: "Over size mag" };
+function waFmtMerge(o) {   // saved settings over the defaults (a missing / empty list keeps the default)
+  const d = JSON.parse(JSON.stringify(WA_FMT_DEFAULT));
+  const list = v => Array.isArray(v) ? v.map(x => String(x || "").trim()).filter(Boolean) : null;
+  const put = (dst, src) => { if (!src || typeof src !== "object") return;
+    Object.keys(dst).forEach(k => { if (Array.isArray(dst[k])) { const l = list(src[k]); if (l && l.length) dst[k] = l; } else if (dst[k] && typeof dst[k] === "object") put(dst[k], src[k]); }); };
+  if (o && typeof o === "object") ["heat", "cons", "rhf"].forEach(g => put(d[g], o[g]));
+  return d;
+}
+let WA_FMT = (() => { try { return waFmtMerge(JSON.parse(localStorage.getItem("waFormats") || "null")); } catch (e) { return waFmtMerge(null); } })();
+let _waFmtP = null;
+function waFmtLoad(force) {
+  if (_waFmtP && !force) return _waFmtP;
+  _waFmtP = (async () => {
+    try {
+      if (!account || (typeof isViewer === "function" && isViewer())) return false;
+      const token = await getToken(); if (!token) return false;
+      const r = await fetch(WA_FMT_URL, { headers: { Authorization: "Bearer " + token }, cache: "no-store" });
+      if (r.status === 404) { WA_FMT = waFmtMerge(null); try { localStorage.removeItem("waFormats"); } catch (e) {} return true; }
+      if (!r.ok) { _waFmtP = null; return false; }
+      const o = await r.json();
+      WA_FMT = waFmtMerge(o); try { localStorage.setItem("waFormats", JSON.stringify(o)); } catch (e) {}
+      return true;
+    } catch (e) { _waFmtP = null; return false; }
+  })();
+  return _waFmtP;
+}
+// matching helpers
+function wfSquash(t) {   // "Billets  Transfered" ~ "billet transferred": lower case, no spaces / dots, plural s and double letters dropped
+  return String(t || "").toLowerCase().split(/[^a-z0-9]+/).map(w => w.length > 3 ? w.replace(/s$/, "") : w).join("").replace(/(.)\1+/g, "$1");
+}
+function wfHas(text, words, loose) {
+  const low = String(text || "").toLowerCase(), sq = loose ? wfSquash(text) : "";
+  return (words || []).some(w => { w = String(w || "").trim().toLowerCase(); if (!w) return false;
+    if (low.includes(w)) return true; if (!loose) return false; const s = wfSquash(w); return s.length >= 3 && sq.includes(s); });
+}
+function wfAll(text, words) { const l = (words || []).filter(w => String(w || "").trim()); return l.length > 0 && l.every(w => wfHas(text, [w], true)); }
+function wfStarts(line, words) { const low = String(line || "").trim().toLowerCase(); return (words || []).some(w => { w = String(w || "").trim().toLowerCase(); return !!w && low.startsWith(w); }); }
+// a word as a regex piece: "M.S. Scrap" -> M\.?\s*S\.?\s*\s*Scrap (dots optional, any spaces)
+function wfRe(w) {
+  const s = String(w || "").trim();
+  const body = s.replace(/[.*+?^${}()|[\]\\]/g, m => m === "." ? "\\.?\\s*" : "\\" + m).replace(/\s+/g, "\\s*");
+  return (/^\w/.test(s) ? "\\b" : "") + body;
+}
+function wfAlt(words) { return (words || []).filter(w => String(w || "").trim()).slice().sort((a, b) => b.length - a.length).map(wfRe).join("|") || "(?!)"; }
+
+/* ---------- Get Started → 💬 Message Formats: the form, try-a-message, save ---------- */
+(function () {
+  const FIELDS = [
+    { g: "Heat message (billets + chemistry)", rows: [
+      ["heat.heat", "Heat number line has", "the number itself is written D.M.N, e.g. 5.11.3"],
+      ["heat.date", "Date line starts with", "e.g. \"Date 05/11\""],
+      ["heat.chem", "Chemistry block starts after", ""],
+      ["heat.el.C", WF_CHEM_NAMES.C, "written like  C% = 0.18"], ["heat.el.MN", WF_CHEM_NAMES.MN, ""], ["heat.el.SI", WF_CHEM_NAMES.SI, ""],
+      ["heat.el.S", WF_CHEM_NAMES.S, ""], ["heat.el.P", WF_CHEM_NAMES.P, ""],
+      ["heat.hot", "Billets sent to the strip mill (hot charging)", "block heading"],
+      ["heat.bypass", "Billets kept at the CCM (bypass)", "block heading"],
+      ["heat.stripmill", "Strip mill", "\"Strip Mill:\" block, or with the bypass word: strip mill bypass"],
+      ["heat.hotout", "Hot out", "block heading"],
+      ["heat.remark", "Stop reading at", "free-text line, e.g. a remark"] ] },
+    { g: "Raw material consumption message", rows: [
+      ["cons.ident", "Message has the word", ""], ["cons.exclude", "But not when it has", "e.g. power consumption (KWH)"],
+      ["cons.date", "Date line starts with", "date written dd/mm/yyyy"] ].concat(
+      Object.keys(WF_MAT_NAMES).map(k => ["cons.mat." + k, WF_MAT_NAMES[k], k === "lumps" ? "written like  Lumps = 120.5" : ""])) },
+    { g: "Billet transfer to RHF message", rows: [
+      ["rhf.ident", "Message has ALL of these", "e.g. billets transferred ... SMS to RHF"],
+      ["rhf.own", "Our own company (name in brackets)", "lines like  120 pcs 160×6m (MIPPL); another name = a party"] ] }
+  ];
+  const get = (o, path) => path.split(".").reduce((a, k) => a && a[k], o);
+  const set = (o, path, v) => { const ks = path.split("."); let a = o; ks.slice(0, -1).forEach(k => { a = a[k] = a[k] || {}; }); a[ks[ks.length - 1]] = v; };
+  const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => "&#" + c.charCodeAt(0) + ";");
+  const idOf = path => "wf_" + path.replace(/\./g, "_");
+  const form = document.getElementById("wfForm");
+  if (!form) return;
+  function render(fmt) {
+    form.innerHTML = FIELDS.map((grp, gi) => `<details ${gi === 0 ? "open" : ""} style="margin:10px 0;border:1px solid var(--border,#ddd);border-radius:10px;padding:8px 10px;">
+      <summary style="cursor:pointer;font-weight:700;">${esc(grp.g)}</summary>
+      ${grp.rows.map(([path, lab, hint]) => `<label for="${idOf(path)}" style="margin-top:10px;">${esc(lab)}${hint ? ` <span style="font-weight:400;opacity:.7;font-size:12px;">- ${esc(hint)}</span>` : ""}</label>
+        <input type="text" id="${idOf(path)}" value="${esc((get(fmt, path) || []).join(", "))}" autocomplete="off" spellcheck="false">`).join("")}
+    </details>`).join("");
+  }
+  function read() {
+    const o = {};
+    FIELDS.forEach(grp => grp.rows.forEach(([path]) => {
+      const el = document.getElementById(idOf(path));
+      set(o, path, String(el ? el.value : "").split(",").map(x => x.trim()).filter(Boolean));
+    }));
+    return waFmtMerge(o);   // an emptied box falls back to its default
+  }
+  const status = (t, cls) => { const s = document.getElementById("wfStatus"); if (s) { s.className = cls || ""; s.textContent = t || ""; } };
+  async function open() {
+    status("Loading the saved formats…", "wait");
+    await waFmtLoad(true);
+    render(WA_FMT); status("");
+    const sv = document.getElementById("wfSaveBtn"); if (sv) sv.disabled = typeof isViewer === "function" && isViewer();
+  }
+  const tile = document.querySelector('#getStartedSubNav [data-subgs="msgformats"]');
+  if (tile) tile.addEventListener("click", open);
+  render(WA_FMT);
+
+  // ---- try a message with the words in the boxes (not saved yet) ----
+  const num = v => v == null ? "-" : String(v);
+  const tbl = rows => `<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:6px;">${rows.map(r =>
+    `<tr>${r.map((c, i) => `<td style="border:1px solid var(--border,#ddd);padding:4px 6px;${i === 0 ? "font-weight:600;" : "text-align:center;"}">${c}</td>`).join("")}</tr>`).join("")}</table>`;
+  function readMsg(text) {
+    if (isRhfTransferMessage(text)) {
+      const P = parseRhfTransferMessage(text);
+      if (P.error) return `<b>🚚 Billet transfer to RHF</b> - but: ${esc(P.error)}`;
+      const own = Object.keys(P.own).map(sz => [`Own ${sz}`, num(P.own[sz][3]), num(P.own[sz][4]), num(P.own[sz][5]), num(P.own[sz][6])]);
+      const party = Object.keys(P.party).map(k => { const [n, sz] = k.split("|"); return [esc(n) + " " + sz, P.party[k] + " pcs", "", "", ""]; });
+      return `<b>🚚 Billet transfer to RHF</b> · date ${esc(P.dateISO)}` + tbl([["", "3 M", "4 M", "5 M", "6 M"]].concat(own, party)) +
+        (P.bad.length ? `<div style="color:#c0392b;">Not taken: ${P.bad.map(esc).join("; ")}</div>` : "");
+    }
+    if (isConsumptionMessage(text)) {
+      const P = parseConsumptionMessage(text);
+      const rows = Object.keys(WF_MAT_NAMES).map(k => [WF_MAT_NAMES[k], P.values[k] == null ? "<span style='opacity:.5'>not found</span>" : esc(P.values[k])]);
+      return `<b>⛏️ Raw material consumption</b> · date ${P.iso ? esc(P.iso) : "<span style='color:#c0392b'>not found</span>"}` + tbl(rows);
+    }
+    const saveHint = heatDateHint; heatDateHint = null;
+    const P = parseMessage(text); heatDateHint = saveHint;
+    if (!P.heatKey && P.heatIssue) return `<b>🔥 Heat message</b> - but: ${esc(P.heatIssue)}`;
+    if (!P.heatKey) return `<b>Not recognised</b> - this message would be skipped (no heat number, and not a consumption / RHF transfer message).`;
+    const L = (o, got) => got ? [num(o[3]), num(o[4]), num(o[5]), num(o[6])] : ["-", "-", "-", "-"];
+    const chemRow = ["C", "MN", "SI", "S", "P"].map(k => `${WF_CHEM_NAMES[k].replace(/ \(.*/, "")}: <b>${P.chem[k] == null ? "-" : esc(P.chem[k])}</b>`).join(" · ");
+    return `<b>🔥 Heat ${esc(P.heatKey)}</b>${P.furnace ? " · furnace " + esc(P.furnace) : ""} · size ${esc(P.sz)}${P.dateLine ? ` · date ${P.dateLine.date}/${P.dateLine.month}` : ""}` +
+      (P.heatFixedFrom ? `<div style="font-size:12px;opacity:.8;">heat number rebuilt from "${esc(P.heatFixedFrom)}"</div>` : "") +
+      tbl([["Billets (pcs)", "3 M", "4 M", "5 M", "6 M", "Total stated"],
+        ["Strip mill (hot charging)"].concat(L(P.hot, P.gotHot), [num(P.hotTotalStated)]),
+        ["Bypass (CCM)"].concat(L(P.byp, P.gotByp), [num(P.bypTotalStated)]),
+        ["130 × 130 (of a 160 heat)"].concat(L(P.grp130, P.got130), [num(P.grp130TotalStated)]),
+        ["Hot out"].concat(L(P.hotout, P.gotHotOut), [num(P.hotoutTotalStated)])]) +
+      `<div style="margin-top:6px;font-size:13px;">Chemistry - ${chemRow}</div>`;
+  }
+  document.getElementById("wfTestBtn").addEventListener("click", () => {
+    const text = String(document.getElementById("wfTestBox").value || "").trim(), out = document.getElementById("wfTestOut");
+    if (!text) { out.innerHTML = "Paste a WhatsApp message first."; return; }
+    const keep = WA_FMT;
+    try { WA_FMT = read(); out.innerHTML = readMsg(text); }
+    catch (e) { out.innerHTML = "Could not read it: " + esc(e.message || e); }
+    finally { WA_FMT = keep; }
+  });
+  document.getElementById("wfResetBtn").addEventListener("click", () => {
+    if (!confirm("Put the default words back in the boxes? (Saved only when you press Save.)")) return;
+    render(WA_FMT_DEFAULT); status("Default words in the boxes - press 💾 Save to use them.", "wait");
+  });
+  document.getElementById("wfSaveBtn").addEventListener("click", async () => {
+    if (typeof isViewer === "function" && isViewer()) return;
+    const o = read();
+    status("Saving…", "wait");
+    try {
+      const token = await getToken(); if (!token) throw new Error("not signed in");
+      const r = await fetch(WA_FMT_URL, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(o, null, 1) });
+      if (!r.ok) throw new Error("OneDrive " + r.status);
+      WA_FMT = waFmtMerge(o); _waFmtP = Promise.resolve(true);
+      try { localStorage.setItem("waFormats", JSON.stringify(o)); } catch (e) {}
+      status("✅ Saved in OneDrive (Apps → Moltrix → wa_formats.json). The next WhatsApp fetch reads the messages with these words - on every device and in the cloud sync.", "ok");
+    } catch (e) { status("Not saved: " + (e.message || e), "err"); }
+  });
+})();
+
 /* ===================== MESSAGE PARSER (same logic as VBA macro) ===================== */
 // Date hint for rebuilding a heat number that was typed without its dots.
 // Set by the WhatsApp fetch to the message's received time (approximate,
@@ -12271,6 +12489,7 @@ function recoverHeatKey(lines, dateLine) {
 }
 
 function parseMessage(msg) {
+  const F = WA_FMT.heat;   // the words of the message format (Get Started → Message Formats)
   const lines = msg.split(/\r?\n/);
   let heatKey = "";
   let dateLine = null; // { date, month, year } parsed from a "Date DD/MM" or "Date DD/MM/YYYY" line, if present
@@ -12294,10 +12513,14 @@ function parseMessage(msg) {
   const chem = { C:null, MN:null, SI:null, S:null, P:null };
 
   const reHeat = /(\d{1,2})\.(\d{1,2})\.(\d{1,2})/;
-  const reDateLine = /\bdate\s*[:\-=]?\s*(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?/i;
+  const reDateLine = new RegExp("(?:" + wfAlt(F.date) + ")\\s*[:\\-=]?\\s*(\\d{1,2})[\\/\\-.](\\d{1,2})(?:[\\/\\-.](\\d{2,4}))?", "i");
   const reAssign = /(\d)\s*mtr\s*=\s*(\d+)/gi;
   const reCompact = /(\d+)\s*[x\u00d7]\s*(\d)\s*m\b/gi;
-  const reChem = /([A-Za-z]{1,2})\s*%\s*=\s*([\d.]+)/gi;
+  const elMap = {};   // label (lower case) -> C / MN / SI / S / P
+  Object.keys(F.el).forEach(k => F.el[k].forEach(w => { elMap[String(w).trim().toLowerCase()] = k; }));
+  const reChem = new RegExp("(?:^|[^A-Za-z])(" + wfAlt(Object.keys(elMap)) + ")\\s*%?\\s*[=:]\\s*([\\d.]+)", "gi");
+  const elOf = t => { const l = String(t).trim().toLowerCase(); return elMap[l] || elMap[Object.keys(elMap).find(w => wfSquash(w) === wfSquash(l))] || ""; };
+  const reStripHead = new RegExp("^(?:" + wfAlt(F.stripmill) + ")\\s*:?$", "i");
   const reTotalPcs = /total\s*pcs\s*=\s*(\d+)/i;
   // short format: "160×160MM=02pcs4mtr" (size = pieces + length)
   const reSizePcs = /(\d{3})\s*[x\u00d7*]\s*\d{3}\s*(?:mm)?\s*[=:\-]\s*(\d+)\s*pcs?\s*(\d)\s*m(?:tr?s?|eters?|etres?)?\b/gi;
@@ -12310,9 +12533,9 @@ function parseMessage(msg) {
     // Remarks are free-text notes (not structured data) and can coincidentally
     // contain words like "bypass" or patterns like "3x4m" that would otherwise
     // be misread as billet entries. Stop parsing once we hit one.
-    if (/^remark/i.test(ln)) break;
+    if (wfStarts(ln, F.remark)) break;
 
-    if (!dateLine && low.includes("date")) {
+    if (!dateLine && wfHas(ln, F.date)) {
       const dm = reDateLine.exec(ln);
       if (dm) {
         let year = dm[3] ? parseInt(dm[3], 10) : null;
@@ -12321,36 +12544,36 @@ function parseMessage(msg) {
       }
     }
 
-    if (!heatKey && (low.includes("heat") || low.includes("h.no") || low.includes("h no"))) {
+    if (!heatKey && wfHas(ln, F.heat)) {
       const m = reHeat.exec(ln);
       reHeat.lastIndex = 0;
       if (m) heatKey = `${parseInt(m[1])}.${parseInt(m[2])}.${parseInt(m[3])}`;
     }
 
-    if (low.includes("chemical report")) { inChem = true; continue; }
+    if (wfHas(ln, F.chem)) { inChem = true; continue; }
 
     if (inChem) {
       let m;
       reChem.lastIndex = 0;
       while ((m = reChem.exec(ln)) !== null) {
-        const lbl = m[1].toUpperCase();
+        const lbl = elOf(m[1]);
         const v = parseFloat(m[2]);
-        if (lbl in chem) chem[lbl] = v;
+        if (lbl && lbl in chem) chem[lbl] = v;
       }
       continue;
     }
 
-    if (low.includes("hot out")) section = "HOTOUT";
-    else if (low.includes("feed")) section = "HOT";
+    if (wfHas(ln, F.hotout)) section = "HOTOUT";
+    else if (wfHas(ln, F.hot)) section = "HOT";
     // short format: "No of Billets" block = kept at CCM (bypass), "STRIP MILL" block = sent to the strip mill (hot charging)
     else if (/^no\.?\s*of\s*billets?\b/i.test(ln)) section = "BYPASS";
-    else if (/^strip\s*mill\s*:?$/i.test(ln)) section = "HOT";
+    else if (reStripHead.test(ln)) section = "HOT";
     // "For STRIP MILL BYPASS IN CCM" is its own distinct category (kept in
     // grp130) - checked before the generic "bypass"/"by pass" match below,
     // which is specifically "BY PASS Billet of CCM", so the two don't get
     // merged into one total.
-    else if (low.includes("strip mill") && low.includes("bypass")) section = "STRIPBYP";
-    else if (low.includes("bypass") || low.includes("by pass")) section = "BYPASS";
+    else if (wfHas(ln, F.stripmill) && wfHas(ln, F.bypass)) section = "STRIPBYP";
+    else if (wfHas(ln, F.bypass)) section = "BYPASS";
 
     if (ln.includes("160")) { sz = 160; curSz = 160; }
     else if (ln.includes("130")) { sz = 130; curSz = 130; }
@@ -12607,12 +12830,13 @@ async function resolveWorkbook(token, filePath) {
 const CONSUMPTION_SHEET_NAME = "RM Report";
 const CONSUMPTION_COLS = { lumps: "AI", fines: "AJ", pellets: "AK", steelMeltingScrap: "AL", magMaterial: "AM", rollingMillScrap: "AN", msScrap: "AO", ciMixScrap: "AP", pigIron: "AQ", overSizeMag: "AR" };
 
-function isConsumptionMessage(msg) {
-  return /consumption/i.test(msg);
+function isConsumptionMessage(msg) {   // words: Get Started → Message Formats
+  return wfHas(msg, WA_FMT.cons.ident, true) && !wfHas(msg, WA_FMT.cons.exclude, true);
 }
 
 function parseConsumptionMessage(msg) {
-  const dateMatch = msg.match(/date\s*[:\-]?\s*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/i);
+  const C = WA_FMT.cons;
+  const dateMatch = msg.match(new RegExp("(?:" + wfAlt(C.date) + ")\\s*[:\\-]?\\s*(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})", "i"));
   const iso = dateMatch ? `${dateMatch[3]}-${dateMatch[2].padStart(2, "0")}-${dateMatch[1].padStart(2, "0")}` : null;
 
   const num = re => {
@@ -12620,21 +12844,10 @@ function parseConsumptionMessage(msg) {
     return m ? parseFloat(m[1]) : null;
   };
 
-  return {
-    iso,
-    values: {
-      lumps: num(/lumps\s*[=\-]\s*([\d.]+)/i),
-      fines: num(/fines\s*[=\-]\s*([\d.]+)/i),
-      pellets: num(/pellets?\s*[=\-]\s*([\d.]+)/i),
-      steelMeltingScrap: num(/steel\s*melting\s*scrap\s*[=\-]\s*([\d.]+)/i),
-      magMaterial: num(/mag\s*material\s*[=\-]\s*([\d.]+)/i),
-      rollingMillScrap: num(/rolling\s*mill\s*scrap\s*[=\-]\s*([\d.]+)/i),
-      msScrap: num(/\bM\.?\s?S\.?\s*Scrap\s*[=\-]\s*([\d.]+)/i),
-      ciMixScrap: num(/CI\s*Mix\s*Scrap\s*[=\-]\s*([\d.]+)/i),
-      pigIron: num(/pig\s*iron\s*[=\-]\s*([\d.]+)/i),
-      overSizeMag: num(/over\s*size\s*mag\s*[=\-]\s*([\d.]+)/i)
-    }
-  };
+  // "<label> = 12.5" (or "-" / ":"), labels from the message format
+  const values = {};
+  Object.keys(C.mat).forEach(k => { values[k] = num(new RegExp("(?:" + wfAlt(C.mat[k]) + ")\\s*[=\\-:]\\s*([\\d.]+)", "i")); });
+  return { iso, values };
 }
 
 async function submitConsumptionMessage(msg) {
@@ -13332,8 +13545,8 @@ function partyNameMatch(sheetName, wanted) {
   if (al && n(al) === a) return true;
   return a.length >= 4 && b.length >= 4 && (a.startsWith(b) || b.startsWith(a));
 }
-function isRhfTransferMessage(text) {
-  return /billets?\s*transfer+ed/i.test(text) && /sms\s*to\s*rhf/i.test(text);
+function isRhfTransferMessage(text) {   // words: Get Started → Message Formats
+  return wfAll(text, WA_FMT.rhf.ident);
 }
 function parseRhfTransferMessage(text) {
   const dm = /\b(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{2,4})\b/.exec(text);
@@ -13350,7 +13563,7 @@ function parseRhfTransferMessage(text) {
     lines++;
     const pcs = +m[1], size = m[2], len = Math.round(+m[3]);
     const p = String(m[4] || "").trim().toLowerCase().replace(/\s+/g, " ");
-    if (!p || /mippl/.test(p)) {
+    if (!p || WA_FMT.rhf.own.some(t => { t = String(t).trim().toLowerCase(); return !!t && p.includes(t); })) {
       if (!own[size] || !(len in own[size])) { bad.push(`${pcs} pcs ${size}×${m[3]}m (only 130/160 and 3-6 m go to the logsheet)`); continue; }
       own[size][len] += pcs; ownSizes.add(size);
     } else {
@@ -13438,6 +13651,7 @@ async function waInboxFetch() {
     alert("WhatsApp fetch is already running - please wait.");
     return;
   }
+  await waFmtLoad();   // the message format words (Get Started → Message Formats) before reading any message
   const statusEl = document.getElementById("status");
   // Another device may have fetched meanwhile - take the latest row / status from OneDrive first.
   if (waSyncEnabled()) {
@@ -13539,7 +13753,7 @@ async function waInboxFetch() {
             try { rr = await submitRhfTransferMessage(text); } catch (e) { rr = { ok: false, error: "RHF transfer: " + e.message }; }
             res = rr.ok ? { label, kind: "rhf", isRetry: m.isRetry, note: rr.note } : { label, kind: "fail", isRetry: m.isRetry, r: { error: rr.error } };
           }
-        } else if (isConsumptionMessage(text) && !/power\s*consumption/i.test(text)) {
+        } else if (isConsumptionMessage(text)) {   // ("Power consumption" KWH messages are left out by the format's exclude words)
           // submitConsumptionMessage() returns nothing and clears the paste
           // box on success - read its result from the status line instead,
           // and keep whatever the user had typed in the box.
