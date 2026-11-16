@@ -95,7 +95,8 @@ jobs:
           const keys = ((await sr.json().catch(() => ({}))) || {}).keys || {};
           if (!keys.waInboxUrl || !keys.waInboxToken) fail("WhatsApp Inbox URL / TOKEN are not saved in the app (⚙️ Inbox Settings).");
           const parse = txt => { const o = []; for (const p of String(txt || "").split(/[,;\s]+/).filter(Boolean)) { const m = /^(\d{1,2})(?:[:.](\d{2}))?$/.exec(p); if (!m || +m[1] > 23 || +(m[2] || 0) > 59) return null; o.push([+m[1], +(m[2] || 0)]); } return o; };
-          const saved = String(keys.waSlots || "").replace(/\s+/g, "") === SLOTS_OLD ? "" : keys.waSlots;
+          const key = x => (parse(x) || []).map(v => v[0] * 60 + v[1]).sort((p, q) => p - q).join(",");
+          const saved = key(keys.waSlots || "") === key(SLOTS_OLD) ? "" : keys.waSlots;
           const slots = parse(saved || SLOTS_DEFAULT) || parse(SLOTS_DEFAULT);
           const now = Date.now();
           let lastSlot = 0;

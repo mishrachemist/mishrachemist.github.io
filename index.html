@@ -13861,7 +13861,8 @@ function waSlotParse(txt) {   // "20:00, 6, 11:30" -> [[20,0],[6,0],[11,30]] (so
 }
 function waSlotList() {
   let t = WA_SLOTS_DEFAULT; try { t = localStorage.getItem("waSlots") || WA_SLOTS_DEFAULT; } catch (e) {}
-  if (String(t).replace(/\s+/g, "") === WA_SLOTS_OLD.replace(/\s+/g, "")) t = WA_SLOTS_DEFAULT;
+  const key = x => (waSlotParse(x) || []).map(waSlotFmt).join(",");
+  if (key(t) === key(WA_SLOTS_OLD)) t = WA_SLOTS_DEFAULT;
   return waSlotParse(t) || waSlotParse(WA_SLOTS_DEFAULT);
 }
 const waSlotFmt = (v) => String(v[0]).padStart(2, "0") + ":" + String(v[1]).padStart(2, "0");
