@@ -1,7 +1,7 @@
 # Moltrix - WhatsApp -> Excel sync in the cloud (runs even when the phone and the PC are off).
-# Every 15 minutes (at :07 :22 :37 :52) it only checks the shared OneDrive state (wa_inbox_state.json); the real Fetch runs
-# only when one of the app's fixed times (20:00, 06:00, 11:00 - or whatever is saved in the app) has
-# passed and no device has fetched since then. The app itself (mishrachemist.github.io) does the work
+# GitHub often skips or delays scheduled runs, so it is tried every 5-10 minutes for about 2 1/2 hours after
+# each fixed time (04:00 and 12:00 IST). Each try only checks the shared OneDrive state (wa_inbox_state.json);
+# the real Fetch runs only when a fixed time has passed and no device (or earlier try) has fetched since then. The app itself (mishrachemist.github.io) does the work
 # in a headless Chrome, so the parsing and Excel writing are exactly the same as on the phone.
 # Needs the secrets MS_REFRESH_TOKEN (made by "Moltrix Microsoft login") and GH_PAT.
 # This repo is public, so nothing from the messages is written to the log - only counts.
@@ -9,7 +9,13 @@ name: Moltrix WhatsApp sync
 
 on:
   schedule:
-    - cron: "7,22,37,52 * * * *"   # off the busy :00/:15/:30/:45 minutes
+    # times are UTC: 22:32 UTC = 04:02 IST, 06:32 UTC = 12:02 IST (off the busy :00/:30 minutes)
+    - cron: "32-57/5 22 * * *"
+    - cron: "2-57/5 23 * * *"
+    - cron: "2-52/10 0 * * *"
+    - cron: "32-57/5 6 * * *"
+    - cron: "2-57/5 7 * * *"
+    - cron: "2-52/10 8 * * *"
   workflow_dispatch:
     inputs:
       force:
@@ -51,7 +57,7 @@ jobs:
           const SCOPE = "offline_access https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/User.Read";
           const APP_URL = "https://mishrachemist.github.io/";
           const STATE_URL = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/wa_inbox_state.json:/content";
-          const SLOTS_DEFAULT = "20:00, 06:00, 11:00";
+          const SLOTS_DEFAULT = "04:00, 12:00", SLOTS_OLD = "20:00,06:00,11:00";   // old saved default -> new default
           const force = process.env.FORCE === "true";
           const out = t => { console.log(t); if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, t + "\n\n"); };
           const fail = t => { out("❌ " + t); process.exit(1); };
@@ -89,7 +95,9 @@ jobs:
           const keys = ((await sr.json().catch(() => ({}))) || {}).keys || {};
           if (!keys.waInboxUrl || !keys.waInboxToken) fail("WhatsApp Inbox URL / TOKEN are not saved in the app (⚙️ Inbox Settings).");
           const parse = txt => { const o = []; for (const p of String(txt || "").split(/[,;\s]+/).filter(Boolean)) { const m = /^(\d{1,2})(?:[:.](\d{2}))?$/.exec(p); if (!m || +m[1] > 23 || +(m[2] || 0) > 59) return null; o.push([+m[1], +(m[2] || 0)]); } return o; };
-          const slots = parse(keys.waSlots || SLOTS_DEFAULT) || parse(SLOTS_DEFAULT);
+          const key = x => (parse(x) || []).map(v => v[0] * 60 + v[1]).sort((p, q) => p - q).join(",");
+          const saved = key(keys.waSlots || "") === key(SLOTS_OLD) ? "" : keys.waSlots;
+          const slots = parse(saved || SLOTS_DEFAULT) || parse(SLOTS_DEFAULT);
           const now = Date.now();
           let lastSlot = 0;
           slots.forEach(v => { const d = new Date(now); d.setHours(v[0], v[1], 0, 0); let t = d.getTime(); if (t > now) t -= 86400000; if (t > lastSlot) lastSlot = t; });
