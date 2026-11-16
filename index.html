@@ -4729,7 +4729,7 @@ window.__gmFS = {
                   <li><b>MacroDroid</b> (Play Store) on the Android phone that is in the WhatsApp groups: download the <a href="./formats/WA_Inbox_MacroDroid.macro" download style="color:var(--gold);font-weight:700;">📥 MacroDroid macro</a> and import it in MacroDroid. Then open the macro and change 3 things: <b>Trigger</b> (Notification received - WhatsApp) → title = your group names, separated by <b>|</b> (e.g. <i>Group A|Group B</i>); <b>HTTP Request</b> → URL = your Web app URL; parameter <b>token</b> = your TOKEN. Allow MacroDroid to read notifications.</li>
                   <li><b>WhatsApp:</b> keep notifications of those groups ON (not muted) and keep the phone on / connected.</li>
                   <li><b>This app:</b> tap the button below and enter the same Web app URL and TOKEN (last row: 0). Then Production → <b>📥 Fetch WhatsApp</b>.</li>
-                  <li><b>Scheduled sync:</b> Production Update → <b>🕗 Scheduled sync at fixed times</b> (every hour). The cloud fetches at those times, even when the phone and the PC are off.</li>
+                  <li><b>Scheduled sync:</b> Production Update → <b>🕗 Scheduled sync at fixed times</b> (every hour). The cloud fetches at those times, even when the phone and the PC are off. Its hourly clock is the WA Inbox Apps Script: add <a href="./formats/Moltrix_Hourly_Sync.gs" download style="color:var(--gold);font-weight:700;">📥 Moltrix_Hourly_Sync.gs</a> at the end of that script (steps at the top of the file).</li>
                 </ol>
                               </details>
               <div class="btnRow">
