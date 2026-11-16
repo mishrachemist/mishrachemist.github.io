@@ -152,3 +152,22 @@ self.addEventListener('message', (event) => {
     })());
   }
 });
+
+// ---- notification from the cloud WhatsApp sync ----
+self.addEventListener('push', (event) => {
+  let d = {};
+  try { d = event.data ? event.data.json() : {}; } catch (e) { d = { body: event.data ? event.data.text() : '' }; }
+  event.waitUntil(self.registration.showNotification(d.title || 'Moltrix', {
+    body: d.body || '', tag: d.tag || 'moltrix-sync', renotify: true,
+    icon: 'icons/icon-192.png', data: { url: d.url || './' }
+  }));
+});
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = new URL((event.notification.data && event.notification.data.url) || './', self.registration.scope).href;
+  event.waitUntil((async () => {
+    const all = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of all) { if (c.url.startsWith(self.registration.scope)) { try { await c.focus(); return; } catch (e) {} } }
+    await clients.openWindow(url);
+  })());
+});
