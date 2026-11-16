@@ -1,7 +1,9 @@
 # Moltrix - WhatsApp -> Excel sync in the cloud (runs even when the phone and the PC are off).
-# GitHub often skips or delays scheduled runs, so it is tried every 5-10 minutes for about 2 1/2 hours after
-# each fixed time (04:00 and 12:00 IST). Each try only checks the shared OneDrive state (wa_inbox_state.json);
-# the real Fetch runs only when a fixed time has passed and no device (or earlier try) has fetched since then. The app itself (mishrachemist.github.io) does the work
+# Started every hour by a time trigger in the WA Inbox Google Apps Script (workflow_dispatch), because GitHub skips
+# most scheduled runs; the hourly cron below is only a spare. Each start first checks the shared OneDrive state
+# (wa_inbox_state.json); the real Fetch runs only when a fixed time (default: every hour) has passed and no
+# device has fetched since then. When something was saved, a Web Push notification goes to the devices listed
+# in push_config.json (OneDrive app folder; turned on in the app). The app itself (mishrachemist.github.io) does the work
 # in a headless Chrome, so the parsing and Excel writing are exactly the same as on the phone.
 # Needs the secrets MS_REFRESH_TOKEN (made by "Moltrix Microsoft login") and GH_PAT.
 # This repo is public, so nothing from the messages is written to the log - only counts.
@@ -9,13 +11,7 @@ name: Moltrix WhatsApp sync
 
 on:
   schedule:
-    # times are UTC: 22:32 UTC = 04:02 IST, 06:32 UTC = 12:02 IST (off the busy :00/:30 minutes)
-    - cron: "32-57/5 22 * * *"
-    - cron: "2-57/5 23 * * *"
-    - cron: "2-52/10 0 * * *"
-    - cron: "32-57/5 6 * * *"
-    - cron: "2-57/5 7 * * *"
-    - cron: "2-52/10 8 * * *"
+    - cron: "41 * * * *"   # spare only - the Apps Script hourly trigger is the real clock
   workflow_dispatch:
     inputs:
       force:
@@ -57,7 +53,7 @@ jobs:
           const SCOPE = "offline_access https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/User.Read";
           const APP_URL = "https://mishrachemist.github.io/";
           const STATE_URL = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/wa_inbox_state.json:/content";
-          const SLOTS_DEFAULT = "04:00, 12:00", SLOTS_OLD = "20:00,06:00,11:00";   // old saved default -> new default
+          const SLOTS_DEFAULT = "every hour", SLOTS_OLD = ["20:00,06:00,11:00", "04:00,12:00"];   // old saved defaults -> new default
           const force = process.env.FORCE === "true";
           const out = t => { console.log(t); if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, t + "\n\n"); };
           const fail = t => { out("❌ " + t); process.exit(1); };
@@ -94,9 +90,9 @@ jobs:
           if (!sr.ok) fail("Could not read the WhatsApp state from OneDrive (" + sr.status + ").");
           const keys = ((await sr.json().catch(() => ({}))) || {}).keys || {};
           if (!keys.waInboxUrl || !keys.waInboxToken) fail("WhatsApp Inbox URL / TOKEN are not saved in the app (⚙️ Inbox Settings).");
-          const parse = txt => { const o = []; for (const p of String(txt || "").split(/[,;\s]+/).filter(Boolean)) { const m = /^(\d{1,2})(?:[:.](\d{2}))?$/.exec(p); if (!m || +m[1] > 23 || +(m[2] || 0) > 59) return null; o.push([+m[1], +(m[2] || 0)]); } return o; };
+          const parse = txt => { if (/^\s*(every\s*hour|hourly)\s*$/i.test(String(txt || ""))) return Array.from({ length: 24 }, (_, h) => [h, 0]); const o = []; for (const p of String(txt || "").split(/[,;\s]+/).filter(Boolean)) { const m = /^(\d{1,2})(?:[:.](\d{2}))?$/.exec(p); if (!m || +m[1] > 23 || +(m[2] || 0) > 59) return null; o.push([+m[1], +(m[2] || 0)]); } return o; };
           const key = x => (parse(x) || []).map(v => v[0] * 60 + v[1]).sort((p, q) => p - q).join(",");
-          const saved = key(keys.waSlots || "") === key(SLOTS_OLD) ? "" : keys.waSlots;
+          const saved = SLOTS_OLD.some(o => key(keys.waSlots || "") === key(o)) ? "" : keys.waSlots;
           const slots = parse(saved || SLOTS_DEFAULT) || parse(SLOTS_DEFAULT);
           const now = Date.now();
           let lastSlot = 0;
@@ -107,7 +103,7 @@ jobs:
           out(`Due - fixed time ${fmt(lastSlot)}, last fetch ${fmt(lastAt)}${force ? " (forced)" : ""}.`);
 
           // ---- run the app's own Fetch in headless Chrome ----
-          execSync("npm install --prefix /tmp/mx --no-audit --no-fund --silent playwright-core@1", { stdio: "ignore" });
+          execSync("npm install --prefix /tmp/mx --no-audit --no-fund --silent playwright-core@1 web-push@3", { stdio: "ignore" });
           const { chromium } = createRequire("/tmp/mx/")("playwright-core");
           const exe = ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium"].find(p => fs.existsSync(p));
           if (!exe) fail("Chrome not found on the runner.");
@@ -143,7 +139,8 @@ jobs:
               await waCloudPush();
               const st = document.getElementById("status");
               let retry = 0; try { retry = (JSON.parse(localStorage.getItem("waInboxRetry") || "[]") || []).length; } catch (e) {}
-              return { pull, cls: st ? st.className : "", first: String(st ? st.textContent : "").split("\n")[0].slice(0, 160),
+              const lines = String(st ? st.textContent : "").split("\n").map(x => x.trim()).filter(Boolean);
+              return { pull, cls: st ? st.className : "", first: (lines[0] || "").slice(0, 160), detail: lines.slice(1, 9).join("\n").slice(0, 600),
                        rowFrom: c.lastRow, rowTo: waInboxCfg().lastRow, retry };
             }, { email, token, exp, force });
             if (res.err) fail(res.err);
@@ -151,6 +148,32 @@ jobs:
             else {
               out(`${res.cls === "err" ? "⚠️" : "✅"} ${res.first}`);
               out(`Inbox rows ${res.rowFrom} → ${res.rowTo}${res.retry ? ` · 🔁 ${res.retry} waiting for retry` : ""}${dialogs ? ` · ${dialogs} pop-up(s) closed` : ""}${pageErrors ? ` · ${pageErrors} page error(s)` : ""}`);
+              // ---- phone notification when something was saved (or failed) ----
+              const n = k => { const m = new RegExp("(\\d+) " + k).exec(res.first); return m ? +m[1] : 0; };
+              const worth = n("saved") + n("failed") + n("consumption") + n("RHF transfer") > 0 || res.cls === "err";
+              if (worth) {
+                try {
+                  const pr = await g("https://graph.microsoft.com/v1.0/me/drive/special/approot:/push_config.json:/content?t=" + Date.now());
+                  const cfg = pr.ok ? await pr.json().catch(() => ({})) : {};
+                  const subs = (cfg && cfg.subs) || [];
+                  if (!cfg.vapid || !subs.length) console.log("🔕 No device has notifications turned on.");
+                  else {
+                    const webpush = createRequire("/tmp/mx/")("web-push");
+                    webpush.setVapidDetails(cfg.vapid.subject || APP_URL, cfg.vapid.publicKey, cfg.vapid.privateKey);
+                    const payload = JSON.stringify({ title: (res.cls === "err" ? "⚠️ " : "") + "Moltrix - WhatsApp sync", body: res.first.replace(/^WhatsApp fetch: /, "") + (res.detail ? "\n" + res.detail : ""), tag: "moltrix-sync", url: APP_URL });
+                    let sent = 0; const gone = [];
+                    for (const s of subs) {
+                      try { await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, payload, { TTL: 6 * 3600 }); sent++; }
+                      catch (e) { if (e && (e.statusCode === 404 || e.statusCode === 410)) gone.push(s.endpoint); else console.log("Push to one device failed (" + (e && e.statusCode || "error") + ")."); }
+                    }
+                    if (gone.length) {
+                      cfg.subs = subs.filter(s => !gone.includes(s.endpoint));
+                      await fetch("https://graph.microsoft.com/v1.0/me/drive/special/approot:/push_config.json:/content", { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(cfg) });
+                    }
+                    out(`🔔 Notification sent to ${sent} device(s)${gone.length ? ` · ${gone.length} old one(s) removed` : ""}.`);
+                  }
+                } catch (e) { out("⚠️ Notification could not be sent."); }
+              }
             }
           } finally { await browser.close(); }
           EOF

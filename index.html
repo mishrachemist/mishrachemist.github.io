@@ -4729,7 +4729,7 @@ window.__gmFS = {
                   <li><b>MacroDroid</b> (Play Store) on the Android phone that is in the WhatsApp groups: download the <a href="./formats/WA_Inbox_MacroDroid.macro" download style="color:var(--gold);font-weight:700;">📥 MacroDroid macro</a> and import it in MacroDroid. Then open the macro and change 3 things: <b>Trigger</b> (Notification received - WhatsApp) → title = your group names, separated by <b>|</b> (e.g. <i>Group A|Group B</i>); <b>HTTP Request</b> → URL = your Web app URL; parameter <b>token</b> = your TOKEN. Allow MacroDroid to read notifications.</li>
                   <li><b>WhatsApp:</b> keep notifications of those groups ON (not muted) and keep the phone on / connected.</li>
                   <li><b>This app:</b> tap the button below and enter the same Web app URL and TOKEN (last row: 0). Then Production → <b>📥 Fetch WhatsApp</b>.</li>
-                  <li><b>Fixed-time sync:</b> Production Update → <b>🕗 Scheduled sync at fixed times</b> (04:00, 12:00). The cloud fetches at those times, even when the phone and the PC are off.</li>
+                  <li><b>Scheduled sync:</b> Production Update → <b>🕗 Scheduled sync at fixed times</b> (every hour). The cloud fetches at those times, even when the phone and the PC are off.</li>
                 </ol>
                               </details>
               <div class="btnRow">
@@ -5775,10 +5775,14 @@ window.__gmFS = {
               <input type="checkbox" id="waSlotToggle" checked style="width:auto;margin:0;"> 🕗 Scheduled sync at fixed times
             </label>
             <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
-              <input type="text" id="waSlotTimes" placeholder="04:00, 12:00" style="flex:1;margin:0;">
+              <input type="text" id="waSlotTimes" placeholder="every hour" style="flex:1;margin:0;">
               <button class="secondary" id="waSlotSave" type="button" style="width:auto;margin:0;">💾 Save times</button>
             </div>
             <div id="waSlotInfo" style="font-size:12px;opacity:.75;margin-top:2px;"></div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:10px;cursor:pointer;">
+              <input type="checkbox" id="waPushToggle" style="width:auto;margin:0;"> 🔔 Notify this device when the cloud sync saves something
+            </label>
+            <div id="waPushInfo" style="font-size:12px;opacity:.75;margin-top:2px;"></div>
             <div id="waInboxInfo" style="font-size:12px;opacity:.75;margin-top:4px;"></div>
           </div>
           </div>
@@ -7052,9 +7056,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.16.2";
+const APP_VERSION = "2026.11.16.3";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
+  "🔔 WhatsApp cloud sync now runs every hour, and can send a notification to this phone when it saves something (Production Update → 🔔 Notify this device)",
   "☁️ WhatsApp sync now runs from the cloud at 04:00 and 12:00 (phone and PC can be off); the MacroDroid auto-open macro is no longer needed",
   "📐 Every WI now has a diagram: the other 48 WIs got a main-steps flowchart with a schematic of the set-up (titration, ignition and weighing, drying, sieving, magnetic separation, OES / ICP / ion chromatograph, pyknometer, viscometer, Nessler cylinders)",
   "🧪 New WI: DM/QA/WI/22 FeO in Slag & Sponge Iron - lab method (0.2 g, Na2CO3 + HCl 1:1 + HF + H3PO4, dichromate; FeO = BR × 0.718 / W); later WIs moved one number up (coal now from WI/23)",
@@ -13841,15 +13846,16 @@ waInboxShowInfo();
 const WA_AUTO_RETRY_MS = 15 * 60 * 1000;
 function waAutoLastTry() { try { return parseInt(localStorage.getItem("waAutoLastTry") || "0", 10) || 0; } catch (e) { return 0; } }
 function waAutoLastAt() { try { return parseInt(localStorage.getItem("waInboxLastAt") || "0", 10) || 0; } catch (e) { return 0; } }
-/* ----- Scheduled sync at fixed times (default 04:00, 12:00) -----
+/* ----- Scheduled sync at fixed times (default: every hour) -----
    The cloud (GitHub workflow "Moltrix WhatsApp sync") fetches after each time even when every device is off.
    While the app is open (any device): at each time the normal Fetch runs quietly, unless any device or the cloud
    already fetched after that time (last-fetch time is shared through OneDrive).
    The old link  <app>/?autofetch=1  still makes the app fetch straight away. */
-const WA_SLOTS_DEFAULT = "04:00, 12:00", WA_SLOTS_OLD = "20:00, 06:00, 11:00";   // old saved default -> new default
+const WA_SLOTS_DEFAULT = "every hour", WA_SLOTS_OLD = ["20:00, 06:00, 11:00", "04:00, 12:00"];   // old saved defaults -> new default
 const AUTO_SYNC_KEY = "autoSyncPending", AUTO_SYNC_MAX_MS = 20 * 60 * 1000;
 function waSlotOn() { try { return localStorage.getItem("waSlotOn") !== "0"; } catch (e) { return true; } }
 function waSlotParse(txt) {   // "20:00, 6, 11:30" -> [[20,0],[6,0],[11,30]] (sorted, no duplicates); null if any part is wrong
+  if (/^\s*(every\s*hour|hourly)\s*$/i.test(String(txt || ""))) return Array.from({ length: 24 }, (_, h) => [h, 0]);
   const out = [];
   for (const part of String(txt || "").split(/[,;\s]+/).filter(Boolean)) {
     const m = /^(\d{1,2})(?:[:.](\d{2}))?$/.exec(part);
@@ -13862,10 +13868,11 @@ function waSlotParse(txt) {   // "20:00, 6, 11:30" -> [[20,0],[6,0],[11,30]] (so
 function waSlotList() {
   let t = WA_SLOTS_DEFAULT; try { t = localStorage.getItem("waSlots") || WA_SLOTS_DEFAULT; } catch (e) {}
   const key = x => (waSlotParse(x) || []).map(waSlotFmt).join(",");
-  if (key(t) === key(WA_SLOTS_OLD)) t = WA_SLOTS_DEFAULT;
+  if (WA_SLOTS_OLD.some(o => key(t) === key(o))) t = WA_SLOTS_DEFAULT;
   return waSlotParse(t) || waSlotParse(WA_SLOTS_DEFAULT);
 }
 const waSlotFmt = (v) => String(v[0]).padStart(2, "0") + ":" + String(v[1]).padStart(2, "0");
+const waSlotText = (list) => list.length === 24 && list.every((v, i) => v[0] === i && v[1] === 0) ? "every hour" : list.map(waSlotFmt).join(", ");
 function waLastSlotTime(now) {   // the latest fixed time that has already passed (within the last 24 h)
   now = now || Date.now(); let best = 0;
   waSlotList().forEach(v => { const d = new Date(now); d.setHours(v[0], v[1], 0, 0); let t = d.getTime(); if (t > now) t -= 86400000; if (t > best) best = t; });
@@ -13880,7 +13887,7 @@ function waSlotShowInfo() {
   const cb = document.getElementById("waSlotToggle"), inp = document.getElementById("waSlotTimes"),
         el = document.getElementById("waSlotInfo"), link = document.getElementById("waSlotLink");
   if (cb) cb.checked = waSlotOn();
-  if (inp && document.activeElement !== inp) inp.value = waSlotList().map(waSlotFmt).join(", ");
+  if (inp && document.activeElement !== inp) inp.value = waSlotText(waSlotList());
   if (link) link.value = location.origin + location.pathname + "?autofetch=1";
   if (!el) return;
   if (!waSlotOn()) { el.textContent = "Scheduled sync is off on this device."; return; }
@@ -13927,12 +13934,12 @@ document.addEventListener("change", e => {
   if (save) save.addEventListener("click", () => {
     const inp = document.getElementById("waSlotTimes");
     const v = waSlotParse(inp ? inp.value : "");
-    if (!v || !v.length) { alert("Write the times like this: 04:00, 12:00"); return; }
-    try { localStorage.setItem("waSlots", v.map(waSlotFmt).join(", ")); } catch (e) {}
+    if (!v || !v.length) { alert("Write the times like this: 04:00, 12:00 (or: every hour)"); return; }
+    try { localStorage.setItem("waSlots", waSlotText(v)); } catch (e) {}
     waStateTouch(); waCloudPush();   // same times on every device
-    if (inp) inp.value = v.map(waSlotFmt).join(", ");
+    if (inp) inp.value = waSlotText(v);
     waAutoShowInfo();
-    alert("Saved: " + v.map(waSlotFmt).join(", "));
+    alert("Saved: " + waSlotText(v));
   });
   if (copy) copy.addEventListener("click", async () => {
     const link = location.origin + location.pathname + "?autofetch=1";
@@ -13941,6 +13948,85 @@ document.addEventListener("change", e => {
     setTimeout(() => { copy.textContent = "📋 Copy"; }, 2000);
   });
 })();
+
+
+/* ----- Phone notification after a cloud sync (Web Push) -----
+   The VAPID key pair is made here once and kept with the subscriptions in the owner's OneDrive app folder
+   (push_config.json, private). The cloud sync (GitHub workflow) reads that file and sends the notification. */
+const PUSH_CFG_URL = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/push_config.json:/content";
+const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64u = (t) => { t = String(t).replace(/-/g, "+").replace(/_/g, "/"); while (t.length % 4) t += "="; return Uint8Array.from(atob(t), c => c.charCodeAt(0)); };
+function pushSupported() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+async function pushCfgGet(token) {
+  const r = await fetch(PUSH_CFG_URL + "?t=" + Date.now(), { headers: { Authorization: "Bearer " + token }, cache: "no-store" });
+  if (r.status === 404) return {};
+  if (!r.ok) throw new Error("OneDrive " + r.status);
+  return (await r.json().catch(() => ({}))) || {};
+}
+async function pushCfgPut(token, cfg) {
+  const r = await fetch(PUSH_CFG_URL, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(cfg) });
+  if (!r.ok) throw new Error("OneDrive " + r.status);
+}
+async function pushCurrentSub() {
+  if (!pushSupported()) return null;
+  try { const reg = await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); } catch (e) { return null; }
+}
+async function pushShowInfo() {
+  const cb = document.getElementById("waPushToggle"), el = document.getElementById("waPushInfo");
+  if (!cb) return;
+  if (!pushSupported()) { cb.checked = false; cb.disabled = true; if (el) el.textContent = "Not supported on this device."; return; }
+  const sub = await pushCurrentSub();
+  const on = !!sub && Notification.permission === "granted" && localStorage.getItem("waPushEndpoint") === sub.endpoint;
+  cb.checked = on;
+  if (el) el.textContent = Notification.permission === "denied" ? "Notifications are blocked for this app in the phone settings." : "";
+}
+async function pushEnable() {
+  if (!waSyncEnabled()) throw new Error("Only the owner account can turn this on.");
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") throw new Error("Notification permission was not given.");
+  const token = await getToken();
+  const cfg = await pushCfgGet(token);
+  if (!cfg.vapid || !cfg.vapid.publicKey || !cfg.vapid.privateKey) {
+    const kp = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+    const jwk = await crypto.subtle.exportKey("jwk", kp.privateKey);
+    const raw = await crypto.subtle.exportKey("raw", kp.publicKey);
+    cfg.vapid = { publicKey: b64u(raw), privateKey: jwk.d, subject: location.origin + "/" };
+  }
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (sub) {
+    const k = sub.options && sub.options.applicationServerKey ? b64u(sub.options.applicationServerKey) : "";
+    if (k !== cfg.vapid.publicKey) { try { await sub.unsubscribe(); } catch (e) {} sub = null; }
+  }
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: unb64u(cfg.vapid.publicKey) });
+  const j = sub.toJSON();
+  cfg.subs = (cfg.subs || []).filter(x => x && x.endpoint !== j.endpoint);
+  cfg.subs.push({ endpoint: j.endpoint, keys: j.keys, device: waDeviceLabel(), at: new Date().toISOString() });
+  await pushCfgPut(token, cfg);
+  localStorage.setItem("waPushEndpoint", j.endpoint);
+}
+async function pushDisable() {
+  const sub = await pushCurrentSub();
+  const ep = sub ? sub.endpoint : localStorage.getItem("waPushEndpoint");
+  if (sub) { try { await sub.unsubscribe(); } catch (e) {} }
+  localStorage.removeItem("waPushEndpoint");
+  if (ep && waSyncEnabled()) {
+    const token = await getToken();
+    const cfg = await pushCfgGet(token);
+    if (cfg.subs && cfg.subs.some(x => x && x.endpoint === ep)) { cfg.subs = cfg.subs.filter(x => x && x.endpoint !== ep); await pushCfgPut(token, cfg); }
+  }
+}
+document.addEventListener("change", async e => {
+  if (!e.target || e.target.id !== "waPushToggle") return;
+  const cb = e.target, el = document.getElementById("waPushInfo");
+  cb.disabled = true; if (el) el.textContent = "…";
+  try {
+    if (cb.checked) { await pushEnable(); if (el) el.textContent = "✅ On"; }
+    else { await pushDisable(); if (el) el.textContent = ""; }
+  } catch (x) { if (el) el.textContent = "⚠️ " + (x && x.message ? x.message : x); }
+  finally { cb.disabled = false; setTimeout(pushShowInfo, 1500); }
+});
+setTimeout(pushShowInfo, 4000);
 
 /* ----- Opened with ?autofetch=1 (MacroDroid at the fixed times) ----- */
 (function () {   // remember the request for this tab (it survives a sign-in redirect) and clean the address
