@@ -4729,7 +4729,7 @@ window.__gmFS = {
                   <li><b>MacroDroid</b> (Play Store) on the Android phone that is in the WhatsApp groups: download the <a href="./formats/WA_Inbox_MacroDroid.macro" download style="color:var(--gold);font-weight:700;">📥 MacroDroid macro</a> and import it in MacroDroid. Then open the macro and change 3 things: <b>Trigger</b> (Notification received - WhatsApp) → title = your group names, separated by <b>|</b> (e.g. <i>Group A|Group B</i>); <b>HTTP Request</b> → URL = your Web app URL; parameter <b>token</b> = your TOKEN. Allow MacroDroid to read notifications.</li>
                   <li><b>WhatsApp:</b> keep notifications of those groups ON (not muted) and keep the phone on / connected.</li>
                   <li><b>This app:</b> tap the button below and enter the same Web app URL and TOKEN (last row: 0). Then Production → <b>📥 Fetch WhatsApp</b>.</li>
-                  <li><b>Fixed-time sync (optional):</b> Production Update → <b>🕗 Scheduled sync at fixed times</b> (20:00, 06:00, 11:00). The steps there let MacroDroid open the app at those times, so it syncs even when the app is closed.</li>
+                  <li><b>Fixed-time sync:</b> Production Update → <b>🕗 Scheduled sync at fixed times</b> (04:00, 12:00). The cloud fetches at those times, even when the phone and the PC are off.</li>
                 </ol>
                               </details>
               <div class="btnRow">
@@ -5775,26 +5775,10 @@ window.__gmFS = {
               <input type="checkbox" id="waSlotToggle" checked style="width:auto;margin:0;"> 🕗 Scheduled sync at fixed times
             </label>
             <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
-              <input type="text" id="waSlotTimes" placeholder="20:00, 06:00, 11:00" style="flex:1;margin:0;">
+              <input type="text" id="waSlotTimes" placeholder="04:00, 12:00" style="flex:1;margin:0;">
               <button class="secondary" id="waSlotSave" type="button" style="width:auto;margin:0;">💾 Save times</button>
             </div>
             <div id="waSlotInfo" style="font-size:12px;opacity:.75;margin-top:2px;"></div>
-            <details id="waSlotHelp" style="margin-top:6px;"><summary style="cursor:pointer;font-size:13px;font-weight:600;">📱 App closed? Let the phone open it at these times (MacroDroid)</summary>
-              <div style="font-size:12.5px;line-height:1.55;margin-top:6px;">A web app cannot run by itself while it is closed. So the Android phone that is always on (the one with MacroDroid) opens the app at these times with the link below. The app then does the Fetch by itself, without any tap, and shows the result on the screen and in the 🔔 bell.</div>
-              <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
-                <input type="text" id="waSlotLink" readonly style="flex:1;margin:0;font-size:12px;">
-                <button class="secondary" id="waSlotCopy" type="button" style="width:auto;margin:0;">📋 Copy</button>
-              </div>
-              <ol style="font-size:12.5px;line-height:1.55;padding-left:20px;margin:8px 0;">
-                <li><b>On that phone, open this app once and sign in</b> with your Microsoft account. Check that <b>📥 Fetch WhatsApp</b> works by hand.</li>
-                <li><b>MacroDroid → ➕ Add Macro</b>, name: <i>Moltrix - Auto Sync</i>.</li>
-                <li><b>Trigger:</b> tap ➕ and search <b>Day/Time</b>. Set <b>20:00</b> and tick every day. Add the same trigger 2 more times, for <b>06:00</b> and <b>11:00</b>. Any one of them starts the macro.</li>
-                <li><b>Action 1:</b> search <b>Screen On</b> and add it, so the phone wakes up.</li>
-                <li><b>Action 2:</b> search <b>Website</b> (open a web page / URL) and paste the link above. If Android asks which app should open it, choose this app - <b>Moltrix</b> (older installs still show <b>SMS Reports</b>; Chrome also works).</li>
-                <li><b>Save</b> the macro. To test it, change one trigger to 2 minutes from now and wait.</li>
-              </ol>
-              <div style="font-size:12px;color:var(--muted);">Keep that phone on charge with internet ON. Android → Settings → Apps → MacroDroid → Battery → <b>Unrestricted</b>. If the phone has a PIN / pattern lock, Android may keep the app behind the lock screen and the sync may not finish. A swipe lock (or none) works best. If the Excel file is open on the PC at that time, those messages are retried on the next fetch.</div>
-            </details>
             <div id="waInboxInfo" style="font-size:12px;opacity:.75;margin-top:4px;"></div>
           </div>
           </div>
@@ -7068,9 +7052,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.16.1";
+const APP_VERSION = "2026.11.16.2";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
+  "☁️ WhatsApp sync now runs from the cloud at 04:00 and 12:00 (phone and PC can be off); the MacroDroid auto-open macro is no longer needed",
   "📐 Every WI now has a diagram: the other 48 WIs got a main-steps flowchart with a schematic of the set-up (titration, ignition and weighing, drying, sieving, magnetic separation, OES / ICP / ion chromatograph, pyknometer, viscometer, Nessler cylinders)",
   "🧪 New WI: DM/QA/WI/22 FeO in Slag & Sponge Iron - lab method (0.2 g, Na2CO3 + HCl 1:1 + HF + H3PO4, dichromate; FeO = BR × 0.718 / W); later WIs moved one number up (coal now from WI/23)",
   "📐 Apparatus diagrams added to 16 WIs (carbon / sulphur combustion trains, sulphur evolution, Fe(M) flasks, silver reductor, FeO in slag, VM crucible, Lunge nitrometer, tin flask, ion-exchange column) - in the app and in the print / PDF",
@@ -13856,12 +13841,12 @@ waInboxShowInfo();
 const WA_AUTO_RETRY_MS = 15 * 60 * 1000;
 function waAutoLastTry() { try { return parseInt(localStorage.getItem("waAutoLastTry") || "0", 10) || 0; } catch (e) { return 0; } }
 function waAutoLastAt() { try { return parseInt(localStorage.getItem("waInboxLastAt") || "0", 10) || 0; } catch (e) { return 0; } }
-/* ----- Scheduled sync at fixed times (default 20:00, 06:00, 11:00) -----
-   While the app is open (any device): at each time the normal Fetch runs quietly, unless any device already
-   fetched after that time (last-fetch time is shared through OneDrive).
-   While the app is closed: MacroDroid on the always-on phone opens  <app>/?autofetch=1  at those times; that
-   link makes the app fetch straight away (no tap), sign in again by itself if needed, and show the result. */
-const WA_SLOTS_DEFAULT = "20:00, 06:00, 11:00";
+/* ----- Scheduled sync at fixed times (default 04:00, 12:00) -----
+   The cloud (GitHub workflow "Moltrix WhatsApp sync") fetches after each time even when every device is off.
+   While the app is open (any device): at each time the normal Fetch runs quietly, unless any device or the cloud
+   already fetched after that time (last-fetch time is shared through OneDrive).
+   The old link  <app>/?autofetch=1  still makes the app fetch straight away. */
+const WA_SLOTS_DEFAULT = "04:00, 12:00", WA_SLOTS_OLD = "20:00, 06:00, 11:00";   // old saved default -> new default
 const AUTO_SYNC_KEY = "autoSyncPending", AUTO_SYNC_MAX_MS = 20 * 60 * 1000;
 function waSlotOn() { try { return localStorage.getItem("waSlotOn") !== "0"; } catch (e) { return true; } }
 function waSlotParse(txt) {   // "20:00, 6, 11:30" -> [[20,0],[6,0],[11,30]] (sorted, no duplicates); null if any part is wrong
@@ -13876,6 +13861,7 @@ function waSlotParse(txt) {   // "20:00, 6, 11:30" -> [[20,0],[6,0],[11,30]] (so
 }
 function waSlotList() {
   let t = WA_SLOTS_DEFAULT; try { t = localStorage.getItem("waSlots") || WA_SLOTS_DEFAULT; } catch (e) {}
+  if (String(t).replace(/\s+/g, "") === WA_SLOTS_OLD.replace(/\s+/g, "")) t = WA_SLOTS_DEFAULT;
   return waSlotParse(t) || waSlotParse(WA_SLOTS_DEFAULT);
 }
 const waSlotFmt = (v) => String(v[0]).padStart(2, "0") + ":" + String(v[1]).padStart(2, "0");
@@ -13899,7 +13885,7 @@ function waSlotShowInfo() {
   if (!waSlotOn()) { el.textContent = "Scheduled sync is off on this device."; return; }
   const nx = new Date(waNextSlotTime());
   el.textContent = "Next scheduled sync: " + nx.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
-    (nx.toDateString() === new Date().toDateString() ? " today" : " tomorrow") + " (runs here if the app is open; otherwise MacroDroid opens it - steps below).";
+    (nx.toDateString() === new Date().toDateString() ? " today" : " tomorrow") + " (cloud)";
 }
 
 function waAutoReason(now, forced) {   // "" = go ahead, otherwise the reason it is not running now
@@ -13940,12 +13926,12 @@ document.addEventListener("change", e => {
   if (save) save.addEventListener("click", () => {
     const inp = document.getElementById("waSlotTimes");
     const v = waSlotParse(inp ? inp.value : "");
-    if (!v || !v.length) { alert("Write the times like this: 20:00, 06:00, 11:00"); return; }
+    if (!v || !v.length) { alert("Write the times like this: 04:00, 12:00"); return; }
     try { localStorage.setItem("waSlots", v.map(waSlotFmt).join(", ")); } catch (e) {}
     waStateTouch(); waCloudPush();   // same times on every device
     if (inp) inp.value = v.map(waSlotFmt).join(", ");
     waAutoShowInfo();
-    alert("Saved: " + v.map(waSlotFmt).join(", ") + "\nIf MacroDroid is used, set the same times in its Day/Time triggers.");
+    alert("Saved: " + v.map(waSlotFmt).join(", "));
   });
   if (copy) copy.addEventListener("click", async () => {
     const link = location.origin + location.pathname + "?autofetch=1";
