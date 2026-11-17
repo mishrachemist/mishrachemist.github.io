@@ -207,7 +207,6 @@
   *{box-sizing:border-box;}
   html{
     overscroll-behavior-y:contain;
-    overflow-x:clip;   /* anything wider than the screen must not make Chrome zoom the whole page out ("desktop mode") */
   }
   body{
     margin:0;
@@ -7057,10 +7056,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.17.1";
+const APP_VERSION = "2026.11.17.2";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
-  "🔑 Fixed the occasional \"interaction_in_progress\" sign-in error, and the page no longer shrinks to a desktop-like view when something on it is wider than the screen",
+  "🔑 Fixed the occasional \"interaction_in_progress\" sign-in error, and the page no longer shrinks to a desktop-like view (page scrolling works again)",
   "🔔 WhatsApp cloud sync now runs every hour, and can send a notification to this phone when it saves something (Production Update → 🔔 Notify this device)",
   "☁️ WhatsApp sync now runs from the cloud at 04:00 and 12:00 (phone and PC can be off); the MacroDroid auto-open macro is no longer needed",
   "📐 Every WI now has a diagram: the other 48 WIs got a main-steps flowchart with a schematic of the set-up (titration, ignition and weighing, drying, sieving, magnetic separation, OES / ICP / ion chromatograph, pyknometer, viscometer, Nessler cylinders)",
