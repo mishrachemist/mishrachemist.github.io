@@ -4713,6 +4713,16 @@ window.__gmFS = {
                             <div class="btnRow"><button class="secondary" id="fmtPushBtn" type="button">📦 Put formats on the Desktop</button></div>
               <div id="fmtStatus" style="font-size:12.5px;margin-top:8px;white-space:pre-line;"></div>
             </div>
+            <div id="xlBox" style="margin-top:22px;">
+              <label>🗂️ Where WhatsApp entries go in the Excel</label>
+              <div id="xlForm"></div>
+              <div class="btnRow" style="margin-top:12px;">
+                <button class="primary" id="xlSaveBtn" type="button">💾 Save (OneDrive)</button>
+                <button class="secondary" id="xlCheckBtn" type="button">🔍 Check this month's file</button>
+                <button class="secondary" id="xlResetBtn" type="button">↺ Default layout</button>
+              </div>
+              <div id="xlStatus" style="font-size:13px;margin-top:6px;"></div>
+            </div>
           </div>
           </div>
 
@@ -7056,9 +7066,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.17.2";
+const APP_VERSION = "2026.11.19.1";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
+  "🗂️ Get Started → Excel Formats: set the file name, sheet names and columns where WhatsApp entries go (heat billets + chemistry, consumption, RHF transfer) - for another company's Excel format",
   "🔑 Fixed the occasional \"interaction_in_progress\" sign-in error, and the page no longer shrinks to a desktop-like view (page scrolling works again)",
   "🔔 WhatsApp cloud sync now runs every hour, and can send a notification to this phone when it saves something (Production Update → 🔔 Notify this device)",
   "☁️ WhatsApp sync now runs from the cloud at 04:00 and 12:00 (phone and PC can be off); the MacroDroid auto-open macro is no longer needed",
@@ -12417,6 +12428,181 @@ function wfAlt(words) { return (words || []).filter(w => String(w || "").trim())
   });
 })();
 
+/* ===================== EXCEL LAYOUT (Get Started → 📦 Excel Formats) =====================
+   Where the WhatsApp entries are written: file name, sheet names and columns. The defaults are this app's own
+   formats. Saved in OneDrive (Apps → Moltrix → xl_layout.json), so the phone, the PC and the cloud sync all write
+   to the same cells. Only the WhatsApp → Excel entries use it (heat billets + chemistry, consumption, RHF transfer);
+   reports and dashboards still read this app's own formats. */
+const XL_URL = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/xl_layout.json:/content";
+const XL_DEFAULT = {
+  file: { name: "{Month}'{YY}_Reports.xlsx", folder: "Desktop" },
+  heat: { sheet: "Prod.", heatCol: "B", sectionCol: "H", C: "C", MN: "D", SI: "E", S: "F", P: "G",
+    hot: "P", bypass: "V", b130: "J", hotout: "AC", total: "AB" },
+  cons: { sheet: "RM Report", dateCol: "A", lumps: "AI", fines: "AJ", pellets: "AK", steelMeltingScrap: "AL", magMaterial: "AM",
+    rollingMillScrap: "AN", msScrap: "AO", ciMixScrap: "AP", pigIron: "AQ", overSizeMag: "AR" },
+  rhf: { sheet: "Prod.", dateCol: "A", col: "J", row130: 13, row160: 14,
+    pSheet: "Billet Stock Format", pAsOnCol: "A", pPartyCol: "B", pSizeCol: "C", pQtyCol: "E" }
+};
+const XL_COLS = new Set(["heatCol", "sectionCol", "C", "MN", "SI", "S", "P", "hot", "bypass", "b130", "hotout", "total", "dateCol", "col",
+  "lumps", "fines", "pellets", "steelMeltingScrap", "magMaterial", "rollingMillScrap", "msScrap", "ciMixScrap", "pigIron", "overSizeMag",
+  "pAsOnCol", "pPartyCol", "pSizeCol", "pQtyCol"]);
+const XL_ROWS = new Set(["row130", "row160"]);
+function xlMerge(o) {   // saved settings over the defaults; a wrong / empty value keeps the default
+  const d = JSON.parse(JSON.stringify(XL_DEFAULT));
+  if (!o || typeof o !== "object") return d;
+  Object.keys(d).forEach(g => {
+    const src = o[g]; if (!src || typeof src !== "object") return;
+    Object.keys(d[g]).forEach(k => {
+      let v = src[k]; if (v == null) return;
+      if (XL_COLS.has(k)) { v = String(v).trim().toUpperCase(); if (/^[A-Z]{1,3}$/.test(v)) d[g][k] = v; }
+      else if (XL_ROWS.has(k)) { v = parseInt(v, 10); if (v >= 0 && v <= 200) d[g][k] = v; }
+      else { v = String(v).trim(); if (v) d[g][k] = v; }
+    });
+  });
+  return d;
+}
+let XL = (() => { try { return xlMerge(JSON.parse(localStorage.getItem("xlLayout") || "null")); } catch (e) { return xlMerge(null); } })();
+let _xlP = null;
+function xlIsDefaultFile() { return XL.file.name === XL_DEFAULT.file.name && XL.file.folder === XL_DEFAULT.file.folder; }
+function xlApply() {   // things that show the layout
+  const sn = document.getElementById("sheetName"); if (sn) sn.value = XL.heat.sheet;
+  if (typeof _filePathCache !== "undefined") _filePathCache.clear();
+  if (typeof _colBCache !== "undefined") _colBCache.clear();
+}
+function xlFmtLoad(force) {
+  if (_xlP && !force) return _xlP;
+  _xlP = (async () => {
+    try {
+      if (!account || (typeof isViewer === "function" && isViewer())) return false;
+      const token = await getToken(); if (!token) return false;
+      const r = await fetch(XL_URL + "?t=" + Date.now(), { headers: { Authorization: "Bearer " + token }, cache: "no-store" });
+      if (r.status === 404) { XL = xlMerge(null); try { localStorage.removeItem("xlLayout"); } catch (e) {} xlApply(); return true; }
+      if (!r.ok) { _xlP = null; return false; }
+      const o = await r.json();
+      XL = xlMerge(o); try { localStorage.setItem("xlLayout", JSON.stringify(o)); } catch (e) {}
+      xlApply();
+      return true;
+    } catch (e) { _xlP = null; return false; }
+  })();
+  return _xlP;
+}
+function xlShift(col, n) { return colLetter(colLetterToIndex(col) + n); }      // "P", 3 -> "S"
+function xlFileName(year, month0) {                                            // "{Month}'{YY}_Reports.xlsx" -> "November'26_Reports.xlsx"
+  const M = MONTH_ABBR[month0], mm = String(month0 + 1);
+  return XL.file.name.replace(/\{Month\}/g, M).replace(/\{Mon\}/g, M.slice(0, 3)).replace(/\{MM\}/g, mm.padStart(2, "0"))
+    .replace(/\{M\}/g, mm).replace(/\{YYYY\}/g, String(year)).replace(/\{YY\}/g, String(year).slice(2));
+}
+const xlSheetUrl = (wb, sheet) => `${wb}/worksheets('${encodeURIComponent(String(sheet).replace(/'/g, "''"))}')`;
+
+/* ---------- Get Started → 📦 Excel Formats: the layout form, check, save ---------- */
+(function () {
+  const C = (k, lab) => [k, lab, "col"];
+  const FIELDS = [
+    { g: "Monthly file", key: "file", rows: [
+      ["name", "File name", "text", "{Month} = November, {Mon} = Nov, {MM} = 11, {YYYY} = 2026, {YY} = 26"],
+      ["folder", "Folder in OneDrive", "text", "e.g. Desktop or Desktop/Reports"] ] },
+    { g: "Heat sheet (billets + chemistry)", key: "heat", rows: [
+      ["sheet", "Sheet name", "text"], C("heatCol", "Heat number column"), C("sectionCol", "Section (160 / 130) column"),
+      C("C", WF_CHEM_NAMES.C), C("MN", WF_CHEM_NAMES.MN), C("SI", WF_CHEM_NAMES.SI), C("S", WF_CHEM_NAMES.S), C("P", WF_CHEM_NAMES.P),
+      ["hot", "Hot charging 3 M (4 M, 5 M, 6 M next to it)", "col"], ["bypass", "Bypass 3 M (4 M, 5 M, 6 M next to it)", "col"],
+      ["b130", "130 × 130 of a 160 heat, 3 M (4-6 M next to it)", "col"], ["hotout", "Hot out 3 M (4 M, 5 M, 6 M next to it)", "col"],
+      ["total", "Total production column (marked red on a mismatch)", "col"] ] },
+    { g: "Raw material consumption", key: "cons", rows: [
+      ["sheet", "Sheet name", "text"], C("dateCol", "Date column") ].concat(Object.keys(WF_MAT_NAMES).map(k => C(k, WF_MAT_NAMES[k]))) },
+    { g: "Billet transfer to RHF", key: "rhf", rows: [
+      ["sheet", "Own billets: sheet name", "text"], C("dateCol", "Own billets: date column"),
+      ["col", "Own billets: 3 M column (4-6 M next to it)", "col"],
+      ["row130", "Own 130: rows below the date row", "row"], ["row160", "Own 160: rows below the date row", "row"],
+      ["pSheet", "Party billets: sheet name", "text"], C("pAsOnCol", "Party: \"As on dd.mm.yyyy\" column"),
+      C("pPartyCol", "Party name column"), C("pSizeCol", "Size column"), C("pQtyCol", "Pieces column (reduced by a formula)") ] }
+  ];
+  const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => "&#" + c.charCodeAt(0) + ";");
+  const idOf = (g, k) => `xl_${g}_${k}`;
+  const form = document.getElementById("xlForm");
+  if (!form) return;
+  function render(L) {
+    form.innerHTML = FIELDS.map((grp, gi) => `<details ${gi === 0 ? "open" : ""} style="margin:10px 0;border:1px solid var(--border,#ddd);border-radius:10px;padding:8px 10px;">
+      <summary style="cursor:pointer;font-weight:700;">${esc(grp.g)}</summary>
+      ${grp.rows.map(([k, lab, kind, hint]) => kind === "text"
+        ? `<label for="${idOf(grp.key, k)}" style="margin-top:10px;">${esc(lab)}${hint ? ` <span style="font-weight:400;opacity:.7;font-size:12px;">- ${esc(hint)}</span>` : ""}</label>
+        <input type="text" id="${idOf(grp.key, k)}" value="${esc(L[grp.key][k])}" autocomplete="off" spellcheck="false">`
+        : `<div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><label for="${idOf(grp.key, k)}" style="flex:1;margin:0;font-size:13px;">${esc(lab)}</label>
+        <input type="${kind === "row" ? "number" : "text"}" id="${idOf(grp.key, k)}" value="${esc(L[grp.key][k])}" autocomplete="off" spellcheck="false"
+          ${kind === "col" ? 'maxlength="3" style="text-transform:uppercase;width:70px;margin:0;text-align:center;"' : 'min="0" max="200" style="width:70px;margin:0;text-align:center;"'}></div>`).join("")}
+    </details>`).join("");
+  }
+  function read() {
+    const o = {}, bad = [];
+    FIELDS.forEach(grp => { o[grp.key] = {}; grp.rows.forEach(([k, lab, kind]) => {
+      const el = document.getElementById(idOf(grp.key, k)); const v = String(el ? el.value : "").trim();
+      if (kind === "col" && v && !/^[A-Za-z]{1,3}$/.test(v)) bad.push(`${grp.g} → ${lab}: "${v}" is not a column letter`);
+      o[grp.key][k] = v;
+    }); });
+    return { o, L: xlMerge(o), bad };
+  }
+  const status = (t, cls) => { const s = document.getElementById("xlStatus"); if (s) { s.className = cls || ""; s.style.whiteSpace = "pre-line"; s.textContent = t || ""; } };
+  async function open() {
+    status("Loading…", "wait");
+    await xlFmtLoad(true);
+    render(XL); status("");
+    const sv = document.getElementById("xlSaveBtn"); if (sv) sv.disabled = typeof isViewer === "function" && isViewer();
+  }
+  const tile = document.querySelector('#getStartedSubNav [data-subgs="formats"]');
+  if (tile) tile.addEventListener("click", open);
+  render(XL);
+
+  // ---- check this month's file against the boxes (not saved yet) ----
+  document.getElementById("xlCheckBtn").addEventListener("click", async () => {
+    const { L, bad } = read();
+    if (bad.length) { status(bad.join("\n"), "err"); return; }
+    status("Checking…", "wait");
+    const keep = XL; XL = L; _filePathCache.clear();
+    try {
+      const token = await getToken(); if (!token) return;
+      const now = new Date(), y = now.getFullYear(), m0 = now.getMonth();
+      const path = await detectFilePathForMonth(token, y, m0);
+      if (!path) { status(`❌ File not found: ${L.file.folder}/${xlFileName(y, m0)}`, "err"); return; }
+      const wb = await resolveWorkbook(token, path);
+      const ws = await graphFetch(`${wb}/worksheets?$select=name`, token, { noCache: true });
+      const names = (ws.value || []).map(x => x.name);
+      const out = [`✅ File: ${path}`];
+      const need = [["Heat sheet", L.heat.sheet], ["Consumption sheet", L.cons.sheet], ["RHF own billets sheet", L.rhf.sheet], ["RHF party sheet", L.rhf.pSheet]];
+      need.forEach(([lab, sh]) => out.push(names.includes(sh) ? `✅ ${lab}: ${sh}` : `❌ ${lab}: "${sh}" not in the file`));
+      if (names.includes(L.heat.sheet)) {   // first heat number found in the heat column
+        const col = await graphFetch(`${xlSheetUrl(wb, L.heat.sheet)}/range(address='${L.heat.heatCol}1:${L.heat.heatCol}400')?$select=text`, token, { noCache: true });
+        const first = (col.text || []).map(r => String(r[0] || "").trim()).find(t => normalizeHeatKey(t));
+        out.push(first ? `✅ Heat numbers in column ${L.heat.heatCol} (first: ${first})` : `❌ No heat number (like 5.11.3) in column ${L.heat.heatCol}`);
+      }
+      if (names.includes(L.cons.sheet)) {
+        const col = await graphFetch(`${xlSheetUrl(wb, L.cons.sheet)}/range(address='${L.cons.dateCol}1:${L.cons.dateCol}400')?$select=values`, token, { noCache: true });
+        const n = (col.values || []).filter(r => typeof r[0] === "number" && r[0] > 40000 && r[0] < 80000).length;
+        out.push(n ? `✅ ${n} dates in column ${L.cons.dateCol} of ${L.cons.sheet}` : `❌ No dates in column ${L.cons.dateCol} of ${L.cons.sheet}`);
+      }
+      status(out.join("\n"), out.some(t => t.startsWith("❌")) ? "err" : "ok");
+    } catch (e) { status("Could not check: " + (e.message || e), "err"); }
+    finally { XL = keep; _filePathCache.clear(); }
+  });
+  document.getElementById("xlResetBtn").addEventListener("click", () => {
+    if (!confirm("Put this app's own layout back in the boxes? (Saved only when you press Save.)")) return;
+    render(XL_DEFAULT); status("Default layout in the boxes - press 💾 Save to use it.", "wait");
+  });
+  document.getElementById("xlSaveBtn").addEventListener("click", async () => {
+    if (typeof isViewer === "function" && isViewer()) return;
+    const { L, bad } = read();
+    if (bad.length) { status(bad.join("\n"), "err"); return; }
+    status("Saving…", "wait");
+    try {
+      const token = await getToken(); if (!token) throw new Error("not signed in");
+      const r = await fetch(XL_URL, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(L, null, 1) });
+      if (!r.ok) throw new Error("OneDrive " + r.status);
+      XL = L; _xlP = Promise.resolve(true);
+      try { localStorage.setItem("xlLayout", JSON.stringify(L)); } catch (e) {}
+      xlApply(); render(XL);
+      status("✅ Saved (OneDrive → Apps → Moltrix → xl_layout.json). The next WhatsApp entries go to these cells - on every device and in the cloud sync.", "ok");
+    } catch (e) { status("Not saved: " + (e.message || e), "err"); }
+  });
+})();
+
 /* ===================== MESSAGE PARSER (same logic as VBA macro) ===================== */
 // Date hint for rebuilding a heat number that was typed without its dots.
 // Set by the WhatsApp fetch to the message's received time (approximate,
@@ -12902,6 +13088,8 @@ async function submitConsumptionMessage(msg) {
     statusEl.textContent = "Date not found in the Consumption message. Please check the format.";
     return;
   }
+  await xlFmtLoad();
+  const CS = XL.cons;
 
   statusEl.className = "wait";
   statusEl.textContent = "Processing consumption entry...";
@@ -12931,7 +13119,7 @@ async function submitConsumptionMessage(msg) {
     // matching row (Y is meant to mirror A, but its formula may not always
     // be dragged down to cover newer rows, so A is more reliable).
     const colA = await graphFetch(
-      `${wb}/worksheets('${encodeURIComponent(String(CONSUMPTION_SHEET_NAME).replace(/'/g, "''"))}')/range(address='A1:A2000')?$select=values`,
+      `${xlSheetUrl(wb, CS.sheet)}/range(address='${CS.dateCol}1:${CS.dateCol}2000')?$select=values`,
       token
     );
     let rowIndex = -1;
@@ -12942,7 +13130,7 @@ async function submitConsumptionMessage(msg) {
 
     if (rowIndex === -1) {
       statusEl.className = "err";
-      statusEl.textContent = `Date ${parsed.iso} not found in column A of "${CONSUMPTION_SHEET_NAME}".`;
+      statusEl.textContent = `Date ${parsed.iso} not found in column ${CS.dateCol} of "${CS.sheet}".`;
       return;
     }
 
@@ -12951,12 +13139,12 @@ async function submitConsumptionMessage(msg) {
     for (const key in CONSUMPTION_COLS) {
       const v = parsed.values[key];
       if (v !== null) {
-        const col = CONSUMPTION_COLS[key];
+        const col = CS[key] || CONSUMPTION_COLS[key];
         cells.push({ addr: `${col}${rowIndex}`, value: v });
         log += `${key} = ${v} (${col}${rowIndex})\n`;
       }
     }
-    await patchCells(wb, CONSUMPTION_SHEET_NAME, cells, token);   // one write for all values
+    await patchCells(wb, CS.sheet, cells, token);   // one write for all values
 
     if (log === "") {
       statusEl.className = "err";
@@ -12998,8 +13186,10 @@ function stampLogoOnAllPages(doc) {
 
 async function updateExcel(msgOverride, opts = {}) {
   const statusEl = document.getElementById("status");
+  await xlFmtLoad();   // Get Started → Excel Formats: where the entries go
   const manualFilePath = document.getElementById("filePath").value.trim();
-  const sheetName = document.getElementById("sheetName").value.trim();
+  const sheetName = document.getElementById("sheetName").value.trim() || XL.heat.sheet;
+  const H = XL.heat;
   const isBatch = msgOverride !== undefined;
   const msg = isBatch ? msgOverride : document.getElementById("msgBox").value;
 
@@ -13129,10 +13319,10 @@ async function updateExcel(msgOverride, opts = {}) {
     // the lifetime of the page so a batch of several heats (same file,
     // same sheet) doesn't re-fetch this same ~3000-row column on every
     // single heat, which was the main reason batch submissions felt slow.
-    const colBCacheKey = `${wb}|${sheetName}`;
+    const colBCacheKey = `${wb}|${sheetName}|${H.heatCol}`;
     const loadColB = async () => {
       const colB = await graphFetch(
-        `${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='B1:B3000')?$select=values,text`,
+        `${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='${H.heatCol}1:${H.heatCol}3000')?$select=values,text`,
         token, { noCache: true }
       );
       const v = { values: colB.values || [], text: colB.text || [] };
@@ -13179,7 +13369,7 @@ async function updateExcel(msgOverride, opts = {}) {
     if (rowIndex === -1) {
       statusEl.className = "err";
       const fileName = String(filePath || "").split("/").pop();
-      statusEl.textContent = `Heat ${parsed.heatKey} not found in the sheet (${fileName}, column B).`;
+      statusEl.textContent = `Heat ${parsed.heatKey} not found in the sheet (${fileName}, column ${H.heatCol}).`;
       return { ok: false, error: `Heat ${parsed.heatKey} not found in the sheet (${fileName})` };
     }
 
@@ -13196,29 +13386,30 @@ async function updateExcel(msgOverride, opts = {}) {
     // All cells of this heat row are collected and written in ONE call (patchCells below).
     const pieces = [];
     const patchRange = async (_wb, _sheet, addr, values) => { pieces.push({ addr, values }); };
-    await patchRange(wb, sheetName, `H${rowIndex}:H${rowIndex}`, [[parseInt(section)]], token);
-    log += `Section -> ${section} (H${rowIndex})\n`;
+    await patchRange(wb, sheetName, `${H.sectionCol}${rowIndex}`, [[parseInt(section)]], token);
+    log += `Section -> ${section} (${H.sectionCol}${rowIndex})\n`;
+    const grp4 = (c) => `${c}${rowIndex}:${xlShift(c, 3)}${rowIndex}`;
 
     if (parsed.gotHot) {
-      await patchRange(wb, sheetName, `P${rowIndex}:S${rowIndex}`, [[bz(parsed.hot[3]), bz(parsed.hot[4]), bz(parsed.hot[5]), bz(parsed.hot[6])]], token);
+      await patchRange(wb, sheetName, grp4(H.hot), [[bz(parsed.hot[3]), bz(parsed.hot[4]), bz(parsed.hot[5]), bz(parsed.hot[6])]], token);
       log += `HOT CHARGING -> 3M=${parsed.hot[3]} 4M=${parsed.hot[4]} 5M=${parsed.hot[5]} 6M=${parsed.hot[6]}\n`;
     }
     if (parsed.gotByp) {
       // BY PASS + STRIP MILL BYPASS of the heat's own size (parseMessage already adds them together)
-      await patchRange(wb, sheetName, `V${rowIndex}:Y${rowIndex}`, [[bz(parsed.byp[3]), bz(parsed.byp[4]), bz(parsed.byp[5]), bz(parsed.byp[6])]], token);
+      await patchRange(wb, sheetName, grp4(H.bypass), [[bz(parsed.byp[3]), bz(parsed.byp[4]), bz(parsed.byp[5]), bz(parsed.byp[6])]], token);
       log += `BYPASS -> 3M=${parsed.byp[3]} 4M=${parsed.byp[4]} 5M=${parsed.byp[5]} 6M=${parsed.byp[6]}\n`;
     }
     if (parsed.got130) {
       // 130x130 billets in a 160 heat -> "130 X 130" columns (J:M) of the heat row
-      await patchRange(wb, sheetName, `J${rowIndex}:M${rowIndex}`, [[bz(parsed.grp130[3]), bz(parsed.grp130[4]), bz(parsed.grp130[5]), bz(parsed.grp130[6])]], token);
-      log += `130 X 130 -> 3M=${parsed.grp130[3]} 4M=${parsed.grp130[4]} 5M=${parsed.grp130[5]} 6M=${parsed.grp130[6]} (J${rowIndex}:M${rowIndex})\n`;
+      await patchRange(wb, sheetName, grp4(H.b130), [[bz(parsed.grp130[3]), bz(parsed.grp130[4]), bz(parsed.grp130[5]), bz(parsed.grp130[6])]], token);
+      log += `130 X 130 -> 3M=${parsed.grp130[3]} 4M=${parsed.grp130[4]} 5M=${parsed.grp130[5]} 6M=${parsed.grp130[6]} (${grp4(H.b130)})\n`;
     }
     if (parsed.gotHotOut) {
-      await patchRange(wb, sheetName, `AC${rowIndex}:AF${rowIndex}`, [[bz(parsed.hotout[3]), bz(parsed.hotout[4]), bz(parsed.hotout[5]), bz(parsed.hotout[6])]], token);
+      await patchRange(wb, sheetName, grp4(H.hotout), [[bz(parsed.hotout[3]), bz(parsed.hotout[4]), bz(parsed.hotout[5]), bz(parsed.hotout[6])]], token);
       log += `HOT OUT -> 3M=${parsed.hotout[3]} 4M=${parsed.hotout[4]} 5M=${parsed.hotout[5]} 6M=${parsed.hotout[6]}\n`;
     }
 
-    const chemMap = { C: "C", MN: "D", SI: "E", S: "F", P: "G" };
+    const chemMap = { C: H.C, MN: H.MN, SI: H.SI, S: H.S, P: H.P };
     let gotChem = false;
     for (const key in chemMap) {
       if (parsed.chem[key] !== null) {
@@ -13258,18 +13449,21 @@ async function updateExcel(msgOverride, opts = {}) {
   }
 }
 
-// Pieces already in the heat row (J:M 130x130, P:S hot charging, V:Y bypass, AC:AF hot out) vs this message.
+// Pieces already in the heat row (130x130, hot charging, bypass, hot out - columns from Excel Formats) vs this message.
 // Only groups the message carries AND that already have a number in the sheet are compared.
 async function pcsMismatch(wb, sheetName, rowIndex, parsed, token) {
+  const H = XL.heat;
   const groups = [
-    { group: "130 X 130", got: parsed.got130, v: parsed.grp130, off: 0 },
-    { group: "Hot Charging", got: parsed.gotHot, v: parsed.hot, off: 6 },
-    { group: "Bypass", got: parsed.gotByp, v: parsed.byp, off: 12 },
-    { group: "Hot Out", got: parsed.gotHotOut, v: parsed.hotout, off: 19 }].filter(g => g.got);
+    { group: "130 X 130", got: parsed.got130, v: parsed.grp130, c: colLetterToIndex(H.b130) },
+    { group: "Hot Charging", got: parsed.gotHot, v: parsed.hot, c: colLetterToIndex(H.hot) },
+    { group: "Bypass", got: parsed.gotByp, v: parsed.byp, c: colLetterToIndex(H.bypass) },
+    { group: "Hot Out", got: parsed.gotHotOut, v: parsed.hotout, c: colLetterToIndex(H.hotout) }].filter(g => g.got);
   if (!groups.length) return [];
+  const c1 = Math.min(...groups.map(g => g.c)), c2 = Math.max(...groups.map(g => g.c)) + 3;
+  groups.forEach(g => { g.off = g.c - c1; });
   let row;
   try {
-    const r = await graphFetch(`${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='J${rowIndex}:AF${rowIndex}')?$select=values`, token, { noCache: true });
+    const r = await graphFetch(`${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')/range(address='${colLetter(c1)}${rowIndex}:${colLetter(c2)}${rowIndex}')?$select=values`, token, { noCache: true });
     row = (r.values && r.values[0]) || [];
   } catch (e) { return []; }   // could not read: enter as before, without a check
   const n = x => { if (typeof x === "number") return x; const v = parseFloat(String(x == null ? "" : x).trim()); return isNaN(v) ? 0 : v; };
@@ -13281,9 +13475,9 @@ async function pcsMismatch(wb, sheetName, rowIndex, parsed, token) {
   });
   return out;
 }
-// Total Prod cell (AB) of the heat row: light-red fill + an Excel comment "MISMATCH ..." listing both messages' pieces
+// Total Prod cell of the heat row (Excel Formats; AB by default): light-red fill + an Excel comment "MISMATCH ..." listing both messages' pieces
 async function markPcsMismatch(wb, sheetName, rowIndex, heatKey, diffs, token) {
-  const cell = `AB${rowIndex}`;
+  const cell = `${XL.heat.total}${rowIndex}`;
   const sh = `${wb}/worksheets('${encodeURIComponent(String(sheetName).replace(/'/g, "''"))}')`;
   const text = `MISMATCH - heat ${heatKey}: the two messages have different pieces. ` +
     diffs.map(d => `${d.group} ${d.len}M: earlier ${d.before}, latest ${d.now}`).join("; ") + ". The latest message's pieces are entered.";
@@ -13624,36 +13818,40 @@ async function submitRhfTransferMessage(text) {
   const path = await detectFilePathForMonth(token, py, pm - 1);
   if (!path) return { ok: false, error: `RHF transfer: file for ${MONTH_ABBR[pm - 1]} ${py} not found` };
   const wb = await resolveWorkbook(token, path);
+  await xlFmtLoad();
+  const R = XL.rhf;
   const log = [];
-  // 1. own billets -> Prod. RHF cells
+  // 1. own billets -> Prod. RHF cells (Excel Formats: sheet, date column, rows below the date row)
   if (P.ownSizes.length) {
-    const sheet = "Prod.";
-    const colA = (await graphFetch(`${wb}/worksheets('${encodeURIComponent(String(sheet).replace(/'/g, "''"))}')/range(address='A1:A600')?$select=values`, token)).values;
+    const sheet = R.sheet;
+    const colA = (await graphFetch(`${xlSheetUrl(wb, sheet)}/range(address='${R.dateCol}1:${R.dateCol}600')?$select=values`, token)).values;
     let dataStart = -1;
     for (let i = 0; i < colA.length; i++) {
       const v = colA[i][0];
       if (typeof v === "number" && excelSerialToISODate(v) === P.dateISO) { dataStart = i + 1; break; }
     }
-    if (dataStart === -1) return { ok: false, error: `RHF transfer: Prod. block for ${P.dateISO} not found (create the day's block first)` };
-    const titleRow = dataStart - 3;
+    if (dataStart === -1) return { ok: false, error: `RHF transfer: ${sheet} block for ${P.dateISO} not found (create the day's block first)` };
     for (const size of P.ownSizes) {
-      const r = titleRow + RHF_ROW_OFFSET[size];
+      const r = dataStart + (size === "130" ? R.row130 : R.row160);
       const v = P.own[size];
-      await patchRange(wb, sheet, `J${r}:M${r}`, [[v[3], v[4], v[5], v[6]]], token);
-      log.push(`RHF ${size}: 3M ${v[3]} · 4M ${v[4]} · 5M ${v[5]} · 6M ${v[6]} (J${r}:M${r})`);
+      const addr = `${R.col}${r}:${xlShift(R.col, 3)}${r}`;
+      await patchRange(wb, sheet, addr, [[v[3], v[4], v[5], v[6]]], token);
+      log.push(`RHF ${size}: 3M ${v[3]} · 4M ${v[4]} · 5M ${v[5]} · 6M ${v[6]} (${addr})`);
     }
   }
   // 2. other parties -> Billet Stock Format column E
   const keys = Object.keys(P.party);
   if (keys.length) {
-    const sheet = "Billet Stock Format";
+    const sheet = R.pSheet;
     // The sheet has one block per day (title, then "As on dd.mm.yyyy" in col A
     // of the next row); take the block of the message date.
-    const rng = await graphFetch(`${wb}/worksheets('${encodeURIComponent(String(sheet).replace(/'/g, "''"))}')/range(address='A1:E1100')?$select=values,formulas`, token);
+    const ci = { a: colLetterToIndex(R.pAsOnCol), p: colLetterToIndex(R.pPartyCol), s: colLetterToIndex(R.pSizeCol), q: colLetterToIndex(R.pQtyCol) };
+    const cMax = Math.max(ci.a, ci.p, ci.s, ci.q);
+    const rng = await graphFetch(`${xlSheetUrl(wb, sheet)}/range(address='A1:${colLetter(cMax)}1100')?$select=values,formulas`, token);
     const [yy, mm, dd] = P.dateISO.split("-");
     const asOn = `${dd}.${mm}.${yy}`;
-    const asRow = rng.values.findIndex(r => String(r[0] || "").replace(/\s+/g, " ").includes("As on " + asOn));
-    if (asRow < 0) return { ok: false, error: `RHF transfer: Billet Stock Format block "As on ${asOn}" not found` };
+    const asRow = rng.values.findIndex(r => String(r[ci.a] || "").replace(/\s+/g, " ").includes("As on " + asOn));
+    if (asRow < 0) return { ok: false, error: `RHF transfer: ${sheet} block "As on ${asOn}" not found` };
     let applied = {};
     try { applied = JSON.parse(localStorage.getItem("rhfPartyApplied2") || "{}") || {}; } catch (e) { applied = {}; }
     const normName = (s) => String(s || "").toUpperCase().replace(/[^A-Z]/g, "");
@@ -13665,19 +13863,19 @@ async function submitRhfTransferMessage(text) {
       if (!delta) { log.push(`${name} ${size}: ${want} pcs already taken off`); continue; }
       let row = -1;
       for (let i = asRow + 1; i < Math.min(rng.values.length, asRow + 40); i++) {
-        if (/^total$/i.test(String(rng.values[i][0] || "").trim())) break;
-        if (partyNameMatch(rng.values[i][1], name) && String(rng.values[i][2] || "").replace(/\s/g, "").startsWith(size)) { row = i; break; }
+        if (/^total$/i.test(String(rng.values[i][ci.a] || "").trim())) break;
+        if (partyNameMatch(rng.values[i][ci.p], name) && String(rng.values[i][ci.s] || "").replace(/\s/g, "").startsWith(size)) { row = i; break; }
       }
-      if (row < 0) { log.push(`⚠️ ${name} ${size}: row not found in Billet Stock Format (${asOn}) - ${want} pcs NOT taken off`); continue; }
-      const f = rng.formulas[row][4];
+      if (row < 0) { log.push(`⚠️ ${name} ${size}: row not found in ${sheet} (${asOn}) - ${want} pcs NOT taken off`); continue; }
+      const f = rng.formulas[row][ci.q];
       const base = (typeof f === "string" && f.startsWith("=")) ? f : "=" + (f === "" || f == null ? 0 : f);
       const nf = base + (delta > 0 ? `-${delta}` : `+${-delta}`);
-      await graphFetch(`${wb}/worksheets('${encodeURIComponent(String(sheet).replace(/'/g, "''"))}')/range(address='E${row + 1}')`, token,
+      await graphFetch(`${xlSheetUrl(wb, sheet)}/range(address='${R.pQtyCol}${row + 1}')`, token,
         { method: "PATCH", body: JSON.stringify({ formulas: [[nf]] }) });
       applied[doneKey] = want;
       localStorage.setItem("rhfPartyApplied2", JSON.stringify(applied));
       waStateTouch();
-      log.push(`${name} ${size}: ${delta > 0 ? "-" + delta : "+" + (-delta)} pcs in E${row + 1}`);
+      log.push(`${name} ${size}: ${delta > 0 ? "-" + delta : "+" + (-delta)} pcs in ${R.pQtyCol}${row + 1}`);
     }
   }
   P.bad.forEach(b => log.push("⚠️ " + b));
@@ -13694,6 +13892,7 @@ async function waInboxFetch() {
     return;
   }
   await waFmtLoad();   // the message format words (Get Started → Message Formats) before reading any message
+  await xlFmtLoad();   // where the entries go (Get Started → Excel Formats)
   const statusEl = document.getElementById("status");
   // Another device may have fetched meanwhile - take the latest row / status from OneDrive first.
   if (waSyncEnabled()) {
@@ -20997,6 +21196,13 @@ async function detectFilePathForMonth(token, year, month0based) {
   const cacheKey = `${year}-${month0based}`;
   if (_filePathCache.has(cacheKey)) return _filePathCache.get(cacheKey);
 
+  if (typeof XL !== "undefined" && !xlIsDefaultFile()) {   // Get Started → Excel Formats: own file name / folder
+    const name = xlFileName(year, month0based), folder = XL.file.folder.replace(/^\/+|\/+$/g, "");
+    let found = (await tryGetItem(token, `${folder}/${name}`)) ? `${folder}/${name}` : null;
+    if (!found) found = await findFileInFolderTree(token, folder, name);
+    _filePathCache.set(cacheKey, found || null);
+    return found || null;
+  }
   const abbr = MONTH_ABBR[month0based];
   const yy = String(year).slice(2);
   const expectedName = `${abbr}'${yy}_Reports.xlsx`;
