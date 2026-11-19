@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- status-bar icon of Moltrix notifications (white "M"; Android shows it in one colour) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M3,20V4h3.2L12,12.2L17.8,4H21v16h-3V9.3l-6,8.2l-6,-8.2V20H3z" />
+</vector>
