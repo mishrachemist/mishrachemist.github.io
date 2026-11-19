@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- tap vibration of the Moltrix page (navigator.vibrate works in the WebView only with this) -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- keep running with the screen locked / another app in front -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
