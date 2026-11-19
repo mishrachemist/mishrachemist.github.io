@@ -53,16 +53,26 @@
             </intent-filter>
         </activity>
 
-        <!-- web notifications of Moltrix show as this app's notifications -->
+        <!-- web notifications of Moltrix show as this app's notifications (not Chrome's): Chrome hands them to this service.
+             SMALL_ICON = the status-bar icon (without it Chrome shows them itself); the activity below asks Android 13+ for the
+             notification permission when Moltrix asks for it -->
         <service
             android:name="com.google.androidbrowserhelper.trusted.DelegationService"
             android:enabled="true"
             android:exported="true">
+            <meta-data
+                android:name="android.support.customtabs.trusted.SMALL_ICON"
+                android:resource="@drawable/ic_stat_moltrix" />
             <intent-filter>
                 <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </service>
+
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.NotificationPermissionRequestActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- ERP part: opened by Moltrix's 📲 buttons (or long-press the icon → ERP); its own entry in Recents -->
         <activity
