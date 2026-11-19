@@ -7073,7 +7073,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.19.6";
+const APP_VERSION = "2026.11.19.7";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🥇 Market: Gold and Silver tabs above the daily quote - rates by karat / purity in g, 10 g, 100 g, kg, ounce and tola, charts from 1 week to 10 years, 1 day / week / month / year change, MCX and Comex live rates and bullion news (updated every hour by the cloud sync)",
@@ -32404,7 +32404,7 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
     return best;
   }
   function subBack() {   // an open sub-page (Reports -> Strip Mill etc.) -> its own back button
-    const subs = Array.from(document.querySelectorAll('[id$="SubContent"]')).filter(shown);
+    const subs = Array.from(document.querySelectorAll('[id$="SubContent"], #bxPanel')).filter(shown);   // bxPanel: gold / silver details
     if (!subs.length) return null;
     const sub = subs[subs.length - 1];
     return sub.querySelector(".backBar .backBtn");
