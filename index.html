@@ -4757,7 +4757,7 @@ window.__gmFS = {
             <p style="font-size:13px;line-height:1.5;margin:6px 0 4px;">Tell Moltrix which words your WhatsApp messages use, so it can read them if the format changes, or in another company's format. Separate words with commas - any one of them is enough (except "Message has ALL of these"). Upper / lower case and extra spaces don't matter. An empty box uses the default words.</p>
             <details style="font-size:12.5px;margin:4px 0 8px;"><summary style="cursor:pointer;font-weight:600;">What stays fixed</summary>
               <ul style="margin:6px 0;padding-left:18px;line-height:1.5;">
-                <li>Heat number written D.M.N (5.11.3); a furnace as F-A / F-B.</li>
+                <li>Heat number written D.M.N (5.11.3); a furnace / crucible as F-A / F-B / F-C.</li>
                 <li>Billet lines: <code>4mtr=10</code>, <code>12x4m</code> or <code>160×160MM=02pcs4mtr</code>; <code>TOTAL PCS=17</code>; sizes 160 / 130.</li>
                 <li>Chemistry: <code>label% = value</code> (or <code>label = value</code>) after the chemistry heading.</li>
                 <li>Consumption: <code>label = value</code>; date dd/mm/yyyy. RHF transfer: <code>120 pcs 160×6m (party)</code>; date dd.mm.yyyy.</li>
@@ -4848,6 +4848,7 @@ window.__gmFS = {
             <h2>Dashboard - Daily Summary</h2>
             <label for="dashDate">Date</label>
             <input type="date" id="dashDate">
+            <div class="xlCruWrap" style="display:none;margin-top:8px;"><select id="dashCru" class="xlCruPick"><option value="">Crucible A</option></select></div>
             <div class="btnRow">
               <button class="primary" id="dashLoadBtn">Load Summary</button>
             </div>
@@ -4886,6 +4887,7 @@ window.__gmFS = {
             <input type="date" id="dashFromDate">
             <label for="dashToDate">To Date</label>
             <input type="date" id="dashToDate">
+            <div class="xlCruWrap" style="display:none;margin-top:8px;"><select id="dashMonthCru" class="xlCruPick"><option value="">Crucible A</option></select></div>
             <div class="btnRow">
               <button class="primary" id="dashMonthLoadBtn">Load Period Summary</button>
             </div>
@@ -7066,9 +7068,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.19.1";
+const APP_VERSION = "2026.11.19.2";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
+  "🔥 Crucibles: Excel Formats asks how many crucibles (1-3); each gets its own monthly file (_A/_B/_C) with heat numbers F-A/F-B/F-C. Heat messages go to their crucible's file, consumption and RHF to A; Logsheet, Strip Mill, BIS Doc, T.C. and out-of-spec reports cover all crucibles together; dashboards have a Crucible picker",
   "🗂️ Get Started → Excel Formats: set the file name, sheet names and columns where WhatsApp entries go (heat billets + chemistry, consumption, RHF transfer) - for another company's Excel format",
   "🔑 Fixed the occasional \"interaction_in_progress\" sign-in error, and the page no longer shrinks to a desktop-like view (page scrolling works again)",
   "🔔 WhatsApp cloud sync now runs every hour, and can send a notification to this phone when it saves something (Production Update → 🔔 Notify this device)",
@@ -12435,7 +12438,7 @@ function wfAlt(words) { return (words || []).filter(w => String(w || "").trim())
    reports and dashboards still read this app's own formats. */
 const XL_URL = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/xl_layout.json:/content";
 const XL_DEFAULT = {
-  file: { name: "{Month}'{YY}_Reports.xlsx", folder: "Desktop" },
+  file: { name: "{Month}'{YY}_Reports.xlsx", folder: "Desktop", crucibles: 1 },
   heat: { sheet: "Prod.", heatCol: "B", sectionCol: "H", C: "C", MN: "D", SI: "E", S: "F", P: "G",
     hot: "P", bypass: "V", b130: "J", hotout: "AC", total: "AB" },
   cons: { sheet: "RM Report", dateCol: "A", lumps: "AI", fines: "AJ", pellets: "AK", steelMeltingScrap: "AL", magMaterial: "AM",
@@ -12447,6 +12450,7 @@ const XL_COLS = new Set(["heatCol", "sectionCol", "C", "MN", "SI", "S", "P", "ho
   "lumps", "fines", "pellets", "steelMeltingScrap", "magMaterial", "rollingMillScrap", "msScrap", "ciMixScrap", "pigIron", "overSizeMag",
   "pAsOnCol", "pPartyCol", "pSizeCol", "pQtyCol"]);
 const XL_ROWS = new Set(["row130", "row160"]);
+const XL_CRU = ["A", "B", "C"];
 function xlMerge(o) {   // saved settings over the defaults; a wrong / empty value keeps the default
   const d = JSON.parse(JSON.stringify(XL_DEFAULT));
   if (!o || typeof o !== "object") return d;
@@ -12454,7 +12458,8 @@ function xlMerge(o) {   // saved settings over the defaults; a wrong / empty val
     const src = o[g]; if (!src || typeof src !== "object") return;
     Object.keys(d[g]).forEach(k => {
       let v = src[k]; if (v == null) return;
-      if (XL_COLS.has(k)) { v = String(v).trim().toUpperCase(); if (/^[A-Z]{1,3}$/.test(v)) d[g][k] = v; }
+      if (k === "crucibles") { v = parseInt(v, 10); if (v >= 1 && v <= 3) d[g][k] = v; }
+      else if (XL_COLS.has(k)) { v = String(v).trim().toUpperCase(); if (/^[A-Z]{1,3}$/.test(v)) d[g][k] = v; }
       else if (XL_ROWS.has(k)) { v = parseInt(v, 10); if (v >= 0 && v <= 200) d[g][k] = v; }
       else { v = String(v).trim(); if (v) d[g][k] = v; }
     });
@@ -12463,9 +12468,13 @@ function xlMerge(o) {   // saved settings over the defaults; a wrong / empty val
 }
 let XL = (() => { try { return xlMerge(JSON.parse(localStorage.getItem("xlLayout") || "null")); } catch (e) { return xlMerge(null); } })();
 let _xlP = null;
-function xlIsDefaultFile() { return XL.file.name === XL_DEFAULT.file.name && XL.file.folder === XL_DEFAULT.file.folder; }
+function xlIsDefaultFile() { return XL.file.name === XL_DEFAULT.file.name && XL.file.folder === XL_DEFAULT.file.folder && (XL.file.crucibles || 1) === 1; }
+// crucibles: one monthly file each (…_Reports_A.xlsx, _B, _C); [""] = one crucible, one file as before
+function xlCrus() { const n = (XL && XL.file && XL.file.crucibles) || 1; return n > 1 ? XL_CRU.slice(0, n) : [""]; }
+function xlCruOk(c) { const l = xlCrus(); return l[0] ? (l.includes(String(c || "").toUpperCase()) ? String(c).toUpperCase() : "A") : ""; }
 function xlApply() {   // things that show the layout
   const sn = document.getElementById("sheetName"); if (sn) sn.value = XL.heat.sheet;
+  if (typeof xlCruUi === "function") xlCruUi();
   if (typeof _filePathCache !== "undefined") _filePathCache.clear();
   if (typeof _colBCache !== "undefined") _colBCache.clear();
 }
@@ -12486,13 +12495,51 @@ function xlFmtLoad(force) {
   })();
   return _xlP;
 }
+// Asked before the formats are put on a OneDrive: how many crucibles (one monthly file each). false = cancelled.
+async function xlAskCrucibles() {
+  await xlFmtLoad(true);
+  const cur = XL.file.crucibles || 1;
+  const a = prompt("How many crucibles (furnaces) does the plant have? 1, 2 or 3\n\nEach crucible gets its own monthly Excel file (A, B, C).", String(cur));
+  if (a === null) return false;
+  const n = parseInt(a, 10);
+  if (!(n >= 1 && n <= 3)) { alert("Please write 1, 2 or 3."); return false; }
+  if (n === cur) return true;
+  const L = JSON.parse(JSON.stringify(XL)); L.file.crucibles = n;
+  const token = await getToken(); if (!token) return false;
+  const r = await fetch(XL_URL, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(L, null, 1) });
+  if (!r.ok) { alert("Could not save the crucible count (OneDrive " + r.status + ")."); return false; }
+  XL = xlMerge(L); _xlP = Promise.resolve(true);
+  try { localStorage.setItem("xlLayout", JSON.stringify(L)); } catch (e) {}
+  xlApply();
+  const f = document.getElementById("xl_file_crucibles"); if (f) f.value = String(n);
+  return true;
+}
 function xlShift(col, n) { return colLetter(colLetterToIndex(col) + n); }      // "P", 3 -> "S"
-function xlFileName(year, month0) {                                            // "{Month}'{YY}_Reports.xlsx" -> "November'26_Reports.xlsx"
+function xlFileName(year, month0, cru) {                                       // "{Month}'{YY}_Reports.xlsx" -> "November'26_Reports.xlsx" (crucible B: "November'26_Reports_B.xlsx")
   const M = MONTH_ABBR[month0], mm = String(month0 + 1);
-  return XL.file.name.replace(/\{Month\}/g, M).replace(/\{Mon\}/g, M.slice(0, 3)).replace(/\{MM\}/g, mm.padStart(2, "0"))
+  const n = XL.file.name.replace(/\{Month\}/g, M).replace(/\{Mon\}/g, M.slice(0, 3)).replace(/\{MM\}/g, mm.padStart(2, "0"))
     .replace(/\{M\}/g, mm).replace(/\{YYYY\}/g, String(year)).replace(/\{YY\}/g, String(year).slice(2));
+  return cru ? (/\.[a-z0-9]+$/i.test(n) ? n.replace(/(\.[a-z0-9]+)$/i, `_${cru}$1`) : `${n}_${cru}`) : n;
 }
 const xlSheetUrl = (wb, sheet) => `${wb}/worksheets('${encodeURIComponent(String(sheet).replace(/'/g, "''"))}')`;
+function xlCruUi() {   // the "Crucible" pickers next to the dashboards: shown only with 2-3 crucibles
+  const crus = xlCrus();
+  document.querySelectorAll(".xlCruPick").forEach(sel => {
+    const keep = sel.value;
+    sel.innerHTML = crus.map(c => `<option value="${c}">Crucible ${c}</option>`).join("");
+    sel.value = crus.includes(keep) ? keep : crus[0];
+    const wrap = sel.closest(".xlCruWrap"); if (wrap) wrap.style.display = crus[0] ? "" : "none";
+  });
+}
+const xlCruPicked = (id) => { const el = document.getElementById(id); return xlCruOk(el && el.value); };
+// a small "CRUCIBLE B" mark at the top-right of the current PDF page (only with 2-3 crucibles)
+function xlCruStamp(doc, cru) {
+  if (!cru) return;
+  const w = doc.internal.pageSize.getWidth();
+  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(180, 40, 40);
+  doc.text(`CRUCIBLE ${cru}`, w - 20, 16, { align: "right" });
+  doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "normal");
+}
 
 /* ---------- Get Started → 📦 Excel Formats: the layout form, check, save ---------- */
 (function () {
@@ -12500,7 +12547,8 @@ const xlSheetUrl = (wb, sheet) => `${wb}/worksheets('${encodeURIComponent(String
   const FIELDS = [
     { g: "Monthly file", key: "file", rows: [
       ["name", "File name", "text", "{Month} = November, {Mon} = Nov, {MM} = 11, {YYYY} = 2026, {YY} = 26"],
-      ["folder", "Folder in OneDrive", "text", "e.g. Desktop or Desktop/Reports"] ] },
+      ["folder", "Folder in OneDrive", "text", "e.g. Desktop or Desktop/Reports"],
+      ["crucibles", "Number of crucibles (1, 2 or 3) - one file each", "cru"] ] },
     { g: "Heat sheet (billets + chemistry)", key: "heat", rows: [
       ["sheet", "Sheet name", "text"], C("heatCol", "Heat number column"), C("sectionCol", "Section (160 / 130) column"),
       C("C", WF_CHEM_NAMES.C), C("MN", WF_CHEM_NAMES.MN), C("SI", WF_CHEM_NAMES.SI), C("S", WF_CHEM_NAMES.S), C("P", WF_CHEM_NAMES.P),
@@ -12526,6 +12574,9 @@ const xlSheetUrl = (wb, sheet) => `${wb}/worksheets('${encodeURIComponent(String
       ${grp.rows.map(([k, lab, kind, hint]) => kind === "text"
         ? `<label for="${idOf(grp.key, k)}" style="margin-top:10px;">${esc(lab)}${hint ? ` <span style="font-weight:400;opacity:.7;font-size:12px;">- ${esc(hint)}</span>` : ""}</label>
         <input type="text" id="${idOf(grp.key, k)}" value="${esc(L[grp.key][k])}" autocomplete="off" spellcheck="false">`
+        : kind === "cru"
+        ? `<div style="display:flex;align-items:center;gap:10px;margin-top:10px;"><label for="${idOf(grp.key, k)}" style="flex:1;margin:0;font-size:13px;font-weight:700;">${esc(lab)}</label>
+        <select id="${idOf(grp.key, k)}" style="width:70px;margin:0;">${[1, 2, 3].map(n => `<option value="${n}" ${+L[grp.key][k] === n ? "selected" : ""}>${n}</option>`).join("")}</select></div>`
         : `<div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><label for="${idOf(grp.key, k)}" style="flex:1;margin:0;font-size:13px;">${esc(lab)}</label>
         <input type="${kind === "row" ? "number" : "text"}" id="${idOf(grp.key, k)}" value="${esc(L[grp.key][k])}" autocomplete="off" spellcheck="false"
           ${kind === "col" ? 'maxlength="3" style="text-transform:uppercase;width:70px;margin:0;text-align:center;"' : 'min="0" max="200" style="width:70px;margin:0;text-align:center;"'}></div>`).join("")}
@@ -12550,6 +12601,7 @@ const xlSheetUrl = (wb, sheet) => `${wb}/worksheets('${encodeURIComponent(String
   const tile = document.querySelector('#getStartedSubNav [data-subgs="formats"]');
   if (tile) tile.addEventListener("click", open);
   render(XL);
+  xlCruUi();
 
   // ---- check this month's file against the boxes (not saved yet) ----
   document.getElementById("xlCheckBtn").addEventListener("click", async () => {
@@ -12560,12 +12612,17 @@ const xlSheetUrl = (wb, sheet) => `${wb}/worksheets('${encodeURIComponent(String
     try {
       const token = await getToken(); if (!token) return;
       const now = new Date(), y = now.getFullYear(), m0 = now.getMonth();
-      const path = await detectFilePathForMonth(token, y, m0);
-      if (!path) { status(`❌ File not found: ${L.file.folder}/${xlFileName(y, m0)}`, "err"); return; }
+      const crus = xlCrus(), outC = [];
+      for (const c of crus.slice(1)) {
+        const pc = await detectFilePathForMonth(token, y, m0, c);
+        outC.push(pc ? `✅ Crucible ${c}: ${pc}` : `❌ Crucible ${c}: ${L.file.folder}/${xlFileName(y, m0, c)} not found`);
+      }
+      const path = await detectFilePathForMonth(token, y, m0, crus[0]);
+      if (!path) { status([`❌ File not found: ${L.file.folder}/${xlFileName(y, m0, crus[0])}`].concat(outC).join("\n"), "err"); return; }
       const wb = await resolveWorkbook(token, path);
       const ws = await graphFetch(`${wb}/worksheets?$select=name`, token, { noCache: true });
       const names = (ws.value || []).map(x => x.name);
-      const out = [`✅ File: ${path}`];
+      const out = [(crus[0] ? `✅ Crucible A: ` : `✅ File: `) + path].concat(outC);
       const need = [["Heat sheet", L.heat.sheet], ["Consumption sheet", L.cons.sheet], ["RHF own billets sheet", L.rhf.sheet], ["RHF party sheet", L.rhf.pSheet]];
       need.forEach(([lab, sh]) => out.push(names.includes(sh) ? `✅ ${lab}: ${sh}` : `❌ ${lab}: "${sh}" not in the file`));
       if (names.includes(L.heat.sheet)) {   // first heat number found in the heat column
@@ -12598,7 +12655,9 @@ const xlSheetUrl = (wb, sheet) => `${wb}/worksheets('${encodeURIComponent(String
       XL = L; _xlP = Promise.resolve(true);
       try { localStorage.setItem("xlLayout", JSON.stringify(L)); } catch (e) {}
       xlApply(); render(XL);
-      status("✅ Saved (OneDrive → Apps → Moltrix → xl_layout.json). The next WhatsApp entries go to these cells - on every device and in the cloud sync.", "ok");
+      xlCruUi();
+      status("✅ Saved (OneDrive → Apps → Moltrix → xl_layout.json). The next WhatsApp entries go to these cells - on every device and in the cloud sync." +
+        (xlCrus()[0] ? `\n${xlCrus().length} crucibles: one monthly file each (${xlCrus().map(c => xlFileName(new Date().getFullYear(), new Date().getMonth(), c)).join(", ")}). Heat messages need F-A / F-B${xlCrus().length > 2 ? " / F-C" : ""} before the heat no.; consumption and RHF messages go to crucible A's file.` : ""), "ok");
     } catch (e) { status("Not saved: " + (e.message || e), "err"); }
   });
 })();
@@ -12611,16 +12670,16 @@ const xlSheetUrl = (wb, sheet) => `${wb}/worksheets('${encodeURIComponent(String
 // "01.10.06" / "1.10.6" / "1-10-6" -> "1.10.6" (numbers only, no leading zeros)
 function normalizeHeatKey(v) {
   // "5.11.3" -> "5.11.3"; with two furnaces the cell is "F-A-5.11.3" / "F-B-5.11.3" -> "A:5.11.3" / "B:5.11.3"
-  const m = /^\s*(?:F\s*-?\s*([AB])\s*-\s*)?0*(\d{1,2})\s*[.\-\/]\s*0*(\d{1,2})\s*[.\-\/]\s*0*(\d{1,2})\s*$/i.exec(String(v === null || v === undefined ? "" : v));
+  const m = /^\s*(?:F\s*-?\s*([ABC])\s*-\s*)?0*(\d{1,2})\s*[.\-\/]\s*0*(\d{1,2})\s*[.\-\/]\s*0*(\d{1,2})\s*$/i.exec(String(v === null || v === undefined ? "" : v));
   return m ? `${m[1] ? m[1].toUpperCase() + ":" : ""}${+m[2]}.${+m[3]}.${+m[4]}` : null;
 }
 // furnace named in a message: "F-A", "F-B", "Furnace A", "Furnace-2" ... ("" = not said)
 function furnaceOf(msg) {
   const t = String(msg || "");
-  let m = /\bF\s*-\s*([AB])\b/i.exec(t) || /\bfurnace\s*[-:#]?\s*([AB12])\b/i.exec(t);
+  let m = /\bF\s*-\s*([ABC])\b/i.exec(t) || /\b(?:furnace|crucible)\s*[-:#]?\s*([ABC123])\b/i.exec(t);
   if (!m) return "";
   const f = m[1].toUpperCase();
-  return f === "1" ? "A" : f === "2" ? "B" : f;
+  return f === "1" ? "A" : f === "2" ? "B" : f === "3" ? "C" : f;
 }
 
 let heatDateHint = null; // { date: Date, exact: boolean, received?: boolean }
@@ -13299,15 +13358,22 @@ async function updateExcel(msgOverride, opts = {}) {
       year = otherYear || new Date().getFullYear();
     }
 
+    // 2-3 crucibles: the heat goes to its crucible's own file - the message must say F-A / F-B / F-C
+    const crusW = xlCrus();
+    if (crusW[0] && !crusW.includes(parsed.furnace)) {
+      statusEl.className = "err";
+      statusEl.textContent = `Heat ${parsed.heatKey}: write the crucible before the heat no. (${crusW.map(c => "F-" + c).join(" / ")}, e.g. F-${crusW[1]}-${parsed.heatKey}) and send again.`;
+      return { ok: false, error: `Heat ${parsed.heatKey}: crucible (${crusW.map(c => "F-" + c).join(" / ")}) not given in the message` };
+    }
     if (heatMonth) {
-      statusEl.textContent = `Locating the file for ${MONTH_ABBR[heatMonth - 1]} ${year}...`;
-      const autoPath = await detectFilePathForMonth(token, year, heatMonth - 1);
+      statusEl.textContent = `Locating the file for ${MONTH_ABBR[heatMonth - 1]} ${year}${crusW[0] ? ` (crucible ${parsed.furnace})` : ""}...`;
+      const autoPath = await detectFilePathForMonth(token, year, heatMonth - 1, parsed.furnace);
       if (autoPath) {
         filePath = autoPath;
       } else if (!manualFilePath) {
         statusEl.className = "err";
-        statusEl.textContent = `Couldn't automatically find the file for ${MONTH_ABBR[heatMonth - 1]} ${year} - is it on your OneDrive? (Menu → Get Started → Put formats on the Desktop)`;
-        return { ok: false, error: `Couldn't find the file for ${MONTH_ABBR[heatMonth - 1]} ${year}` };
+        statusEl.textContent = `Couldn't automatically find the file for ${MONTH_ABBR[heatMonth - 1]} ${year}${crusW[0] ? ` (crucible ${parsed.furnace})` : ""} - is it on your OneDrive? (Menu → Get Started → Put formats on the Desktop)`;
+        return { ok: false, error: `Couldn't find the file for ${MONTH_ABBR[heatMonth - 1]} ${year}${crusW[0] ? ` (crucible ${parsed.furnace})` : ""}` };
       }
       // else: auto-detect failed but a manual File Location is set - fall back to it.
     }
@@ -13883,7 +13949,7 @@ async function submitRhfTransferMessage(text) {
 }
 
 function waIsPermanentError(err) {
-  return /Heat number not found|Cancelled after anomaly|No recognizable consumption|RHF transfer: (date|no )/i.test(String(err || ""));
+  return /Heat number not found|Cancelled after anomaly|No recognizable consumption|RHF transfer: (date|no )|crucible \(F-/i.test(String(err || ""));
 }
 
 async function waInboxFetch() {
@@ -14556,7 +14622,7 @@ async function downloadLogsheetPDF() {
 
   try {
     const token = await getToken();
-    const { results: wbList, missing } = await getWorkbooksForRange(token, fromDate, toDate);
+    const { results: wbList, missing } = await getWorkbooksForRange(token, fromDate, toDate, { allCru: true });
 
     if (wbList.length === 0) {
       statusEl.className = "err";
@@ -14609,6 +14675,7 @@ async function downloadLogsheetPDF() {
 
         if (pageAdded) doc.addPage();
         renderLogsheetPage(doc, rows, iso, layout);
+        xlCruStamp(doc, sub.cru);
         pageAdded = true;
         totalDates++;
         statusEl.textContent = `Preparing Logsheet PDF... (${totalDates} date(s) so far)`;
@@ -15084,7 +15151,7 @@ async function downloadStripMillPDF(mode) {
 
   try {
     const token = await getToken();
-    const { results: wbList, missing } = await getWorkbooksForRange(token, fromDate, toDate);
+    const { results: wbList, missing } = await getWorkbooksForRange(token, fromDate, toDate, { allCru: true });
 
     if (wbList.length === 0) {
       statusEl.className = "err";
@@ -15136,6 +15203,7 @@ async function downloadStripMillPDF(mode) {
 
         if (pageAdded) doc.addPage();
         renderStripMillPage(doc, blockData.text, iso, layout);
+        xlCruStamp(doc, sub.cru);
         pageDates.push(iso);
         pageAdded = true;
         totalDates++;
@@ -15295,7 +15363,7 @@ async function downloadBisDocPDF() {
 
   try {
     const token = await getToken();
-    const { results: wbList, missing } = await getWorkbooksForRange(token, fromDate, toDate);
+    const { results: wbList, missing } = await getWorkbooksForRange(token, fromDate, toDate, { allCru: true });
 
     if (wbList.length === 0) {
       statusEl.className = "err";
@@ -15335,6 +15403,7 @@ async function downloadBisDocPDF() {
         );
         if (pageAdded) doc.addPage();
         renderBisDocPage(doc, blockData.text);
+        xlCruStamp(doc, sub.cru);
         pageAdded = true;
         totalDates++;
         statusEl.textContent = `Preparing BIS Doc PDF... (${totalDates} date(s) so far)`;
@@ -15556,7 +15625,7 @@ async function downloadTCPDF() {
 
   try {
     const token = await getToken();
-    const { results: wbList, missing } = await getWorkbooksForRange(token, fromDate, toDate);
+    const { results: wbList, missing } = await getWorkbooksForRange(token, fromDate, toDate, { allCru: true });
 
     if (wbList.length === 0) {
       statusEl.className = "err";
@@ -15595,6 +15664,7 @@ async function downloadTCPDF() {
         if (pageAdded) doc.addPage();
         const certDateText = iso.split("-").reverse().join("-");
         renderTCPage(doc, blockData.text, certDateText);
+        xlCruStamp(doc, sub.cru);
         pageAdded = true;
         totalPages++;
         statusEl.textContent = `Preparing T.C. PDF... (${totalPages} page(s) so far)`;
@@ -17435,7 +17505,7 @@ renderSopList();
   document.getElementById("misMonth").value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; })();
 
 async function scanOutOfSpecHeats(sheetName, fromDate, toDate, statusEl, token, readOpts) {
-  const { results: wbList, missing } = await getWorkbooksForRange(token, fromDate, toDate);
+  const { results: wbList, missing } = await getWorkbooksForRange(token, fromDate, toDate, { allCru: true });
 
   if (wbList.length === 0) {
     return { flaggedHeats: [], totalHeatsScanned: 0, missing, noFiles: true };
@@ -19354,7 +19424,7 @@ setTimeout(() => {
 const PROD_BLOCK_PERIOD = 18;   // one furnace (12 heats); two furnaces (F-A + F-B, 24 heats) = 30 - read from the sheet
 
 // Heat no.: "5.11.3" (one furnace) or "F-A-5.11.3" / "F-B-5.11.3" (two furnaces)
-const HEAT_NO_RE = /^\s*(?:F\s*-?\s*([AB])\s*-\s*)?0*(\d{1,2})\s*\.\s*0*(\d{1,2})\s*\.\s*0*(\d{1,2})\s*$/i;
+const HEAT_NO_RE = /^\s*(?:F\s*-?\s*([ABC])\s*-\s*)?0*(\d{1,2})\s*\.\s*0*(\d{1,2})\s*\.\s*0*(\d{1,2})\s*$/i;
 // heat rows of the Prod. day block that starts at values[i] (rows read from column A, so B = index 1):
 // the "MIN" row comes right after the last heat row
 function heatsAt(values, i) {
@@ -19379,9 +19449,19 @@ async function prodHeatsFor(wb, token, sheetName) {
   return heats;
 }
 // heat no. of heat row idx (1-based) of a day
-function heatLabel(d, m, idx, heats) {
+function heatLabel(d, m, idx, heats, cru) {
+  if (cru) return `F-${cru}-${d}.${m}.${idx}`;                       // crucible's own file (2-3 crucibles)
   if (heats > 12) return `${idx <= 12 ? "F-A" : "F-B"}-${d}.${m}.${idx <= 12 ? idx : idx - 12}`;
   return `${d}.${m}.${idx}`;
+}
+// crucible letter of a block from its first heat no. ("F-B-5.11.1" -> "B"; plain or two-furnace sheet -> "")
+async function cruOfBlock(wb, token, sheetName, row, heats) {
+  if (!xlCrus()[0] || heats > 12) return "";
+  try {
+    const r = await graphFetch(`${xlSheetUrl(wb, sheetName)}/range(address='B${row}')?$select=text`, token);
+    const m = /^\s*F\s*-\s*([ABC])\s*-/i.exec(String(((r.text || [])[0] || [])[0] || ""));
+    return m ? m[1].toUpperCase() : "";
+  } catch (e) { return ""; }
 }
 
 // Shifts relative row references inside a formula by rowDelta rows.
@@ -19947,6 +20027,7 @@ async function createNextDayProdFromSheet(wb, token) {
   const [ny, nm, nd] = nextISO.split("-").map(x => parseInt(x));
   const heats = await prodHeatsFor(wb, token, sheetName), PERIOD = heats + 6;
   const newTitleRow = lastTitleRow + PERIOD;
+  const cru = await cruOfBlock(wb, token, sheetName, lastTitleRow + 3, heats);
 
   const r = await cloneNextDayBlock({
     wb, sheetName, token, label: "Prod.",
@@ -19955,7 +20036,7 @@ async function createNextDayProdFromSheet(wb, token) {
       const a = classifyCell(ro, c, heats);
       if (a === "BLANK") return { blank: true };
       if (a === "DATE") return { value: nextSerial };
-      if (a === "HEATNO") return { value: heatLabel(nd, nm, ro - 2, heats) };
+      if (a === "HEATNO") return { value: heatLabel(nd, nm, ro - 2, heats, cru) };
       return undefined;
     }
   });
@@ -19980,6 +20061,7 @@ async function createNextDayStripMillFromSheet(wb, token) {
   const nextISO = excelSerialToISODate(nextSerial);
   ndGuard(nextISO, "Strip Mill");
   const [ny, nm, nd] = nextISO.split("-").map(x => parseInt(x));
+  const cru = await cruOfBlock(wb, token, sheetName, lastDataRow, heats);
 
   // Analysis (C:G) and 130x130 (I:L) cells of the 12 heat rows: a FORMULA is carried on to the
   // new block (rows shifted); a typed number is left blank for the new day. If the last block
@@ -20007,7 +20089,7 @@ async function createNextDayStripMillFromSheet(wb, token) {
       }
       if (ro < 3 || ro > heats + 2) return undefined;
       if (c === 0) return ro === 3 ? { value: nextSerial } : { blank: true };
-      if (c === 1) return { value: heatLabel(nd, nm, ro - 2, heats) };
+      if (c === 1) return { value: heatLabel(nd, nm, ro - 2, heats, cru) };
       if ((c >= 2 && c <= 6) || (c >= 8 && c <= 11)) {   // C:G analysis, I:L
         const f = formulaFor(ro, c);
         return f ? { value: f } : { blank: true };
@@ -20251,7 +20333,7 @@ function nmTransformCell(value, numFmt, off, tpl) {
   let s = value, blank = false;
 
   // heat number "D.M.N" of the template month (whole cell)
-  const hm = /^(\s*(?:F-[AB]-)?)(\d{1,2})\.(\d{1,2})\.(\d{1,2})(\s*)$/i.exec(s);   // also F-A-1.11.3 (two furnaces)
+  const hm = /^(\s*(?:F-[ABC]-)?)(\d{1,2})\.(\d{1,2})\.(\d{1,2})(\s*)$/i.exec(s);   // also F-A-1.11.3 (two furnaces / crucible files)
   if (hm && +hm[3] === tpl.m0 + 1) {
     const b = nmShiftDate(tpl.y, tpl.m0, +hm[2], off);
     if (!b) return { value: "" };
@@ -20331,7 +20413,46 @@ async function nmCarryDailyStock(token, prevPath, newWb) {
   return `📦 Daily Stock opening: ${matched} size(s) copied from the ${excelSerialToISODate(topDate)} report (pcs as whole numbers, ERP weight to 3 decimals).`;
 }
 
+// Writes "CRUCIBLE B" into Prod.!A1 (copied into every day block by the next-day blocks) and the Strip Mill
+// title, and puts "F-B-" before the heat numbers of the first day block.
+async function nmMarkCrucible(token, wb, cru) {
+  const sheet = (typeof XL !== "undefined" && XL.heat.sheet) || "Prod.", heatCol = (typeof XL !== "undefined" && XL.heat.heatCol) || "B";
+  const prod = xlSheetUrl(wb, sheet);
+  await graphFetch(`${prod}/range(address='A1')`, token, { method: "PATCH", body: JSON.stringify({ values: [[`CRUCIBLE ${cru}`]] }) });
+  const col = await graphFetch(`${prod}/range(address='${heatCol}1:${heatCol}80')?$select=values,formulas`, token);
+  const grid = (col.values || []).map((r, i) => {
+    const f = (col.formulas[i] || [])[0];
+    if (typeof f === "string" && f.startsWith("=")) return [null];
+    const m = /^\s*(\d{1,2}\.\d{1,2}\.\d{1,2})\s*$/.exec(String(r[0] == null ? "" : r[0]));
+    return [m ? `F-${cru}-${m[1]}` : null];
+  });
+  const n = grid.filter(r => r[0]).length;
+  if (n) await graphFetch(`${prod}/range(address='${heatCol}1:${heatCol}${grid.length}')`, token, { method: "PATCH", body: JSON.stringify({ values: grid }) });
+  try {
+    const sm = xlSheetUrl(wb, "Strip Mill");
+    const t = await graphFetch(`${sm}/range(address='A1')?$select=values`, token);
+    const v = String(((t.values || [])[0] || [])[0] || "").trim();
+    await graphFetch(`${sm}/range(address='A1')`, token, { method: "PATCH", body: JSON.stringify({ values: [[(v ? v + " - " : "") + `CRUCIBLE ${cru}`]] }) });
+  } catch (e) { /* no Strip Mill sheet */ }
+  return `Crucible ${cru}: marked in ${sheet}!A1, ${n} heat no(s). written F-${cru}-…`;
+}
+// One monthly file per crucible (2-3 crucibles: …_Reports_A.xlsx, _B, _C); one crucible: one file as before.
 async function createNextMonthFile() {
+  const crus = xlCrus();
+  if (!crus[0]) return createNextMonthFileFor("");
+  const statusEl = document.getElementById("status"), msgs = [];
+  let bad = 0;
+  for (const c of crus) {
+    await createNextMonthFileFor(c, true);
+    if (statusEl.className !== "ok") bad++;
+    msgs.push(`— Crucible ${c} —\n` + statusEl.textContent.replace(/^Error:\s*/, "❌ "));
+  }
+  const msg = msgs.join("\n\n");
+  statusEl.className = bad ? "err" : "ok";
+  statusEl.textContent = msg;
+  showCompletionPopup(msg);
+}
+async function createNextMonthFileFor(cru, quiet) {
   const statusEl = document.getElementById("status");
   const tplPath = document.getElementById("nmTemplatePath").value.trim();
   const target = document.getElementById("nmTargetMonth").value; // "YYYY-MM"
@@ -20339,14 +20460,15 @@ async function createNextMonthFile() {
   localStorage.setItem("nmTemplatePath", tplPath);
   const [ty, tm] = target.split("-").map(Number);
   const tm0 = tm - 1;
-  const newName = `${MONTH_ABBR[tm0]}'${String(ty).slice(2)}_Reports.xlsx`;
+  const newName = xlFileName(ty, tm0, cru);
   statusEl.className = "wait";
   statusEl.textContent = `Checking the template and target folder...`;
   try {
     const token = await getToken();
 
     // 1. Don't overwrite an existing month file
-    const existing = await detectFilePathForMonth(token, ty, tm0);
+    _filePathCache.clear();
+    const existing = await detectFilePathForMonth(token, ty, tm0, cru);
     if (existing) throw new Error(`${existing} already exists - nothing changed.`);
 
     // 2. Template + its month (from Prod.!A4)
@@ -20361,8 +20483,8 @@ async function createNextMonthFile() {
 
     // 3. Folder: same as the previous month's file, else the template's folder
     const prev = nmShiftYM(ty, tm0, -1);
-    const prevPath = await detectFilePathForMonth(token, prev.y, prev.m0);
-    const folderPath = (prevPath || tplPath).split("/").slice(0, -1).join("/");
+    const prevPath = await detectFilePathForMonth(token, prev.y, prev.m0, cru);
+    const folderPath = (prevPath || (cru || !xlIsDefaultFile() ? XL.file.folder.replace(/^\/+|\/+$/g, "") + "/x" : tplPath)).split("/").slice(0, -1).join("/");
     const folderItem = await tryGetItem(token, folderPath);
     if (!folderItem) throw new Error(`Folder not found: ${folderPath}`);
 
@@ -20422,14 +20544,22 @@ async function createNextMonthFile() {
         await graphFetch(`${sh}/range(address='${addr}')`, token, { method: "PATCH", body: JSON.stringify({ values: grid }) });
       }
     }
-    _filePathCache.delete(`${ty}-${tm0}`);
+    _filePathCache.clear();
     teamAfterNewFile(`${folderPath}/${newName}`, newId, token).catch(() => {});   // team sees the new month too
+
+    // 5b. a crucible's own file: "CRUCIBLE B" in the title rows, heat numbers F-B-1.11.1 …
+    let cruNote = "";
+    if (cru) {
+      try { cruNote = await nmMarkCrucible(token, wb, cru); } catch (e) { cruNote = `⚠️ Crucible ${cru} mark not written: ${e.message}`; }
+    }
 
     // 6. Daily Stock opening = previous month's LAST Daily Stock report:
     //    MANUAL STOCK pcs (col N, whole numbers) and ERP STOCK weight
     //    (col Q, 3 decimals), matched size by size (col A).
     let stockNote = "";
-    if (prevPath) {
+    if (cru && cru !== "A") {
+      stockNote = "";   // plant-level sheets (Daily Stock, RM Report, Billet Stock Format) are kept in crucible A's file
+    } else if (prevPath) {
       statusEl.textContent = `${newName}: copying the last Daily Stock of ${MONTH_ABBR[prev.m0]}...`;
       try {
         stockNote = await nmCarryDailyStock(token, prevPath, wb);
@@ -20443,10 +20573,10 @@ async function createNextMonthFile() {
     const msg = `✅ ${newName} created in ${folderPath}\n${changed} cell(s) changed to ${MONTH_ABBR[tm0]} ${ty}` +
       (blanked ? `, ${blanked} left blank (dates that don't exist in ${MONTH_ABBR[tm0]})` : "") +
       `.\nNot changed: ${NEXT_MONTH_SKIP_SHEETS.join(", ")}.` +
-      (stockNote ? `\n${stockNote}` : "");
+      (stockNote ? `\n${stockNote}` : "") + (cruNote ? `\n${cruNote}` : "");
     statusEl.className = "ok";
     statusEl.textContent = msg;
-    showCompletionPopup(msg);
+    if (!quiet) showCompletionPopup(msg);
   } catch (e) {
     statusEl.className = "err";
     statusEl.textContent = "Error: " + e.message;
@@ -20513,12 +20643,27 @@ async function createNextDayBlock() {
     await nextDayJobStart(wb, token); started = true;
 
     let r, msg; _nextDayWarn = []; const t0 = Date.now();
+    const crusN = xlCrus();
+    const moreCru = async (fn, what) => {   // 2-3 crucibles: the same sheet in crucible B / C files
+      const out = [];
+      for (const c of crusN.slice(1)) {
+        try {
+          const p = await detectFilePathForMonth(token, today.getFullYear(), today.getMonth(), c);
+          if (!p) { out.push(`❌ Crucible ${c}: this month's file not found`); continue; }
+          const wbC = await resolveWorkbook(token, p);
+          await nextDayJobEnd(token); token = await getTokenFresh(10 * 60000); await nextDayJobStart(wbC, token);
+          const rc = await fn(wbC, token);
+          out.push(`✅ Crucible ${c} · ${what}: ${rc.nextISO}, row ${rc.newTitleRow}`);
+        } catch (e) { out.push(`❌ Crucible ${c} · ${what}: ${e.message}`); }
+      }
+      return out.length ? "\n" + out.join("\n") : "";
+    };
     if (choice === "prod") {
       r = await createNextDayProdFromSheet(wb, token);
-      msg = `✅ Prod. (${r.sheetName}): ${r.nextISO}, row ${r.newTitleRow}`;
+      msg = `✅ ${crusN[0] ? "Crucible A · " : ""}Prod. (${r.sheetName}): ${r.nextISO}, row ${r.newTitleRow}` + await moreCru(createNextDayProdFromSheet, "Prod.");
     } else if (choice === "stripmill") {
       r = await createNextDayStripMillFromSheet(wb, token);
-      msg = `✅ Strip Mill (${r.sheetName}): ${r.nextISO}, row ${r.newTitleRow}`;
+      msg = `✅ ${crusN[0] ? "Crucible A · " : ""}Strip Mill (${r.sheetName}): ${r.nextISO}, row ${r.newTitleRow}` + await moreCru(createNextDayStripMillFromSheet, "Strip Mill");
     } else if (choice === "billetstock") {
       r = await createNextDayBilletStockFromSheet(wb, token);
       msg = `✅ Billet Stock Format (${r.sheetName}): ${r.nextDateText}, row ${r.newTitleRow}`;
@@ -20574,16 +20719,31 @@ async function createAllNextDayBlocks(ev, opts) {
     const wb = await resolveWorkbook(token, filePath);
     statusEl.textContent = "Opening the Excel file...";
     await nextDayJobStart(wb, token); started = true;
+    const crus = xlCrus(), cruPre = c => c ? `Crucible ${c} · ` : "";
     const jobs = [
-      ["prod", "Prod.", () => createNextDayProdFromSheet(wb, token), r => `${r.nextISO}, row ${r.newTitleRow}`],
-      ["stripmill", "Strip Mill", () => createNextDayStripMillFromSheet(wb, token), r => `${r.nextISO}, row ${r.newTitleRow}`],
-      ["billetstock", "Billet Stock Format", () => createNextDayBilletStockFromSheet(wb, token), r => `${r.nextDateText}, row ${r.newTitleRow}`],
-      ["dailyprodformat", "Daily Prod Format", () => createNextDayDailyProdFormatFromSheet(wb, token), r => `${r.nextDateText}, row ${r.newTitleRow}`],
-      ["dailystock", "Daily Stock", () => createNextDayDailyStockFromSheet(wb, token), r => `${r.nextISO}, row ${r.newTitleRow}`]
+      ["prod", cruPre(crus[0]) + "Prod.", () => createNextDayProdFromSheet(wb, token), r => `${r.nextISO}, row ${r.newTitleRow}`, wb],
+      ["stripmill", cruPre(crus[0]) + "Strip Mill", () => createNextDayStripMillFromSheet(wb, token), r => `${r.nextISO}, row ${r.newTitleRow}`, wb],
+      ["billetstock", "Billet Stock Format", () => createNextDayBilletStockFromSheet(wb, token), r => `${r.nextDateText}, row ${r.newTitleRow}`, wb],
+      ["dailyprodformat", "Daily Prod Format", () => createNextDayDailyProdFormatFromSheet(wb, token), r => `${r.nextDateText}, row ${r.newTitleRow}`, wb],
+      ["dailystock", "Daily Stock", () => createNextDayDailyStockFromSheet(wb, token), r => `${r.nextISO}, row ${r.newTitleRow}`, wb]
     ];
     const lines = []; let fails = 0; const t0 = Date.now(); const warnAll = []; const dates = new Set();
+    // 2-3 crucibles: Prod. and Strip Mill of crucible B / C files too (plant-level sheets are only in A's file)
+    for (const c of crus.slice(1)) {
+      const p = await detectFilePathForMonth(token, today.getFullYear(), today.getMonth(), c);
+      if (!p) { fails++; lines.push(`❌ Crucible ${c}: this month's file not found`); continue; }
+      const wbC = await resolveWorkbook(token, p);
+      jobs.push(["prod", cruPre(c) + "Prod.", () => createNextDayProdFromSheet(wbC, token), r => `${r.nextISO}, row ${r.newTitleRow}`, wbC]);
+      jobs.push(["stripmill", cruPre(c) + "Strip Mill", () => createNextDayStripMillFromSheet(wbC, token), r => `${r.nextISO}, row ${r.newTitleRow}`, wbC]);
+    }
+    let curWb = wb;
     for (let i = 0; i < jobs.length; i++) {
-      const [, label, run, fmt] = jobs[i];
+      const [, label, run, fmt, jobWb] = jobs[i];
+      if (jobWb !== curWb) {   // next crucible's file: close the Excel session of the last one, open this one
+        try { await nextDayJobEnd(token); } catch (e) {}
+        token = await getTokenFresh(10 * 60000);
+        await nextDayJobStart(jobWb, token); curWb = jobWb;
+      }
       statusEl.className = "wait";
       statusEl.textContent = `(${i + 1}/${jobs.length}) ${label}: next-day block is being prepared...\n` + lines.join("\n");
       _nextDayWarn = [];
@@ -21192,12 +21352,13 @@ async function findFileInFolderTree(token, baseFolder, expectedName, maxFolders 
 // reports need the same month, or when a report loops over many months.
 const _filePathCache = new Map();
 
-async function detectFilePathForMonth(token, year, month0based) {
-  const cacheKey = `${year}-${month0based}`;
+async function detectFilePathForMonth(token, year, month0based, cru) {
+  cru = typeof XL !== "undefined" ? xlCruOk(cru) : "";      // 2-3 crucibles: A unless another is asked for
+  const cacheKey = `${year}-${month0based}${cru ? "-" + cru : ""}`;
   if (_filePathCache.has(cacheKey)) return _filePathCache.get(cacheKey);
 
   if (typeof XL !== "undefined" && !xlIsDefaultFile()) {   // Get Started → Excel Formats: own file name / folder
-    const name = xlFileName(year, month0based), folder = XL.file.folder.replace(/^\/+|\/+$/g, "");
+    const name = xlFileName(year, month0based, cru), folder = XL.file.folder.replace(/^\/+|\/+$/g, "");
     let found = (await tryGetItem(token, `${folder}/${name}`)) ? `${folder}/${name}` : null;
     if (!found) found = await findFileInFolderTree(token, folder, name);
     _filePathCache.set(cacheKey, found || null);
@@ -21254,7 +21415,17 @@ function localDateToISO(d) {
   return `${y}-${m}-${day}`;
 }
 
-async function getWorkbooksForRange(token, fromDate, toDate) {
+async function getWorkbooksForRange(token, fromDate, toDate, opts) {
+  if (opts && opts.allCru && xlCrus()[0]) {   // every crucible's files, crucible by crucible
+    const all = { results: [], missing: [] };
+    for (const c of xlCrus()) {
+      const r = await getWorkbooksForRange(token, fromDate, toDate, { cru: c });
+      r.results.forEach(e => { e.cru = c; all.results.push(e); });
+      r.missing.forEach(x => all.missing.push(`${x} (crucible ${c})`));
+    }
+    return all;
+  }
+  const cruOpt = opts && opts.cru;
   let cursor = new Date(fromDate + "T00:00:00");
   const end = new Date(toDate + "T00:00:00");
 
@@ -21275,10 +21446,10 @@ async function getWorkbooksForRange(token, fromDate, toDate) {
   // in the same (chronological) order the months were listed in, even
   // though the underlying requests may finish in any order.
   const fetched = await Promise.all(monthsToFetch.map(async ({ y, m, rangeStart, rangeEnd }) => {
-    const filePath = await detectFilePathForMonth(token, y, m);
+    const filePath = await detectFilePathForMonth(token, y, m, cruOpt);
     if (!filePath) return { missing: `${MONTH_ABBR[m]} ${y}` };
     const wb = await resolveWorkbook(token, filePath);
-    return { entry: { filePath, wb, fromDate: localDateToISO(rangeStart), toDate: localDateToISO(rangeEnd) } };
+    return { entry: { filePath, wb, fromDate: localDateToISO(rangeStart), toDate: localDateToISO(rangeEnd), cru: xlCruOk(cruOpt) } };
   }));
 
   const results = [], missing = [];
@@ -22378,7 +22549,7 @@ async function loadDashboard() {
   try {
     const token = await getToken();
     const [y, m] = dateVal.split("-").map(Number);
-    const filePath = await detectFilePathForMonth(token, y, m - 1);
+    const filePath = await detectFilePathForMonth(token, y, m - 1, xlCruPicked("dashCru"));
 
     if (!filePath) {
       statusEl.className = "err";
@@ -22493,7 +22664,7 @@ async function loadMonthlyDashboard() {
 
   try {
     const token = await getToken();
-    const { results: wbList, missing } = await getWorkbooksForRange(token, fromDate, toDate);
+    const { results: wbList, missing } = await getWorkbooksForRange(token, fromDate, toDate, { cru: xlCruPicked("dashMonthCru") });
 
     if (wbList.length === 0) {
       statusEl.className = "err";
@@ -31490,20 +31661,21 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
     }
     // this month's Reports file, made from the Template (same as "Create Next Month File")
     const now = new Date(), y = now.getFullYear(), m0 = now.getMonth();
-    const mName = `${MONTH_ABBR[m0]}'${String(y).slice(2)}_Reports.xlsx`;
-    _filePathCache.delete(`${y}-${m0}`);
-    const existing = await detectFilePathForMonth(token, y, m0);
-    if (existing) say(`⏭️ ${existing} - already there (not changed)`);
-    else {
+    await xlFmtLoad();
+    _filePathCache.clear();
+    for (const cru of xlCrus()) {   // one file per crucible (2-3 crucibles)
+      const mName = xlFileName(y, m0, cru);
+      const existing = await detectFilePathForMonth(token, y, m0, cru);
+      if (existing) { say(`⏭️ ${existing} - already there (not changed)`); continue; }
       say(`⏳ ${mName} from the Template ...`);
       const tplIn = $("nmTemplatePath"), monIn = $("nmTargetMonth"), keepTpl = tplIn.value;
       let tpl = tplIn.value.trim();
       if (!tpl || !(await tryGetItem(token, tpl))) tpl = "Desktop/Template.xlsx";
       tplIn.value = tpl; monIn.value = `${y}-${String(m0 + 1).padStart(2, "0")}`;
-      await createNextMonthFile();
+      await createNextMonthFileFor(cru, true);
       const st = $("status");
       lines.pop();
-      if (st && st.className === "ok") { say(`✅ ${mName} (made from ${tpl})`); made++; }
+      if (st && st.className === "ok") { say(`✅ ${mName} (made from ${tpl})${cru ? ` - crucible ${cru}` : ""}`); made++; }
       else { say(`❌ ${mName} - ${st ? st.textContent.replace(/^Error:\s*/, "") : "not made"}`); tplIn.value = keepTpl; }
     }
     say(made ? `\nDone - ${made} file(s) put on the Desktop. The app now reads them from there.` : "\nNothing new was needed.");
@@ -31513,6 +31685,7 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
     const b = $("fmtPushBtn"), out = $("fmtStatus");
     const who = account ? accountEmail(account) : "";
     if (!confirm(`Put the blank Excel formats on the Desktop of this OneDrive?\n\n${who}\n\nFiles already there are not touched.`)) return;
+    if (!(await xlAskCrucibles())) return;
     b.disabled = true; out.textContent = "Starting...";
     try { await pushFormats(out); } catch (e) { out.textContent += "\n❌ " + e.message; } finally { b.disabled = false; }
   });
@@ -31528,6 +31701,7 @@ document.getElementById("sdJpgBtn").addEventListener("click", () => snRun(async 
       if (!confirm("Welcome to Moltrix!\n\nYour OneDrive does not have the Excel formats yet. Put them on your OneDrive Desktop now?\n(You can also do it later: Menu → Get Started → Put formats on the Desktop)")) return;
       const sec = document.getElementById("fileLocationMenuBtn"); if (sec) sec.click();
       const ft = document.querySelector('#getStartedSubNav [data-subgs="formats"]'); if (ft) ft.click();
+      if (!(await xlAskCrucibles())) return;
       const out = $("fmtStatus"); out.textContent = "Starting...";
       await pushFormats(out);
     } catch (e) { console.warn("formats offer", e); }
