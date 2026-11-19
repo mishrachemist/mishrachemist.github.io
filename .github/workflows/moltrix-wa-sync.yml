@@ -19,6 +19,10 @@ on:
         description: "Fetch now (do not wait for the fixed time)"
         type: boolean
         default: false
+      test_notify:
+        description: "Only send a test notification to the Moltrix app (no fetch)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write     # only to put the encrypted news file for the Moltrix app on the release "moltrix-notify"
@@ -43,6 +47,7 @@ jobs:
           MS_REFRESH_TOKEN: ${{ secrets.MS_REFRESH_TOKEN }}
           GH_PAT: ${{ secrets.GH_PAT }}
           FORCE: ${{ inputs.force }}
+          TEST_NOTIFY: ${{ inputs.test_notify }}
         run: |
           mkdir -p /tmp/mx
           cat > /tmp/mx/run.mjs <<'EOF'
@@ -84,6 +89,20 @@ jobs:
           const email = String(me.userPrincipalName || me.mail || "").toLowerCase();
           if (!email) fail("Could not read the signed-in Microsoft account.");
           console.log("::add-mask::" + email);
+
+          // ---- test notification for the Moltrix app only (Run workflow → "test_notify") ----
+          if (process.env.TEST_NOTIFY === "true") {
+            const pr = await g("https://graph.microsoft.com/v1.0/me/drive/special/approot:/push_config.json:/content?t=" + Date.now());
+            const cfg = pr.ok ? await pr.json().catch(() => ({})) : {};
+            if (!cfg || !cfg.app || !cfg.app.key) { out("🔕 The Moltrix app has not turned notifications on yet (no app key in push_config.json)."); process.exit(0); }
+            const { createCipheriv, randomBytes } = await import("node:crypto");
+            const iv = randomBytes(12), c = createCipheriv("aes-256-gcm", Buffer.from(cfg.app.key, "base64"), iv);
+            const t = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" });
+            const enc = Buffer.concat([c.update(JSON.stringify({ id: Date.now(), title: "Moltrix - test", body: `Notifications work (sent ${t})` }), "utf8"), c.final(), c.getAuthTag()]);
+            fs.writeFileSync("/tmp/moltrix-news.bin", Buffer.concat([iv, enc]).toString("base64"));
+            out("📱 Test news for the Moltrix app made (key set " + (cfg.app.at || "?") + ").");
+            process.exit(0);
+          }
 
           // ---- gold / silver rates -> OneDrive app folder bullion.json (every run; the app's Market screen reads it) ----
           await (async () => {
