@@ -3133,6 +3133,12 @@ html.mzLocked #mzLock{ display:block; }
   sessionStorage.removeItem("mzLockOk");
   if (Date.now() - ok > 60000) document.documentElement.classList.add("mzLocked");   // a reload over a slow network can take more than 15 s
   else window.__mzRefreshOk = true;
+  try {   // lock log (hold the clock at the top for 2 s to see it) - for finding repeated fingerprint prompts
+    var nav = (performance.getEntriesByType && performance.getEntriesByType("navigation")[0] || {}).type || "?";
+    var L = JSON.parse(localStorage.getItem("mzLockLog") || "[]");
+    L.push([Date.now(), "page start (" + nav + "), last unlocked page left " + (ok ? Math.round((Date.now() - ok) / 1000) + " s ago" : "never/none") + " -> " + (window.__mzRefreshOk ? "no ask" : "ASK"), location.pathname + location.search]);
+    localStorage.setItem("mzLockLog", JSON.stringify(L.slice(-60)));
+  } catch (e) {}
 } catch (e) { document.documentElement.classList.add("mzLocked"); } })();
 /* Paint the saved theme straight away, so a refresh never flashes the plain photo/colours. */
 (function () {
@@ -7074,7 +7080,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.19.9";
+const APP_VERSION = "2026.11.19.10";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
@@ -12197,6 +12203,7 @@ async function msalRedirect(req) {
   if (document.documentElement.classList.contains("mzLocked") && typeof window.mzLockWait === "function") await window.mzLockWait();
   if (_mzRedirecting) return null;
   _mzRedirecting = true;
+  try { window.mzLockLogAdd && window.mzLockLogAdd("Microsoft sign-in round (token renewal)"); } catch (e) {}
   try { await msalInstance.acquireTokenRedirect(req); }
   catch (e) {
     if (!/interaction_in_progress/i.test(msalErrCode(e))) { _mzRedirecting = false; throw e; }
@@ -33494,6 +33501,8 @@ async function downloadAndroidApk() {
     try { return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch (e) { return false; }
   };
   let busy = false, hiddenAt = 0;
+  const LOG = (t) => { try { const L = JSON.parse(localStorage.getItem("mzLockLog") || "[]"); L.push([Date.now(), t]); localStorage.setItem("mzLockLog", JSON.stringify(L.slice(-60))); } catch (e) {} };
+  window.mzLockLogAdd = LOG;
 
   // ---- lock screen ----
   const box = document.createElement("div");
@@ -33584,29 +33593,32 @@ async function downloadAndroidApk() {
     if (!(flags & 0x04)) throw new Error("the fingerprint / screen lock was not checked");   // UV flag
     return true;
   }
-  async function unlock() {
+  async function unlock(why) {
     if (busy || !html.classList.contains("mzLocked")) return;
     busy = true; msg("");
-    try { await verify(); html.classList.remove("mzLocked"); }
-    catch (e) { try { navigator.vibrate && navigator.vibrate(60); } catch (x) {} }      // stays blank - tap to try again
+    LOG("fingerprint asked (" + (typeof why === "string" ? why : "tap") + ")");
+    try { await verify(); html.classList.remove("mzLocked"); LOG("unlocked"); }
+    catch (e) { LOG("fingerprint failed: " + ((e && (e.name + " " + e.message)) || e).slice(0, 120)); try { navigator.vibrate && navigator.vibrate(60); } catch (x) {} }      // stays blank - tap to try again
     finally { busy = false; hiddenAt = 0; }
   }
-  function lock() {
+  function lock(why) {
     if (!cred()) return;
+    LOG("LOCK: " + (why || "?"));
     html.classList.add("mzLocked"); msg("");
     try { document.activeElement && document.activeElement.blur(); } catch (e) {}
-    if (document.visibilityState === "visible") setTimeout(unlock, 250);
+    if (document.visibilityState === "visible") setTimeout(() => unlock("after lock"), 250);
   }
 
   // when to ask: every open (page start) and after more than a minute away (a quick switch - file picker, share - doesn't ask)
   document.addEventListener("visibilitychange", () => {
+    if (cred()) LOG("app " + document.visibilityState + (busy ? " (while asking)" : ""));
     if (!cred() || busy) return;
     if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
-    if (html.classList.contains("mzLocked")) { setTimeout(unlock, 250); return; }
-    if (hiddenAt && Date.now() - hiddenAt > GRACE) lock();
+    if (html.classList.contains("mzLocked")) { setTimeout(() => unlock("app visible, still locked"), 250); return; }
+    if (hiddenAt && Date.now() - hiddenAt > GRACE) lock("away " + Math.round((Date.now() - hiddenAt) / 1000) + " s");
     hiddenAt = 0;
   });
-  window.addEventListener("pageshow", e => { if (e.persisted && cred()) lock(); });
+  window.addEventListener("pageshow", e => { if (e.persisted && cred()) lock("page restored from back/forward cache"); });
   // resolves when the page is unlocked (used before a Microsoft sign-in round)
   window.mzLockWait = () => new Promise(res => {
     if (!html.classList.contains("mzLocked")) return res();
@@ -33615,13 +33627,37 @@ async function downloadAndroidApk() {
   });
   // the page is going away while open (refresh): remember the moment for the reload (see the first script in <body>)
   window.addEventListener("pagehide", () => {
+    if (cred()) LOG("page left" + (html.classList.contains("mzLocked") ? " (locked)" : " (unlocked, remembered)"));
     try { if (cred() && !html.classList.contains("mzLocked") && !busy) sessionStorage.setItem("mzLockOk", String(Date.now())); } catch (e) {}
   });
   if (cred() && !window.__mzRefreshOk) {
     html.classList.add("mzLocked");
     let rec = false; try { rec = sessionStorage.getItem("mzLockRecover") === "1"; } catch (e) {}
-    if (!rec) setTimeout(unlock, 400);
+    if (!rec) setTimeout(() => unlock("page start"), 400);
   }
+  // hold the clock at the top for 2 s: the lock log (to send as a screenshot)
+  (function () {
+    const ck = document.getElementById("liveClock"); if (!ck) return;
+    let t = 0;
+    ck.addEventListener("pointerdown", () => { clearTimeout(t); t = setTimeout(show, 2000); });
+    ["pointerup", "pointercancel", "pointerleave"].forEach(ev => ck.addEventListener(ev, () => clearTimeout(t)));
+    function show() {
+      let L = []; try { L = JSON.parse(localStorage.getItem("mzLockLog") || "[]"); } catch (e) {}
+      const d = document.createElement("div");
+      d.id = "mzLockLogBox";
+      d.style.cssText = "position:fixed;inset:0;z-index:2147483645;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:12px;";
+      const f = ts => new Date(ts).toLocaleTimeString("en-GB", { hour12: false });
+      d.innerHTML = `<div style="background:#fff;color:#111;width:100%;max-width:520px;max-height:85vh;overflow:auto;border-radius:12px;padding:12px;font:12px/1.45 monospace;">
+        <b style="font:700 15px sans-serif">🔒 Lock log (${esc0(APP_VERSION)})</b>
+        <div style="margin:8px 0">${L.slice(-40).map(x => `<div>${f(x[0])} ${esc0(x[1])}${x[2] ? " " + esc0(x[2]) : ""}</div>`).join("") || "empty"}</div>
+        <button type="button" id="mzLogClose" style="padding:8px 16px;border-radius:8px;border:0;background:#1f3864;color:#fff">Close</button>
+        <button type="button" id="mzLogClear" style="padding:8px 16px;border-radius:8px;border:1px solid #1f3864;background:#fff;color:#1f3864">Clear</button></div>`;
+      document.body.appendChild(d);
+      d.querySelector("#mzLogClose").onclick = () => d.remove();
+      d.querySelector("#mzLogClear").onclick = () => { try { localStorage.removeItem("mzLockLog"); } catch (e) {} d.remove(); };
+    }
+    function esc0(t) { return String(t == null ? "" : t).replace(/[&<>]/g, c => "&#" + c.charCodeAt(0) + ";"); }
+  })();
 
   // ---- ☰ menu / ⋮ menu: switch on / off ----
   const btn = document.getElementById("fpLockToggle");
