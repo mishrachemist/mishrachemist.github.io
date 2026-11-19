@@ -30,7 +30,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Every hour (also with Moltrix closed): reads the cloud WhatsApp sync's latest news and shows it as a Moltrix notification.
+ * Every 15 minutes - the shortest Android allows (also with Moltrix closed): reads the cloud WhatsApp sync's latest news and shows it as a Moltrix notification.
  * The news file is on GitHub, encrypted (AES-256-GCM) with a key that only this phone and the user's OneDrive know,
  * so nobody else can read it. Format: base64( 12-byte IV | ciphertext+tag ) of {"id": ms, "title": "...", "body": "..."}.
  */
@@ -43,8 +43,8 @@ public class NotifyWorker extends Worker {
 
     static void schedule(Context c) {
         Constraints k = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
-        PeriodicWorkRequest r = new PeriodicWorkRequest.Builder(NotifyWorker.class, 1, TimeUnit.HOURS).setConstraints(k).build();
-        WorkManager.getInstance(c).enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.KEEP, r);
+        PeriodicWorkRequest r = new PeriodicWorkRequest.Builder(NotifyWorker.class, 15, TimeUnit.MINUTES).setConstraints(k).build();
+        WorkManager.getInstance(c).enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.UPDATE, r);
     }
 
     static void checkNow(Context c) {
