@@ -83,3 +83,22 @@ jobs:
           fi
           gh release upload moltrix-erp-apk MoltrixERP.apk --clobber
           echo "APK: https://github.com/$GITHUB_REPOSITORY/releases/download/moltrix-erp-apk/MoltrixERP.apk" >> "$GITHUB_STEP_SUMMARY"
+
+      # the same APK also replaces SMS-Reports.apk in the repo (☰ → Download Android App) - always the newest app there too
+      - name: Put the APK in the repo (SMS-Reports.apk)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cp android-erp/app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/new.apk"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for try in 1 2 3; do
+            git fetch --depth=1 origin main
+            git checkout -q -B apk-update FETCH_HEAD
+            cp "$RUNNER_TEMP/new.apk" SMS-Reports.apk
+            if git diff --quiet -- SMS-Reports.apk; then echo "SMS-Reports.apk already this build."; exit 0; fi
+            git add SMS-Reports.apk
+            git commit -q -m "SMS-Reports.apk: new Moltrix app build (${GITHUB_SHA::7})"
+            if git push origin HEAD:main; then echo "SMS-Reports.apk replaced." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+            sleep 5
+          done
+          echo "::error::Could not push SMS-Reports.apk"; exit 1
