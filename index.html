@@ -10,7 +10,19 @@
   function reportLogoOn() { try { return localStorage.getItem("reportLogo") !== "off"; } catch (e) { return true; } }
   function htmlEsc(t) { return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   // Clickjacking guard: the app must never run inside someone else's page/iframe.
-  try { if (window.top !== window.self) { document.documentElement.style.display = "none"; window.top.location = window.self.location; } } catch (e) { document.documentElement.style.display = "none"; }
+  // Exception: Microsoft's own hidden frame (token renewal) loads this page with the sign-in answer in the address; there it
+  // only passes the answer back to the open app (MSAL v5 "redirect bridge") and stops - no app, no fingerprint, no reload of the app.
+  try { if (window.top !== window.self) {
+    document.documentElement.style.display = "none";
+    var mzSame = false; try { mzSame = window.parent.location.origin === location.origin; } catch (e) {}
+    if (!mzSame) window.top.location = window.self.location;
+    else {
+      window.__mzAuthFrame = true;
+      if (/(^|[#?&])state=/.test(location.hash + "&" + location.search))
+        document.write('<script src="/msal-redirect-bridge.min.js"><\/script><script>try { msalRedirectBridge.broadcastResponseToMainFrame().catch(function () {}); } catch (e) {}<\/script>');
+      document.write('<script>window.stop();<\/script>');
+    }
+  } } catch (e) { document.documentElement.style.display = "none"; }
 </script>
 <script>
   // Already signed in on this device? Hide the Sign-in button / message until
@@ -7081,7 +7093,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.19.11";
+const APP_VERSION = "2026.11.19.12";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
