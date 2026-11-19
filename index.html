@@ -7093,7 +7093,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.19.12";
+const APP_VERSION = "2026.11.19.13";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
@@ -32066,27 +32066,23 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
   #marketSubNav .navIcon img.mkFlag{width:62%;height:auto;aspect-ratio:3/2;max-height:none;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.35);object-fit:cover}
   /* ===== Gold / Silver board (Market screen) - one card, gold half + silver half, each opens its page ===== */
   #section-marketdash .bxStrip{ display:block; max-width:560px; margin:18px auto 4px; padding:0 14px; }
-  .bxBoard{ position:relative; display:grid; grid-template-columns:1fr 1fr; gap:6px; background:#0b0b0b; border:2px solid #c9a24a; border-radius:14px;
-    padding:22px 6px 20px; box-shadow:0 8px 18px rgba(0,0,0,.35); animation:mdIn .45s ease-out both; font-family:"Montserrat","Poppins",sans-serif; }
-  .bxBoard .bxHead, .bxBoard .bxFootTab{ position:absolute; left:50%; transform:translateX(-50%); background:linear-gradient(180deg,#f3dfa4,#c9a24a); color:#111;
-    text-align:center; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.4); }
-  .bxBoard .bxHead{ top:-2px; padding:2px 18px 3px; border-radius:0 0 14px 14px; font:900 11px/1.15 "Montserrat","Poppins",sans-serif; letter-spacing:.3px; }
-  .bxBoard .bxFootTab{ bottom:-2px; padding:2px 16px; border-radius:14px 14px 0 0; font:700 9px "Montserrat","Poppins",sans-serif; letter-spacing:.4px; }
-  .bxRow{ position:relative; overflow:hidden; border:0; border-radius:8px; padding:6px 6px 7px; cursor:pointer; display:flex; flex-direction:column; align-items:stretch; gap:4px; text-align:center; }
-  .bxRow.gold{ background:radial-gradient(circle at 30% 30%, #3a2a0c 0%, #141006 60%, #0b0b0b 100%); }
-  .bxRow.silver{ background:linear-gradient(180deg,#bfc3c8 0%,#8d939a 100%); }
+  .bxBoard{ position:relative; display:grid; grid-template-columns:1fr 1fr; gap:8px; background:#0b0b0b; border:2px solid #c9a24a; border-radius:16px;
+    padding:6px; box-shadow:0 8px 18px rgba(0,0,0,.35); animation:mdIn .45s ease-out both; font-family:"Montserrat","Poppins",sans-serif; }
+  .bxRow{ position:relative; overflow:hidden; border:0; border-radius:12px; padding:8px 7px 8px; cursor:pointer; display:flex; flex-direction:column; align-items:stretch; gap:6px; text-align:center; }
+  .bxRow.gold{ background:radial-gradient(circle at 25% 20%, #4a3510 0%, #1d1507 55%, #0e0c08 100%); }
+  .bxRow.silver{ background:linear-gradient(180deg,#e4e6e9 0%,#c9ccd0 55%,#a9adb3 100%); }
   .bxRow::after{ content:""; position:absolute; inset:0; background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.12) 48%,transparent 60%); animation:mdShine 5s infinite; pointer-events:none; }
   .bxRow:active{ filter:brightness(1.15); }
   .bxRow .bxTop{ display:flex; align-items:center; gap:4px; }
   .bxBars{ width:58px; height:auto; flex:none; display:block; filter:drop-shadow(0 4px 4px rgba(0,0,0,.45)); }
-  .bxRow .bxTop .t{ flex:1; font:900 11px/1.2 "Montserrat","Poppins",sans-serif; text-align:left; }
+  .bxRow .bxTop .t{ flex:1; font:900 12px/1.2 "Montserrat","Poppins",sans-serif; text-align:left; }
   .bxRow.gold .bxTop .t{ color:#f5c542; } .bxRow.silver .bxTop .t{ color:#111; }
-  .bxRow .bxTop .t small{ display:block; font-size:9px; font-weight:800; opacity:.85; }
-  .bxPanelBox{ background:#111; border:1.5px solid #4a4a4a; border-radius:8px; padding:4px 3px; box-shadow:0 0 0 1.5px rgba(201,162,74,.55); }
-  .bxRow.silver .bxPanelBox{ box-shadow:0 0 0 1.5px rgba(255,255,255,.6); }
+  .bxRow .bxTop .t small{ display:block; font-size:9.5px; font-weight:800; opacity:.85; }
+  .bxPanelBox{ background:#111; border:2px solid #7a6230; border-radius:10px; padding:5px 3px 6px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.6); }
+  .bxRow.silver .bxPanelBox{ border-color:#eef0f2; box-shadow:0 0 0 1px #8d939a, inset 0 0 0 1px rgba(0,0,0,.6); }
   .bxPanelBox .p{ font:900 20px/1.15 "Montserrat","Poppins",sans-serif; letter-spacing:-.3px; white-space:nowrap; }
   .bxRow.gold .bxPanelBox .p{ color:#f5c542; } .bxRow.silver .bxPanelBox .p{ color:#fff; }
-  .bxPanelBox .l{ color:#f5c542; font:900 9.5px "Montserrat","Poppins",sans-serif; letter-spacing:.5px; }
+  .bxPanelBox .l{ color:#f5c542; font:900 9.5px "Montserrat","Poppins",sans-serif; letter-spacing:.5px; margin-top:1px; }
   .bxPanelBox .u{ color:#ddd; font:700 8px/1.3 "Montserrat","Poppins",sans-serif; margin-top:2px; white-space:nowrap; }
   .bxPanelBox .u .up{ color:#22c55e; } .bxPanelBox .u .dn{ color:#ef4444; } .bxPanelBox .u .fl{ color:#cbd5e1; }
   @media (max-width:360px){ .bxPanelBox .p{ font-size:17px; } .bxBars{ width:46px; } }
@@ -32282,7 +32278,7 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
         <div class="bxPanelBox"><div class="p">${inr(baseOf(m)[histUnit(m)])}</div><div class="l">LIVE PRICE</div>
           <div class="u">${arr} ${esc(upd(m))}</div></div></button>`;
     };
-    strip.innerHTML = `<div class="bxBoard"><div class="bxHead">LIVE BULLION MARKET RATES · INDIA</div>${row("gold")}${row("silver")}<div class="bxFootTab">SUBJECT TO MARKET RISKS</div></div>`;
+    strip.innerHTML = `<div class="bxBoard">${row("gold")}${row("silver")}</div>`;
     strip.classList.remove("hidden");
   }
 
