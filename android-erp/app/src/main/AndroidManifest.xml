@@ -9,15 +9,6 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
-    <!-- Chrome (or another browser) that can show Moltrix full screen -->
-    <queries>
-        <intent>
-            <action android:name="android.support.customtabs.action.CustomTabsService" />
-        </intent>
-    </queries>
-
-    <!-- One app: the launcher icon opens Moltrix (the website, full screen through Chrome - same sign-in and data as
-         Chrome); its 📲 buttons open the ERP part (MainActivity) inside this same app. The ERP runs on plain http. -->
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
@@ -25,25 +16,14 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="true">
 
-        <meta-data
-            android:name="asset_statements"
-            android:resource="@string/asset_statements" />
-
-        <!-- Moltrix (Trusted Web Activity) -->
+        <!-- Moltrix -->
         <activity
-            android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:name=".MoltrixActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density"
             android:exported="true"
             android:label="Moltrix"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar">
-            <meta-data
-                android:name="android.support.customtabs.trusted.DEFAULT_URL"
-                android:value="https://mishrachemist.github.io/" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
-                android:resource="@color/moltrix_navy" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR"
-                android:resource="@color/moltrix_navy" />
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize">
             <meta-data
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
@@ -53,26 +33,16 @@
             </intent-filter>
         </activity>
 
-        <!-- web notifications of Moltrix show as this app's notifications (not Chrome's): Chrome hands them to this service.
-             SMALL_ICON = the status-bar icon (without it Chrome shows them itself); the activity below asks Android 13+ for the
-             notification permission when Moltrix asks for it -->
-        <service
-            android:name="com.google.androidbrowserhelper.trusted.DelegationService"
-            android:enabled="true"
-            android:exported="true">
-            <meta-data
-                android:name="android.support.customtabs.trusted.SMALL_ICON"
-                android:resource="@drawable/ic_stat_moltrix" />
-            <intent-filter>
-                <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </service>
-
-        <activity
-            android:name="com.google.androidbrowserhelper.trusted.NotificationPermissionRequestActivity"
+        <!-- files Moltrix shares (WhatsApp etc.) / saves on Android 8-9 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
             android:exported="false"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!-- ERP part: opened by Moltrix's 📲 buttons (or long-press the icon → ERP); its own entry in Recents -->
         <activity
