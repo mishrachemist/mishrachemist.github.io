@@ -33,6 +33,17 @@ jobs:
     env:
       TZ: Asia/Kolkata
     steps:
+      - name: probe
+        run: |
+          set +e
+          UA="Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Mobile Safari/537.36"
+          curl -sL -A "$UA" https://bullions.co.in/ -o /tmp/h.html; echo "status $? size $(wc -c </tmp/h.html)"
+          echo "== scripts"; grep -oE '<script[^>]+src="[^"]+"' /tmp/h.html | head -30
+          echo "== urls"; grep -oE '(https?:)?//[a-zA-Z0-9./_-]*(api|json|ajax|chart|data|rate)[a-zA-Z0-9./_?=&-]*' /tmp/h.html | sort -u | head -60
+          echo "== fetch/xhr"; grep -oE "(fetch|ajax|getJSON|\\.get)\\([^)]{0,160}" /tmp/h.html | head -40
+          echo "== text"; sed -e 's/<[^>]*>/ /g' /tmp/h.html | tr -s ' \t' ' ' | grep -iE 'karat|carat|24k|22k|silver|mcx|comex|per kg|per gram|10 ?g' | head -80
+          echo "== links"; grep -oE 'href="[^"]+"' /tmp/h.html | sort -u | head -80
+          exit 1
       - uses: actions/setup-node@v4
         with:
           node-version: 22
