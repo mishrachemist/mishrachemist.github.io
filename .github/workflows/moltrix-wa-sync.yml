@@ -120,6 +120,7 @@ jobs:
                 live, news, hist: { gold: hist("chartData1"), silver: hist("chartData2") } };
               const up = await fetch(BURL, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(data) });
               if (!up.ok) throw new Error("OneDrive " + up.status);
+              console.log("DEBUGBX " + JSON.stringify({ head: data.head, g: data.gold.slice(0, 3), s: data.silver.slice(0, 2), change: data.change, live: data.live, news: data.news, h: data.hist.gold.slice(-2) }));
               console.log(`Bullion rates saved (${upd || "time n/a"}; ${gold.length} gold, ${silver.length} silver rows, ${live.length} live, ${data.hist.gold.length}/${data.hist.silver.length} chart days, ${news.length} news).`);
             } catch (e) { console.log("Bullion rates not updated: " + e.message); }
           })();
