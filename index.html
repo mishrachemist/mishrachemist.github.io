@@ -14696,6 +14696,10 @@ async function pushEnable() {
       cfg.app = { key: btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))), at: new Date().toISOString() };
       await pushCfgPut(token, cfg);
     }
+    if ((cfg.subs || []).some(x => x && x.device === "Android")) {   // the Chrome notifications of Android phones are no longer needed
+      cfg.subs = cfg.subs.filter(x => !(x && x.device === "Android"));
+      await pushCfgPut(token, cfg);
+    }
     MoltrixApp.setNotify(true, cfg.app.key);
     return;
   }
