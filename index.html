@@ -3217,9 +3217,25 @@ html.mzLocked #mzLock{ display:block; }
     try {
       var bc = document.body.classList, c = bc.contains("tex-clean") ? (bc.contains("clean-night") ? "#141416" : "#f6f0e6") : getComputedStyle(document.body).getPropertyValue("--navy").trim();
       if (c && meta.getAttribute("content") !== c) meta.setAttribute("content", c);
+      // Moltrix Android app (own WebView): the phone's top and bottom bars take the header / bottom tab bar colours
+      if (window.MZ_NATIVE && MoltrixApp.setBars) {
+        var hex = function (v, under) {     // css colour -> #rrggbb (see-through colours mixed over "under")
+          var m = /rgba?\(([^)]+)\)/.exec(v || ""); if (!m) return /^#[0-9a-f]{6}$/i.test(v || "") ? v : under;
+          var p = m[1].split(/[ ,\/]+/).filter(Boolean).map(Number), a = p.length > 3 ? p[3] : 1;
+          var u = /^#([0-9a-f]{6})$/i.exec(under || "#ffffff"), U = u ? [0, 2, 4].map(function (i) { return parseInt(u[1].substr(i, 2), 16); }) : [255, 255, 255];
+          return "#" + [0, 1, 2].map(function (i) { return ("0" + Math.round(p[i] * a + U[i] * (1 - a)).toString(16)).slice(-2); }).join("");
+        };
+        var top = hex(c, "#f6f0e6"), nav = document.getElementById("bottomTabBar");
+        var bot = nav && !nav.classList.contains("hidden") ? hex(getComputedStyle(nav).backgroundColor, top) : top;
+        if (top + bot !== window.__mzBars) { window.__mzBars = top + bot; MoltrixApp.setBars(top, bot); }
+      }
     } catch (e) {}
   }
   sync();
+  if (window.MZ_NATIVE) window.addEventListener("load", function () {
+    setTimeout(sync, 300); setTimeout(sync, 2000);
+    var n = document.getElementById("bottomTabBar"); if (n) try { new MutationObserver(sync).observe(n, { attributes: true, attributeFilter: ["class", "style"] }); } catch (e) {}
+  });
   try { new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ["style", "class"] }); } catch (e) {}
 })();
 </script><button id="askFab" aria-label="Ask Your Data" title="Ask Your Data"><img alt="Ask Your Data" src="img/13ee24b95c6c.webp"></button>
@@ -7134,7 +7150,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.19.18";
+const APP_VERSION = "2026.11.19.19";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
