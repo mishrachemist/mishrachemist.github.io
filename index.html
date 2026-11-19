@@ -7073,7 +7073,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.19.5";
+const APP_VERSION = "2026.11.19.6";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🥇 Market: Gold and Silver tabs above the daily quote - rates by karat / purity in g, 10 g, 100 g, kg, ounce and tola, charts from 1 week to 10 years, 1 day / week / month / year change, MCX and Comex live rates and bullion news (updated every hour by the cloud sync)",
@@ -32037,29 +32037,31 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
   @keyframes mkSlogIn{ from{ opacity:0; transform:rotate(-2deg) scale(.85); } to{ opacity:1; transform:rotate(-2deg) scale(1); } }
   #marketSubNav .navIcon img.mkFlag{width:62%;height:auto;aspect-ratio:3/2;max-height:none;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.35);object-fit:cover}
   /* ===== Gold / Silver board (Market screen) - one card, gold half + silver half, each opens its page ===== */
-  #section-marketdash .bxStrip{ display:block; max-width:560px; margin:22px auto 6px; padding:0 12px; }
-  .bxBoard{ position:relative; background:#0b0b0b; border:2px solid #c9a24a; border-radius:14px; padding:30px 8px 26px; box-shadow:0 10px 24px rgba(0,0,0,.35); animation:mdIn .45s ease-out both; font-family:"Montserrat","Poppins",sans-serif; }
+  #section-marketdash .bxStrip{ display:block; max-width:560px; margin:18px auto 4px; padding:0 14px; }
+  .bxBoard{ position:relative; display:grid; grid-template-columns:1fr 1fr; gap:6px; background:#0b0b0b; border:2px solid #c9a24a; border-radius:14px;
+    padding:22px 6px 20px; box-shadow:0 8px 18px rgba(0,0,0,.35); animation:mdIn .45s ease-out both; font-family:"Montserrat","Poppins",sans-serif; }
   .bxBoard .bxHead, .bxBoard .bxFootTab{ position:absolute; left:50%; transform:translateX(-50%); background:linear-gradient(180deg,#f3dfa4,#c9a24a); color:#111;
     text-align:center; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.4); }
-  .bxBoard .bxHead{ top:-2px; padding:4px 26px 5px; border-radius:0 0 18px 18px; font:900 14px/1.15 "Montserrat","Poppins",sans-serif; letter-spacing:.3px; }
-  .bxBoard .bxHead small{ display:block; font-weight:800; font-size:11px; letter-spacing:.5px; }
-  .bxBoard .bxFootTab{ bottom:-2px; padding:4px 22px; border-radius:18px 18px 0 0; font:700 10.5px "Montserrat","Poppins",sans-serif; letter-spacing:.4px; }
-  .bxRow{ display:grid; grid-template-columns:40% 60%; align-items:center; gap:4px; width:100%; border:0; padding:12px 8px; cursor:pointer; text-align:left; position:relative; overflow:hidden; }
-  .bxRow.gold{ background:radial-gradient(circle at 25% 50%, #3a2a0c 0%, #141006 55%, #0b0b0b 100%); border-radius:8px 8px 0 0; }
-  .bxRow.silver{ background:linear-gradient(180deg,#bfc3c8 0%,#8d939a 100%); border-radius:0 0 8px 8px; }
+  .bxBoard .bxHead{ top:-2px; padding:2px 18px 3px; border-radius:0 0 14px 14px; font:900 11px/1.15 "Montserrat","Poppins",sans-serif; letter-spacing:.3px; }
+  .bxBoard .bxFootTab{ bottom:-2px; padding:2px 16px; border-radius:14px 14px 0 0; font:700 9px "Montserrat","Poppins",sans-serif; letter-spacing:.4px; }
+  .bxRow{ position:relative; overflow:hidden; border:0; border-radius:8px; padding:6px 6px 7px; cursor:pointer; display:flex; flex-direction:column; align-items:stretch; gap:4px; text-align:center; }
+  .bxRow.gold{ background:radial-gradient(circle at 30% 30%, #3a2a0c 0%, #141006 60%, #0b0b0b 100%); }
+  .bxRow.silver{ background:linear-gradient(180deg,#bfc3c8 0%,#8d939a 100%); }
   .bxRow::after{ content:""; position:absolute; inset:0; background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.12) 48%,transparent 60%); animation:mdShine 5s infinite; pointer-events:none; }
   .bxRow:active{ filter:brightness(1.15); }
-  .bxBars{ width:100%; height:auto; display:block; filter:drop-shadow(0 6px 6px rgba(0,0,0,.45)); }
-  .bxPanelBox{ background:#111; border:2px solid #4a4a4a; border-radius:10px; padding:8px 6px 6px; text-align:center; box-shadow:inset 0 0 0 2px #000, 0 0 0 2px rgba(201,162,74,.55); }
-  .bxRow.silver .bxPanelBox{ box-shadow:inset 0 0 0 2px #000, 0 0 0 2px rgba(255,255,255,.55); }
-  .bxPanelBox .t{ color:#fff; font:900 12.5px/1.2 "Montserrat","Poppins",sans-serif; letter-spacing:0; white-space:nowrap; }
-  .bxPanelBox .p{ font:900 30px/1.1 "Montserrat","Poppins",sans-serif; margin:6px 0 2px; letter-spacing:-.5px; background:#0f0f0f; padding:4px 0; }
-  .bxRow.gold .bxPanelBox .p{ color:#f5c542; }
-  .bxRow.silver .bxPanelBox .p{ color:#fff; }
-  .bxPanelBox .l{ color:#f5c542; font:900 15px "Montserrat","Poppins",sans-serif; }
-  .bxPanelBox .u{ color:#fff; font:800 9.5px/1.35 "Montserrat","Poppins",sans-serif; margin-top:5px; background:#1c1c1c; padding:4px 2px; border-radius:4px; white-space:nowrap; }
+  .bxRow .bxTop{ display:flex; align-items:center; gap:4px; }
+  .bxBars{ width:58px; height:auto; flex:none; display:block; filter:drop-shadow(0 4px 4px rgba(0,0,0,.45)); }
+  .bxRow .bxTop .t{ flex:1; font:900 11px/1.2 "Montserrat","Poppins",sans-serif; text-align:left; }
+  .bxRow.gold .bxTop .t{ color:#f5c542; } .bxRow.silver .bxTop .t{ color:#111; }
+  .bxRow .bxTop .t small{ display:block; font-size:9px; font-weight:800; opacity:.85; }
+  .bxPanelBox{ background:#111; border:1.5px solid #4a4a4a; border-radius:8px; padding:4px 3px; box-shadow:0 0 0 1.5px rgba(201,162,74,.55); }
+  .bxRow.silver .bxPanelBox{ box-shadow:0 0 0 1.5px rgba(255,255,255,.6); }
+  .bxPanelBox .p{ font:900 20px/1.15 "Montserrat","Poppins",sans-serif; letter-spacing:-.3px; white-space:nowrap; }
+  .bxRow.gold .bxPanelBox .p{ color:#f5c542; } .bxRow.silver .bxPanelBox .p{ color:#fff; }
+  .bxPanelBox .l{ color:#f5c542; font:900 9.5px "Montserrat","Poppins",sans-serif; letter-spacing:.5px; }
+  .bxPanelBox .u{ color:#ddd; font:700 8px/1.3 "Montserrat","Poppins",sans-serif; margin-top:2px; white-space:nowrap; }
   .bxPanelBox .u .up{ color:#22c55e; } .bxPanelBox .u .dn{ color:#ef4444; } .bxPanelBox .u .fl{ color:#cbd5e1; }
-  @media (max-width:360px){ .bxPanelBox .p{ font-size:25px; } .bxPanelBox .t{ font-size:11px; } }
+  @media (max-width:360px){ .bxPanelBox .p{ font-size:17px; } .bxBars{ width:46px; } }
   .bxUp{ color:#22c55e !important; } .bxDn{ color:#ef4444 !important; }
   #bxPanel{ max-width:760px; margin:0 auto; }
   #bxPanel .bxHero{ border-radius:16px; padding:14px 16px; color:#fff; margin-bottom:10px; }
@@ -32246,12 +32248,12 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
     if (!D || !rowsOf("gold").length || !rowsOf("silver").length) { strip.classList.add("hidden"); return; }
     const row = m => {
       const p = dayPct(m), arr = p > 0 ? '<span class="up">▲</span>' : p < 0 ? '<span class="dn">▼</span>' : '<span class="fl">●</span>';
-      return `<button type="button" class="bxRow ${m}" data-bx="${m}">${bars(m)}
-        <div class="bxPanelBox"><div class="t">${m === "gold" ? "GOLD RATE 24 KT (10 GM)" : "SILVER RATE (1 KG)"}</div>
-          <div class="p">${inr(baseOf(m)[histUnit(m)])}</div><div class="l">LIVE PRICE</div>
-          <div class="u">${arr} LAST UPDATE<br>${esc(upd(m))}</div></div></button>`;
+      return `<button type="button" class="bxRow ${m}" data-bx="${m}">
+        <div class="bxTop">${bars(m)}<div class="t">${m === "gold" ? "GOLD RATE<small>24 KT · 10 GM</small>" : "SILVER RATE<small>999 · 1 KG</small>"}</div></div>
+        <div class="bxPanelBox"><div class="p">${inr(baseOf(m)[histUnit(m)])}</div><div class="l">LIVE PRICE</div>
+          <div class="u">${arr} ${esc(upd(m))}</div></div></button>`;
     };
-    strip.innerHTML = `<div class="bxBoard"><div class="bxHead">LIVE BULLION MARKET RATES<small>INDIA</small></div>${row("gold")}${row("silver")}<div class="bxFootTab">SUBJECT TO MARKET RISKS</div></div>`;
+    strip.innerHTML = `<div class="bxBoard"><div class="bxHead">LIVE BULLION MARKET RATES · INDIA</div>${row("gold")}${row("silver")}<div class="bxFootTab">SUBJECT TO MARKET RISKS</div></div>`;
     strip.classList.remove("hidden");
   }
 
