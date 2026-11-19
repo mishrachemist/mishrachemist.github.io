@@ -25,6 +25,33 @@
   } } catch (e) { document.documentElement.style.display = "none"; }
 </script>
 <script>
+/* ===== Moltrix Android app (own WebView, no Chrome): files, sharing and notifications go through window.MoltrixApp ===== */
+(function () {
+  if (!(window.MoltrixApp && MoltrixApp.version)) return;
+  window.MZ_NATIVE = true;
+  var toB64 = function (blob) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(",")[1] || ""); }; r.onerror = rej; r.readAsDataURL(blob); }); };
+  var blobs = new Map(), oco = URL.createObjectURL;   // the blob behind each blob: link (pages often revoke the link right after the click)
+  URL.createObjectURL = function (o) { var u = oco.call(URL, o); if (o instanceof Blob) { blobs.set(u, o); if (blobs.size > 40) blobs.delete(blobs.keys().next().value); } return u; };
+  var want = function (a) { return a && a.tagName === "A" && a.hasAttribute("download") && (/^(blob:|data:)/i.test(a.href) || a.href.indexOf(location.origin + "/") === 0); };
+  var save = function (href, name) {
+    var b = blobs.get(href);
+    (b ? Promise.resolve(b) : fetch(href).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.blob(); }))
+      .then(function (bl) { return toB64(bl).then(function (d) { MoltrixApp.saveFile(name || (href.split("/").pop() || "download"), bl.type || "", d); }); })
+      .catch(function (e) { alert("Not saved: " + (e && e.message || e)); });
+  };
+  var oc = HTMLAnchorElement.prototype.click, od = HTMLAnchorElement.prototype.dispatchEvent;
+  HTMLAnchorElement.prototype.click = function () { if (want(this)) { save(this.href, this.getAttribute("download")); return; } return oc.call(this); };
+  HTMLAnchorElement.prototype.dispatchEvent = function (ev) { if (ev && ev.type === "click" && want(this)) { save(this.href, this.getAttribute("download")); return true; } return od.call(this, ev); };
+  document.addEventListener("click", function (e) { var a = e.target && e.target.closest && e.target.closest("a"); if (want(a)) { e.preventDefault(); e.stopImmediatePropagation(); save(a.href, a.getAttribute("download")); } }, true);
+  navigator.canShare = function (d) { return !!d; };
+  navigator.share = function (d) {
+    d = d || {};
+    if (d.files && d.files.length) { var f = d.files[0]; return toB64(f).then(function (b) { MoltrixApp.shareFile(f.name || "file", f.type || "", b, d.title || ""); }); }
+    MoltrixApp.shareText([d.title, d.text, d.url].filter(Boolean).join("\n"), d.title || ""); return Promise.resolve();
+  };
+})();
+</script>
+<script>
   // Already signed in on this device? Hide the Sign-in button / message until
   // the saved login is restored, so they don't flash for half a second.
   try { if (localStorage.getItem("lastSignedInAccountId")) {
@@ -3138,6 +3165,7 @@ html.mzLocked #mzLock{ display:block; }
 <body><script>
 /* Fingerprint lock on this device: hide the page from the first paint until it is unlocked */
 (function () { try {
+  if (window.MZ_NATIVE) return;     // Moltrix Android app: the app's own fingerprint lock
   if (!localStorage.getItem("mzLockCred")) return;
   // a refresh (🔄 / pull down / app update) right after it was open and unlocked doesn't ask again: the page saved the moment
   // it went away (sessionStorage = this tab only); opening the app again, or coming back after Android closed it, does ask
@@ -7106,7 +7134,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.19.16";
+const APP_VERSION = "2026.11.19.17";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
@@ -10519,7 +10547,7 @@ function loginDeviceLabel() {
   const ua = navigator.userAgent;
   const os = /Android/i.test(ua) ? "Android" : /iPhone|iPad|iPod/i.test(ua) ? "iPhone/iPad" : /Windows/i.test(ua) ? "Windows" : /Mac OS/i.test(ua) ? "Mac" : /Linux/i.test(ua) ? "Linux" : "Other";
   const br = /Edg\//.test(ua) ? "Edge" : /SamsungBrowser/.test(ua) ? "Samsung Internet" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Browser";
-  const app = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches ? " (app)" : "";
+  const app = window.MZ_NATIVE || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ? " (app)" : "";
   return `${os} · ${br}${app} · ${screen.width}x${screen.height}`;
 }
 function logLoginEvent(event, accArg) {   // the access server writes the log itself, using the e-mail Microsoft confirmed (nothing to forge)
@@ -14614,7 +14642,7 @@ document.addEventListener("change", e => {
 const PUSH_CFG_URL = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/push_config.json:/content";
 const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = (t) => { t = String(t).replace(/-/g, "+").replace(/_/g, "/"); while (t.length % 4) t += "="; return Uint8Array.from(atob(t), c => c.charCodeAt(0)); };
-function pushSupported() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+function pushSupported() { return !!window.MZ_NATIVE || ("serviceWorker" in navigator && "PushManager" in window && "Notification" in window); }
 async function pushCfgGet(token) {
   const r = await fetch(PUSH_CFG_URL + "?t=" + Date.now(), { headers: { Authorization: "Bearer " + token }, cache: "no-store" });
   if (r.status === 404) return {};
@@ -14633,6 +14661,11 @@ async function pushShowInfo() {
   const cb = document.getElementById("waPushToggle"), el = document.getElementById("waPushInfo");
   if (!cb) return;
   if (!pushSupported()) { cb.checked = false; cb.disabled = true; if (el) el.textContent = "Not supported on this device."; return; }
+  if (window.MZ_NATIVE) {   // Moltrix Android app: the app checks every hour
+    cb.checked = MoltrixApp.notifyOn();
+    if (el) el.textContent = cb.checked && !MoltrixApp.notifyAllowed() ? "Notifications are blocked for this app in the phone settings." : "";
+    return;
+  }
   const sub = await pushCurrentSub();
   const on = !!sub && Notification.permission === "granted" && localStorage.getItem("waPushEndpoint") === sub.endpoint;
   cb.checked = on;
@@ -14640,6 +14673,16 @@ async function pushShowInfo() {
 }
 async function pushEnable() {
   if (!waSyncEnabled()) throw new Error("Only the owner account can turn this on.");
+  if (window.MZ_NATIVE) {   // Moltrix Android app: a key shared with the cloud sync (push_config.json); the sync's news file is encrypted with it
+    const token = await getToken();
+    const cfg = await pushCfgGet(token);
+    if (!cfg.app || !cfg.app.key) {
+      cfg.app = { key: btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))), at: new Date().toISOString() };
+      await pushCfgPut(token, cfg);
+    }
+    MoltrixApp.setNotify(true, cfg.app.key);
+    return;
+  }
   const perm = await Notification.requestPermission();
   if (perm !== "granted") throw new Error("Notification permission was not given.");
   const token = await getToken();
@@ -14664,6 +14707,7 @@ async function pushEnable() {
   localStorage.setItem("waPushEndpoint", j.endpoint);
 }
 async function pushDisable() {
+  if (window.MZ_NATIVE) { MoltrixApp.setNotify(false, ""); return; }
   const sub = await pushCurrentSub();
   const ep = sub ? sub.endpoint : localStorage.getItem("waPushEndpoint");
   if (sub) { try { await sub.unsubscribe(); } catch (e) {} }
@@ -19100,7 +19144,7 @@ window._erpEntryTest = { erpEntryBuild, erpBatchOf };
     // Inside the Moltrix app (Chrome-based) any link to the ERP opens in a small tab with no address bar and no "Open in
     // Chrome", so the bookmark can't be used there - in the app only copy; in a normal Chrome tab open the ERP next to it
     const erpUrl = ERP_ORIGIN + ERP_PATH;
-    const inApp = (window.matchMedia && (matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches)) || /^android-app:/.test(document.referrer || "");
+    const inApp = !!window.MZ_NATIVE || (window.matchMedia && (matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches)) || /^android-app:/.test(document.referrer || "");
     const w = inApp ? true : window.open(erpUrl, "moltrixErpChrome");
     if (!ok) ok = await erpCopyText(text);
     const scr = payload.mode === "indent" ? "Purchase Requisition Entry" : "Store Issue Requisition";
@@ -20907,10 +20951,12 @@ function blockDateText(r) { // r.nextISO "2026-10-15" | r.nextDateText "As on 15
   return m ? `${m[1].padStart(2, "0")}.${m[2].padStart(2, "0")}.${m[3]}` : "";
 }
 function askNotifyPermission() { // call on a button tap (browsers allow the question only then)
+  if (window.MZ_NATIVE) { try { MoltrixApp.askNotify(); } catch (e) {} return; }
   try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission().catch(() => {}); } catch (e) {}
 }
 async function phoneNotify(title, body) {
   try { if (navigator.vibrate) navigator.vibrate([150, 80, 150]); } catch (e) {}
+  if (window.MZ_NATIVE) { try { MoltrixApp.notify(title, body); } catch (e) {} return; }
   try {
     if (!("Notification" in window) || Notification.permission !== "granted") return;
     const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
@@ -32856,8 +32902,8 @@ async function downloadAndroidApk() {
 (function apkMenuVisibility() {
   const it = document.getElementById("navApkItem"); if (!it) return;
   const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  let inApp = false;
-  try { inApp = matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || document.referrer.startsWith("android-app://"); } catch (e) {}
+  let inApp = !!window.MZ_NATIVE;
+  try { inApp = inApp || matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || document.referrer.startsWith("android-app://"); } catch (e) {}
   if (ios || inApp) it.style.display = "none";   // already inside the app, or an iPhone (APK is Android only)
 })();
 </script>
@@ -33845,6 +33891,22 @@ async function downloadAndroidApk() {
    sent anywhere and no fingerprint data reaches Moltrix. Per device: the PC is not affected. Way out if the fingerprint
    no longer works: sign in again with the Microsoft account (then the lock is switched off and can be set again). */
 (function () {
+  if (window.MZ_NATIVE) {   // Moltrix Android app: the app checks the fingerprint itself (phone's own prompt)
+    const btn = document.getElementById("fpLockToggle");
+    const label = () => {
+      const on = MoltrixApp.lockOn() ? "ON" : "OFF";
+      if (btn) btn.textContent = `🔒 Fingerprint Lock: ${on}`;
+      const d = document.querySelector("#navFpLockItem span:last-child"); if (d) d.textContent = `Fingerprint Lock: ${on}`;
+    };
+    label();
+    window.mzNativeLock = () => label();
+    window.mzLockRecovered = () => { try { if (!MoltrixApp.lockOn() && MoltrixApp.lockPossible()) setTimeout(() => MoltrixApp.setLock(true), 900); } catch (e) {} };
+    if (btn) btn.addEventListener("click", () => {
+      if (!MoltrixApp.lockOn() && !MoltrixApp.lockPossible()) { alert("The fingerprint lock cannot work on this phone (a fingerprint or screen lock must be set on the phone)."); return; }
+      MoltrixApp.setLock(!MoltrixApp.lockOn());
+    });
+    return;
+  }
   const KEY = "mzLockCred", GRACE = 60 * 1000;
   const html = document.documentElement;
   const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");

@@ -21,7 +21,7 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write     # only to put the encrypted news file for the Moltrix app on the release "moltrix-notify"
 
 concurrency:
   group: moltrix-wa-sync
@@ -196,11 +196,24 @@ jobs:
                   const pr = await g("https://graph.microsoft.com/v1.0/me/drive/special/approot:/push_config.json:/content?t=" + Date.now());
                   const cfg = pr.ok ? await pr.json().catch(() => ({})) : {};
                   const subs = (cfg && cfg.subs) || [];
-                  if (!cfg.vapid || !subs.length) console.log("🔕 No device has notifications turned on.");
+                  const news = { title: (res.cls === "err" ? "⚠️ " : "") + "Moltrix - WhatsApp sync", body: res.first.replace(/^WhatsApp fetch: /, "") + (res.detail ? "\n" + res.detail : "") };
+                  // Moltrix Android app (own WebView, no Chrome): it checks every hour for this file - encrypted with the key in
+                  // push_config.json (AES-256-GCM), so the copy on GitHub can't be read by anyone else; the next step uploads it
+                  if (cfg && cfg.app && cfg.app.key) {
+                    try {
+                      const { createCipheriv, randomBytes } = await import("node:crypto");
+                      const { writeFileSync } = await import("node:fs");
+                      const iv = randomBytes(12), c = createCipheriv("aes-256-gcm", Buffer.from(cfg.app.key, "base64"), iv);
+                      const enc = Buffer.concat([c.update(JSON.stringify(Object.assign({ id: Date.now() }, news)), "utf8"), c.final(), c.getAuthTag()]);
+                      writeFileSync("/tmp/moltrix-news.bin", Buffer.concat([iv, enc]).toString("base64"));
+                      out("📱 News for the Moltrix app made.");
+                    } catch (e) { out("⚠️ News for the Moltrix app not made: " + e.message); }
+                  }
+                  if (!cfg.vapid || !subs.length) console.log("🔕 No browser has notifications turned on.");
                   else {
                     const webpush = createRequire("/tmp/mx/")("web-push");
                     webpush.setVapidDetails(cfg.vapid.subject || APP_URL, cfg.vapid.publicKey, cfg.vapid.privateKey);
-                    const payload = JSON.stringify({ title: (res.cls === "err" ? "⚠️ " : "") + "Moltrix - WhatsApp sync", body: res.first.replace(/^WhatsApp fetch: /, "") + (res.detail ? "\n" + res.detail : ""), tag: "moltrix-sync", url: APP_URL });
+                    const payload = JSON.stringify(Object.assign({ tag: "moltrix-sync", url: APP_URL }, news));
                     let sent = 0; const gone = [];
                     for (const s of subs) {
                       try { await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, payload, { TTL: 6 * 3600 }); sent++; }
@@ -218,3 +231,15 @@ jobs:
           } finally { await browser.close(); }
           EOF
           node /tmp/mx/run.mjs
+
+      - name: News for the Moltrix app
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -s /tmp/moltrix-news.bin ] || { echo "Nothing new."; exit 0; }
+          cp /tmp/moltrix-news.bin n.bin
+          gh release view moltrix-notify --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create moltrix-notify --repo "$GITHUB_REPOSITORY" --title "Moltrix app news (encrypted)" --notes "Read by the Moltrix Android app every hour. Encrypted - not readable without the app's key." --latest=false
+          gh release upload moltrix-notify n.bin --clobber --repo "$GITHUB_REPOSITORY"
+          echo "📱 News put for the Moltrix app."
