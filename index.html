@@ -3131,7 +3131,7 @@ html.mzLocked #mzLock{ display:block; }
   // it went away (sessionStorage = this tab only); opening the app again, or coming back after Android closed it, does ask
   var ok = +sessionStorage.getItem("mzLockOk") || 0;
   sessionStorage.removeItem("mzLockOk");
-  if (Date.now() - ok > 15000) document.documentElement.classList.add("mzLocked");
+  if (Date.now() - ok > 60000) document.documentElement.classList.add("mzLocked");   // a reload over a slow network can take more than 15 s
   else window.__mzRefreshOk = true;
 } catch (e) { document.documentElement.classList.add("mzLocked"); } })();
 /* Paint the saved theme straight away, so a refresh never flashes the plain photo/colours. */
@@ -7074,9 +7074,10 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.19.8";
+const APP_VERSION = "2026.11.19.9";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
+  "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
   "🥇 Market: Gold and Silver tabs above the daily quote - rates by karat / purity in g, 10 g, 100 g, kg, ounce and tola, charts from 1 week to 10 years, 1 day / week / month / year change, MCX and Comex live rates and bullion news (updated every hour by the cloud sync)",
   "🔥 Crucibles in ONE monthly file: with 2-3 crucibles the file has Prod. / Strip Mill / BIS Doc sheets for each (Prod. B, Prod. C …); Daily Stock, Daily Prod Format and Monthly Prod add all crucibles. Heat messages (F-A/F-B/F-C) go to their crucible's sheet; Logsheet, Strip Mill, BIS Doc and out-of-spec reports cover all crucibles together; dashboards have a Crucible picker",
   "🗂️ Get Started → Excel Formats: set the file name, sheet names and columns where WhatsApp entries go (heat billets + chemistry, consumption, RHF transfer) - for another company's Excel format",
@@ -12191,6 +12192,10 @@ async function msalSilent(req) {
 }
 async function msalRedirect(req) {
   if (_mzRedirecting) return null;        // a sign-in round already started in this tab; the page is leaving
+  // fingerprint lock still showing: go to Microsoft only after the unlock - leaving the page while locked made the
+  // phone ask for the fingerprint a second time when the page came back
+  if (document.documentElement.classList.contains("mzLocked") && typeof window.mzLockWait === "function") await window.mzLockWait();
+  if (_mzRedirecting) return null;
   _mzRedirecting = true;
   try { await msalInstance.acquireTokenRedirect(req); }
   catch (e) {
@@ -33602,6 +33607,12 @@ async function downloadAndroidApk() {
     hiddenAt = 0;
   });
   window.addEventListener("pageshow", e => { if (e.persisted && cred()) lock(); });
+  // resolves when the page is unlocked (used before a Microsoft sign-in round)
+  window.mzLockWait = () => new Promise(res => {
+    if (!html.classList.contains("mzLocked")) return res();
+    const mo = new MutationObserver(() => { if (!html.classList.contains("mzLocked")) { mo.disconnect(); res(); } });
+    mo.observe(html, { attributes: true, attributeFilter: ["class"] });
+  });
   // the page is going away while open (refresh): remember the moment for the reload (see the first script in <body>)
   window.addEventListener("pagehide", () => {
     try { if (cred() && !html.classList.contains("mzLocked") && !busy) sessionStorage.setItem("mzLockOk", String(Date.now())); } catch (e) {}
