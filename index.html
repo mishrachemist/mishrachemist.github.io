@@ -7134,7 +7134,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.19.17";
+const APP_VERSION = "2026.11.19.18";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
@@ -15438,22 +15438,25 @@ function showStickyJpgs(imgs, title) {
     ov = document.createElement("div"); ov.id = "stickyJpgOverlay"; ov.className = "pdfOverlay";
     ov.innerHTML = `<div class="pdfModal" style="height:auto;max-height:92vh;max-width:640px;display:flex;flex-direction:column;">
       <div class="pdfModalHead" style="flex-shrink:0;"><span id="stickyJpgTitle"></span><div><button class="secondary" id="stickyJpgClose">Close</button></div></div>
-      <div id="stickyJpgBody" style="padding:12px;overflow:auto;min-height:0;"></div></div>`;
+      <div id="stickyJpgStage" style="position:relative;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;">
+        <div id="stickyJpgBody" style="padding:12px;overflow:auto;min-height:0;flex:1 1 auto;"></div></div>
+      <div id="stickyJpgBtns" style="flex-shrink:0;padding:8px 12px 12px;max-height:38vh;overflow-y:auto;border-top:1px solid rgba(0,0,0,.08);"></div></div>`;
     document.body.appendChild(ov);
     const close = () => { ov.classList.add("hidden"); reportZoomLock(false); };
     document.getElementById("stickyJpgClose").addEventListener("click", close);
-    document.getElementById("stickyJpgBody").parentElement.style.position = "relative";
-    enableReportZoom(document.getElementById("stickyJpgBody"));
+    enableReportZoom(document.getElementById("stickyJpgBody"));   // only the pictures zoom; the buttons sit below, outside
     ov.addEventListener("click", e => { if (e.target === ov) close(); });
   }
   document.getElementById("stickyJpgTitle").textContent = title;
-  const body = document.getElementById("stickyJpgBody");
-  body.innerHTML = "";
+  const body = document.getElementById("stickyJpgBody"), btns = document.getElementById("stickyJpgBtns");
+  body.innerHTML = ""; btns.innerHTML = "";
   reportZoomReset(body); reportZoomLock(true);
-  imgs.forEach(im => {
-    const wrap = document.createElement("div"); wrap.style.cssText = "margin-bottom:16px;";
+  imgs.forEach((im, k) => {
+    const pic = document.createElement("div"); pic.style.cssText = k < imgs.length - 1 ? "margin-bottom:16px;" : "";
     const img = document.createElement("img"); img.src = im.url; img.alt = im.name; img.style.cssText = "width:100%;display:block;border-radius:6px;";
-    const row = document.createElement("div"); row.className = "btnRow"; row.style.marginTop = "6px";
+    pic.appendChild(img); body.appendChild(pic);
+    const wrap = document.createElement("div"); wrap.style.cssText = k < imgs.length - 1 ? "margin-bottom:10px;" : "";
+    const row = document.createElement("div"); row.className = "btnRow"; row.style.marginTop = "4px";
     const dl = document.createElement("button"); dl.className = "primary"; dl.textContent = "⬇️ Download " + im.name;
     dl.addEventListener("click", () => { const a = document.createElement("a"); a.href = im.url; a.download = im.name; document.body.appendChild(a); a.click(); a.remove(); });
     row.appendChild(dl);
@@ -15465,7 +15468,7 @@ function showStickyJpgs(imgs, title) {
     }
     const info = document.createElement("div"); info.style.cssText = "font-size:11px;opacity:.7;margin-top:2px;";
     info.textContent = `${im.w} × ${im.h} px · ${(im.blob.size / 1024).toFixed(0)} KB`;
-    wrap.append(img, row, info); body.appendChild(wrap);
+    wrap.append(row, info); btns.appendChild(wrap);
   });
   ov.classList.remove("hidden");
 }
