@@ -40,5 +40,8 @@ android {
 
 dependencies {
     implementation 'androidx.webkit:webkit:1.8.0'   // to stop the WebView's "X-Requested-With: <app>" header
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'   // Moltrix itself as a Trusted Web Activity (one app)
+    implementation 'androidx.biometric:biometric:1.1.0'      // fingerprint lock of Moltrix (the phone's own prompt)
+    implementation 'androidx.work:work-runtime:2.9.1'        // hourly check for the cloud sync's news (also with the app closed)
+    implementation 'androidx.fragment:fragment:1.6.2'
+    implementation 'androidx.core:core:1.12.0'
 }
