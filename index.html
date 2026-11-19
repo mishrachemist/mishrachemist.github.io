@@ -6668,6 +6668,7 @@ window.__gmFS = {
             </div>
             <div class="mdBtns">
               <button type="button" id="mdReload" title="Reload" aria-label="Reload"><span>⟳</span></button>
+              <button type="button" id="mdWideBtn" title="Wide view" aria-label="Wide view" aria-pressed="false"><span>↔</span></button>
               <button type="button" id="mdSetupBtn" title="Dashboard link" aria-label="Dashboard link">⚙️</button>
             </div>
           </div>
@@ -6677,6 +6678,7 @@ window.__gmFS = {
             <div><button type="button" id="mdSave">Save</button> <button type="button" id="mdClear">Remove link from this device</button> <span id="mdMsg"></span></div>
           </div>
           <div id="mdEmpty" class="hidden mdEmpty">No link saved on this device yet — tap ⚙️ Link.</div>
+          <input type="range" id="mdPan" class="mdPan hidden" min="0" max="1000" value="0" aria-label="Move sideways">
           <div class="mdWrap">
             <div id="mdLoading" class="mdLoading hidden"><div class="mdBars"><i></i><i></i><i></i><i></i><i></i></div><div>Loading market data…</div></div>
             <iframe id="mdFrame" title="Market Health Dashboard" referrerpolicy="no-referrer" allow="clipboard-write"></iframe>
@@ -7093,7 +7095,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.19.14";
+const APP_VERSION = "2026.11.19.15";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
@@ -32048,6 +32050,14 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
   #section-marketdash .mdSetup textarea{width:100%;box-sizing:border-box;font:12px monospace}
   #section-marketdash .mdEmpty{padding:24px 18px;margin-top:4px;text-align:center;color:var(--navy-text,#fff);background:rgba(0,0,0,.28);border-radius:14px;font-weight:600}
   #mdFrame{display:block;width:100%;height:calc(100vh - 225px);min-height:520px;border:0;background:#f4f6fb}
+  /* ↔ Wide view: the dashboard opens at PC width (wider columns, thinner rows); the box scrolls sideways */
+  #section-marketdash .mdWrap.mdWideOn{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:thin}
+  #section-marketdash .mdWrap.mdWideOn #mdFrame{width:1000px;max-width:none}
+  #section-marketdash .mdWrap.mdWideOn::-webkit-scrollbar{height:8px}
+  #section-marketdash .mdWrap.mdWideOn::-webkit-scrollbar-thumb{background:rgba(201,162,39,.75);border-radius:4px}
+  #section-marketdash .mdPan{display:block;width:100%;margin:0 0 8px;accent-color:#c9a227;height:26px}
+  #section-marketdash .mdPan.hidden{display:none}
+  #section-marketdash .mdBtns button#mdWideBtn[aria-pressed="true"]{background:#c9a227!important;color:#0b2545!important}
   /* daily slogan on a sticky note, below the IND / US / Intraday tiles (hidden once a dashboard is open) */
   #section-marketdash .mkSlogan{ display:flex; justify-content:center; margin:22px auto 10px; padding:0 16px; }
   #section-marketdash .mkNote{ position:relative; width:min(100%, 380px); box-sizing:border-box; padding:26px 22px 20px;
@@ -32188,6 +32198,23 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
     window.scrollTo({ top: 0, behavior: "instant" });
   });
   $("mdReload").addEventListener("click", () => load(true));
+  // ↔ Wide view (remembered on this device, all market dashboards)
+  const wideSet = on => {
+    const w = document.querySelector("#section-marketdash .mdWrap");
+    if (w) { w.classList.toggle("mdWideOn", on); if (!on) w.scrollLeft = 0; }
+    $("mdPan").classList.toggle("hidden", !on); $("mdPan").value = 0;
+    $("mdWideBtn").setAttribute("aria-pressed", on ? "true" : "false");
+    try { localStorage.setItem("mdWide", on ? "1" : "0"); } catch (e) {}
+  };
+  let wide0 = false; try { wide0 = localStorage.getItem("mdWide") === "1"; } catch (e) {}
+  wideSet(wide0);
+  $("mdWideBtn").addEventListener("click", () => wideSet($("mdWideBtn").getAttribute("aria-pressed") !== "true"));
+  {   // slider = move the wide dashboard sideways (a swipe on the dashboard also works where the phone allows it)
+    const w = document.querySelector("#section-marketdash .mdWrap"), pan = $("mdPan");
+    const room = () => Math.max(0, w.scrollWidth - w.clientWidth);
+    pan.addEventListener("input", () => { w.scrollLeft = room() * pan.value / 1000; });
+    w.addEventListener("scroll", () => { const r = room(); pan.value = r ? Math.round(w.scrollLeft / r * 1000) : 0; }, { passive: true });
+  }
   $("mdSetupBtn").addEventListener("click", () => { $("mdUrlIn").value = getUrl(); $("mdSetup").classList.toggle("hidden"); });
   $("mdSave").addEventListener("click", () => {
     const u = clean($("mdUrlIn").value);
