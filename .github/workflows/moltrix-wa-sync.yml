@@ -214,7 +214,8 @@ jobs:
                 try {
                   const pr = await g("https://graph.microsoft.com/v1.0/me/drive/special/approot:/push_config.json:/content?t=" + Date.now());
                   const cfg = pr.ok ? await pr.json().catch(() => ({})) : {};
-                  const subs = (cfg && cfg.subs) || [];
+                  // the Moltrix Android app shows its own notification: no Chrome (Android browser) notification as well
+                  const subs = ((cfg && cfg.subs) || []).filter(x => !(cfg.app && cfg.app.key && x && x.device === "Android"));
                   const news = { title: (res.cls === "err" ? "⚠️ " : "") + "Moltrix - WhatsApp sync", body: res.first.replace(/^WhatsApp fetch: /, "") + (res.detail ? "\n" + res.detail : "") };
                   // Moltrix Android app (own WebView, no Chrome): it checks every hour for this file - encrypted with the key in
                   // push_config.json (AES-256-GCM), so the copy on GitHub can't be read by anyone else; the next step uploads it
