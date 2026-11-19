@@ -41,6 +41,8 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.fragment.app.FragmentActivity;
 
 import java.io.File;
@@ -71,8 +73,7 @@ public class MoltrixActivity extends FragmentActivity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
-        getWindow().setStatusBarColor(Color.parseColor("#1F3864"));
-        getWindow().setNavigationBarColor(Color.parseColor("#1F3864"));
+        applyBars(prefs(this).getString("barTop", "#F6F0E6"), prefs(this).getString("barBottom", "#F6F0E6"));
 
         FrameLayout root = new FrameLayout(this);
         web = new WebView(this);
@@ -146,6 +147,19 @@ public class MoltrixActivity extends FragmentActivity {
         if (prefs(this).getBoolean("notify", false)) NotifyWorker.schedule(this);
         if (lockOn()) cover.post(this::askFingerprint);
     }
+
+    /** phone's status bar (top) and navigation bar (bottom) in the theme's colours; dark icons on light colours */
+    void applyBars(String top, String bottom) {
+        try {
+            int t = Color.parseColor(top), b = Color.parseColor(bottom);
+            getWindow().setStatusBarColor(t);
+            getWindow().setNavigationBarColor(b);
+            WindowInsetsControllerCompat w = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+            w.setAppearanceLightStatusBars(light(t));
+            w.setAppearanceLightNavigationBars(light(b));
+        } catch (Exception ignored) { }
+    }
+    static boolean light(int c) { return (0.299 * Color.red(c) + 0.587 * Color.green(c) + 0.114 * Color.blue(c)) > 160; }
 
     private String startUrl(Intent i) {
         Uri d = i != null ? i.getData() : null;
@@ -379,6 +393,11 @@ public class MoltrixActivity extends FragmentActivity {
         }
         @JavascriptInterface public void notify(String title, String body) {
             notifyNow(MoltrixActivity.this, "app", "Moltrix", (int) (System.currentTimeMillis() & 0xffffff), title, body, null);
+        }
+        @JavascriptInterface public void setBars(String top, String bottom) {
+            if (top == null || bottom == null || !top.matches("#[0-9a-fA-F]{6}") || !bottom.matches("#[0-9a-fA-F]{6}")) return;
+            prefs(MoltrixActivity.this).edit().putString("barTop", top).putString("barBottom", bottom).apply();
+            runOnUiThread(() -> applyBars(top, bottom));
         }
         @JavascriptInterface public void askNotify() { runOnUiThread(MoltrixActivity.this::askNotifyPermission); }
     }
