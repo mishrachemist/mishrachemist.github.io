@@ -4813,7 +4813,7 @@ window.__gmFS = {
                   <li><b>MacroDroid</b> (Play Store) on the Android phone that is in the WhatsApp groups: download the <a href="./formats/WA_Inbox_MacroDroid.macro" download style="color:var(--gold);font-weight:700;">📥 MacroDroid macro</a> and import it in MacroDroid. Then open the macro and change 3 things: <b>Trigger</b> (Notification received - WhatsApp) → title = your group names, separated by <b>|</b> (e.g. <i>Group A|Group B</i>); <b>HTTP Request</b> → URL = your Web app URL; parameter <b>token</b> = your TOKEN. Allow MacroDroid to read notifications.</li>
                   <li><b>WhatsApp:</b> keep notifications of those groups ON (not muted) and keep the phone on / connected.</li>
                   <li><b>This app:</b> tap the button below and enter the same Web app URL and TOKEN (last row: 0). Then Production → <b>📥 Fetch WhatsApp</b>.</li>
-                  <li><b>Scheduled sync:</b> Production Update → <b>🕗 Scheduled sync at fixed times</b> (every hour). The cloud fetches at those times, even when the phone and the PC are off. For a real-time sync (1-2 minutes after each WhatsApp message) add <a href="./formats/Moltrix_Hourly_Sync.gs" download style="color:var(--gold);font-weight:700;">📥 Moltrix_Hourly_Sync.gs</a> at the end of the WA Inbox Apps Script and run moltrixSetupRealtime once (steps at the top of the file).</li>
+                  <li><b>Scheduled sync:</b> Production Update → <b>🕗 Scheduled sync at fixed times</b> (every hour). The cloud fetches at those times, even when the phone and the PC are off. For a real-time sync (1-2 minutes after each WhatsApp message) add <a href="./formats/Moltrix_Hourly_Sync.gs" class="codeCopyLink" style="color:var(--gold);font-weight:700;">📋 Moltrix_Hourly_Sync.gs</a> at the end of the WA Inbox Apps Script and run moltrixSetupRealtime once (steps at the top of the file).</li>
                 </ol>
                               </details>
               <div class="btnRow">
@@ -7150,7 +7150,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.19.19";
+const APP_VERSION = "2026.11.19.20";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
@@ -10293,6 +10293,33 @@ let lastReportHeaders = null;
 // inside a page, so an <iframe> only shows a grey box with a meaningless
 // name (the "AAAAAAAA..." text). There the pages are drawn as pictures with
 // pdf.js instead. Desktop browsers keep the normal PDF viewer.
+/* ===================== script files (e.g. Moltrix_Hourly_Sync.gs): shown with a Copy button instead of a download ===================== */
+// a phone has no app that opens a .gs file - the code is shown here and copied to paste into Apps Script
+document.addEventListener("click", async e => {
+  const a = e.target.closest && e.target.closest("a.codeCopyLink"); if (!a) return;
+  e.preventDefault();
+  let txt = "";
+  try { const r = await fetch(a.getAttribute("href"), { cache: "no-store" }); if (!r.ok) throw new Error(r.status); txt = await r.text(); }
+  catch (err) { alert("Could not load the file (" + (err.message || err) + ")."); return; }
+  const name = a.getAttribute("href").split("/").pop();
+  const ov = document.createElement("div"); ov.className = "pdfOverlay";
+  ov.innerHTML = `<div class="pdfModal" style="height:auto;max-height:90vh;max-width:720px;display:flex;flex-direction:column;">
+    <div class="pdfModalHead" style="flex-shrink:0;"><span></span><div style="display:flex;gap:8px;"><button class="primary" type="button" data-k="copy">📋 Copy</button><button class="secondary" type="button" data-k="close">Close</button></div></div>
+    <pre style="margin:0;padding:12px;overflow:auto;min-height:0;font-size:11.5px;line-height:1.45;white-space:pre;user-select:text;-webkit-user-select:text;"></pre></div>`;
+  ov.querySelector(".pdfModalHead span").textContent = name;
+  ov.querySelector("pre").textContent = txt;
+  const close = () => ov.remove();
+  ov.addEventListener("click", ev => { if (ev.target === ov) close(); });
+  ov.querySelector('[data-k="close"]').addEventListener("click", close);
+  ov.querySelector('[data-k="copy"]').addEventListener("click", async ev => {
+    const b = ev.currentTarget; let ok = false;
+    try { await navigator.clipboard.writeText(txt); ok = true; } catch (x) {}
+    if (!ok) { const t = document.createElement("textarea"); t.value = txt; t.style.cssText = "position:fixed;left:-9999px;top:0"; document.body.appendChild(t); t.select(); try { ok = document.execCommand("copy"); } catch (x) {} t.remove(); }
+    b.textContent = ok ? "✅ Copied" : "Select and copy by hand"; setTimeout(() => { b.textContent = "📋 Copy"; }, 2500);
+  });
+  document.body.appendChild(ov);
+});
+
 /* ===================== REPORT ZOOM (only the report, never the whole page) ===================== */
 // Pinch or double-tap zooms just the report image inside the preview; the page itself stays put.
 function reportZoomLock(on) {
