@@ -2872,13 +2872,15 @@
   /* ===== Moltrix logo (svg symbol #mzLogoSym): its ink follows the theme, the "i" stays flame coloured ===== */
   .mzLogo{ display:block; color:var(--mz-logo-ink, var(--navy-text, #1f3864)); max-width:100%; }
   header h1.mzLogoH1{ margin:0 0 2px; line-height:0; background:none !important; animation:none !important; filter:none !important; }
+  /* the logo takes the photo's place in the header (the photo file still feeds the home greeting card and the menu) */
+  header #headerLogoImg{ display:none !important; }
   html body.tex-clean header .mzLogo{ color:var(--cl-head-ink); }
   .navDrawerVersion{ display:inline-flex; align-items:center; gap:6px; }
   .navDrawerVersion .mzLogo{ display:inline-block; color:inherit; }
   .signedOutMsg .mzLogo{ color:var(--navy, #1f3864); }
   html body.tex-clean .signedOutMsg .mzLogo{ color:var(--cl-head-ink); }
   body.dark-mode:not(.tex-clean) .signedOutMsg .mzLogo{ color:#e8ecf4; }
-  @media (max-width:360px){ header .mzLogoHead{ height:32px !important; } }
+  @media (max-width:360px){ header .mzLogoHead{ height:38px !important; } }
 
   /* ===== Molten-steel title ===== */
   header h1.molten{
@@ -4655,7 +4657,7 @@ window.__gmFS = {
   <div style="display:flex;align-items:center;gap:12px;">
     <img src="img/5cc65070350e.png" alt="Durgesh Mishra" id="headerLogoImg" style="width:68px;height:68px;border-radius:10px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.3);object-fit:cover;">
     <div>
-      <h1 class="molten mzLogoH1"><svg class="mzLogo mzLogoHead" viewBox="-10 -10 747.1 220.0" style="height:40px;width:auto;aspect-ratio:747.1/220.0" role="img" aria-label="Moltrix"><use href="#mzLogoSym"></use></svg></h1>
+      <h1 class="molten mzLogoH1"><svg class="mzLogo mzLogoHead" viewBox="-10 -10 747.1 220.0" style="height:48px;width:auto;aspect-ratio:747.1/220.0" role="img" aria-label="Moltrix"><use href="#mzLogoSym"></use></svg></h1>
       <div id="liveClock" class="liveClock">--:--:--</div>
     </div>
   </div>
@@ -7263,7 +7265,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.20.3";
+const APP_VERSION = "2026.11.20.4";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
