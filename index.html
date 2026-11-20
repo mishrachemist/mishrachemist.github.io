@@ -7150,7 +7150,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.19.21";
+const APP_VERSION = "2026.11.20.1";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
@@ -10293,6 +10293,135 @@ let lastReportHeaders = null;
 // inside a page, so an <iframe> only shows a grey box with a meaningless
 // name (the "AAAAAAAA..." text). There the pages are drawn as pictures with
 // pdf.js instead. Desktop browsers keep the normal PDF viewer.
+/* ===================== date / month picker in the app's own theme (phones) =====================
+   The phone's own date dialog (Android teal) ignores the app theme: on touch screens a tap on a date or month box opens
+   this calendar instead, coloured from the theme variables (--navy, --gold, --card, --ink). The box keeps type="date" /
+   "month", so every value stays yyyy-mm-dd / yyyy-mm for the rest of the app. */
+(function () {
+  const touch = !!window.MZ_NATIVE || (window.matchMedia && matchMedia("(pointer: coarse)").matches);
+  if (!touch) return;
+  const css = document.createElement("style");
+  css.textContent = `
+  .mzDpOv{position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+  .mzDp{width:100%;max-width:360px;background:var(--card,#fff);color:var(--ink,#16233d);border-radius:18px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.35);font-family:inherit}
+  .mzDp button{width:auto;min-width:0;flex:0 0 auto;text-transform:none;letter-spacing:normal}
+  .mzDp .mzDpD{width:100%}
+  .mzDpHd{background:var(--navy,#0b2545);color:var(--navy-text,#fff);padding:16px 20px 14px}
+  .mzDpYr{font-size:15px;font-weight:700;opacity:.8;background:none;border:0;color:inherit;padding:0;margin:0;cursor:pointer}
+  .mzDpBig{font-size:30px;font-weight:800;line-height:1.15;margin-top:2px}
+  .mzDpNav{display:flex;align-items:center;justify-content:space-between;padding:10px 10px 4px}
+  .mzDpNav button{background:none;border:0;color:var(--ink,#16233d);width:44px;height:44px;border-radius:50%;font-size:22px;margin:0;padding:0;box-shadow:none;cursor:pointer}
+  .mzDpNav button:active{background:rgba(127,127,127,.15)}
+  .mzDpNav .mzDpTitle{width:auto;height:auto;border-radius:10px;font-weight:700;font-size:16px;white-space:nowrap;background:none;border:0;color:var(--ink,#16233d);margin:0;padding:6px 10px;box-shadow:none;cursor:pointer}
+  .mzDpGrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));padding:0 10px 6px;gap:2px}
+  .mzDpGrid.m{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:6px 14px 10px}
+  .mzDpWd{text-align:center;font-size:12.5px;font-weight:700;color:var(--muted,#5b6b85);padding:6px 0}
+  .mzDpD{height:42px;border:0;background:none;color:var(--ink,#16233d);border-radius:50%;font-size:15px;margin:0;padding:0;box-shadow:none;cursor:pointer;font-family:inherit}
+  .mzDpGrid.m .mzDpD{border-radius:12px;height:46px;font-weight:600}
+  .mzDpD:disabled{opacity:.3;cursor:default}
+  .mzDpD.today{box-shadow:inset 0 0 0 2px var(--gold,#c9a227)}
+  .mzDpD.sel{background:var(--gold,#c9a227);color:#fff;font-weight:800}
+  .mzDpFt{display:flex;align-items:center;gap:6px;padding:6px 12px 12px}
+  .mzDpFt button{background:none;border:0;color:var(--gold,#c9a227);font-weight:800;font-size:15px;padding:10px 12px;margin:0;box-shadow:none;cursor:pointer;min-height:44px}
+  .mzDpFt .sp{flex:1}`;
+  document.head.appendChild(css);
+  const MON = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const pad = n => String(n).padStart(2, "0");
+  const isPick = el => el && el.tagName === "INPUT" && (el.type === "date" || el.type === "month") && !el.disabled && !el.readOnly;
+  let lastOpen = 0;
+
+  function open(el) {
+    if (Date.now() - lastOpen < 600 || document.querySelector(".mzDpOv")) return;
+    lastOpen = Date.now();
+    const month = el.type === "month";
+    const now = new Date(), today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    let v = el.value || "";
+    let sel = month ? (/^\d{4}-\d{2}$/.test(v) ? v : "") : (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "");
+    let y = sel ? +sel.slice(0, 4) : now.getFullYear(), m = sel ? +sel.slice(5, 7) - 1 : now.getMonth();
+    let view = month ? "months" : "days";
+    const min = el.min || "", max = el.max || "";
+    const ov = document.createElement("div"); ov.className = "mzDpOv";
+    ov.innerHTML = `<div class="mzDp" role="dialog" aria-modal="true"><div class="mzDpHd"><button type="button" class="mzDpYr"></button><div class="mzDpBig"></div></div>
+      <div class="mzDpNav"><button type="button" data-k="prev" aria-label="Previous">‹</button><button type="button" class="mzDpTitle" data-k="title"></button><button type="button" data-k="next" aria-label="Next">›</button></div>
+      <div class="mzDpBody"></div>
+      <div class="mzDpFt">${el.required ? "" : '<button type="button" data-k="clear">CLEAR</button>'}<span class="sp"></span><button type="button" data-k="cancel">CANCEL</button><button type="button" data-k="set">SET</button></div></div>`;
+    const $ = q => ov.querySelector(q);
+    const okDay = d => (!min || d >= min) && (!max || d <= max);
+    const okMon = k => (!min || k >= min.slice(0, 7)) && (!max || k <= max.slice(0, 7));
+    function draw() {
+      const sy = sel ? +sel.slice(0, 4) : y;
+      $(".mzDpYr").textContent = String(sy);
+      if (month) $(".mzDpBig").textContent = sel ? `${MON[+sel.slice(5, 7) - 1]} ${sel.slice(0, 4)}` : "—";
+      else if (sel) { const d = new Date(+sel.slice(0, 4), +sel.slice(5, 7) - 1, +sel.slice(8, 10)); $(".mzDpBig").textContent = `${WD[d.getDay()]}, ${d.getDate()} ${MON[d.getMonth()].slice(0, 3)}`; }
+      else $(".mzDpBig").textContent = "—";
+      const body = $(".mzDpBody");
+      if (view === "days") {
+        $(".mzDpTitle").textContent = `${MON[m]} ${y}`;
+        const first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
+        let h = '<div class="mzDpGrid">' + ["S", "M", "T", "W", "T", "F", "S"].map(w => `<div class="mzDpWd">${w}</div>`).join("");
+        for (let i = 0; i < first; i++) h += "<div></div>";
+        for (let d = 1; d <= days; d++) {
+          const k = `${y}-${pad(m + 1)}-${pad(d)}`;
+          h += `<button type="button" class="mzDpD${k === sel ? " sel" : ""}${k === today ? " today" : ""}" data-d="${k}" ${okDay(k) ? "" : "disabled"}>${d}</button>`;
+        }
+        body.innerHTML = h + "</div>";
+      } else if (view === "months") {
+        $(".mzDpTitle").textContent = String(y);
+        body.innerHTML = '<div class="mzDpGrid m">' + MON.map((n, i) => { const k = `${y}-${pad(i + 1)}`, cur = month ? sel : sel.slice(0, 7);
+          return `<button type="button" class="mzDpD${k === cur ? " sel" : ""}${k === today.slice(0, 7) ? " today" : ""}" data-m="${i}" ${okMon(k) ? "" : "disabled"}>${n.slice(0, 3)}</button>`; }).join("") + "</div>";
+      } else {   // years
+        const y0 = y - (y % 12);
+        $(".mzDpTitle").textContent = `${y0} – ${y0 + 11}`;
+        body.innerHTML = '<div class="mzDpGrid m">' + Array.from({ length: 12 }, (_, i) => y0 + i).map(Y =>
+          `<button type="button" class="mzDpD${Y === +(sel || today).slice(0, 4) ? " sel" : ""}" data-y="${Y}">${Y}</button>`).join("") + "</div>";
+      }
+    }
+    const close = () => { ov.remove(); try { el.blur(); } catch (e) {} };
+    const apply = val => {
+      if (el.value !== val) {
+        el.value = val;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      close();
+    };
+    ov.addEventListener("click", e => {
+      if (e.target === ov) return close();
+      const b = e.target.closest("button"); if (!b) return;
+      const k = b.dataset.k;
+      if (b.dataset.d) { sel = b.dataset.d; draw(); return; }
+      if (b.dataset.m != null) { m = +b.dataset.m; if (month) { sel = `${y}-${pad(m + 1)}`; draw(); } else { view = "days"; draw(); } return; }
+      if (b.dataset.y) { y = +b.dataset.y; view = "months"; draw(); return; }
+      if (b.classList.contains("mzDpYr")) { view = "years"; draw(); return; }
+      if (k === "title") { view = view === "days" ? "months" : view === "months" ? "years" : "years"; draw(); return; }
+      if (k === "prev" || k === "next") {
+        const s = k === "prev" ? -1 : 1;
+        if (view === "days") { m += s; if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; } }
+        else if (view === "months") y += s; else y += 12 * s;
+        draw(); return;
+      }
+      if (k === "cancel") return close();
+      if (k === "clear") return apply("");
+      if (k === "set") return sel ? apply(sel) : close();
+    });
+    draw();
+    document.body.appendChild(ov);
+  }
+  // a tap on the box opens this calendar instead of the phone's dialog
+  let t0 = null;   // only a tap opens it - not a scroll that ends on a date box
+  document.addEventListener("touchstart", e => { const t = e.touches[0]; t0 = t ? { x: t.clientX, y: t.clientY } : null; }, { capture: true, passive: true });
+  document.addEventListener("touchend", e => {
+    const el = e.target; if (!isPick(el)) return;
+    const t = e.changedTouches[0];
+    if (t0 && t && Math.hypot(t.clientX - t0.x, t.clientY - t0.y) > 10) return;
+    e.preventDefault(); open(el);
+  }, { capture: true, passive: false });
+  document.addEventListener("click", e => { const el = e.target; if (!isPick(el)) return; e.preventDefault(); e.stopPropagation(); open(el); }, true);
+  document.addEventListener("keydown", e => { if (e.key === "Escape") { const o = document.querySelector(".mzDpOv"); if (o) o.remove(); } });
+  window.mzDatePickerOpen = open;
+})();
+
 /* ===================== script files (e.g. Moltrix_Hourly_Sync.gs): shown with a Copy button instead of a download ===================== */
 // a phone has no app that opens a .gs file - the code is shown here and copied to paste into Apps Script
 document.addEventListener("click", async e => {
