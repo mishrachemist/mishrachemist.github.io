@@ -3479,7 +3479,7 @@ html.mzLocked #mzLock{ display:block; }
   let skinPat = null, skinKey = "";
   function drawSnake(t) {
     const pts = bodyPoints(t), n = pts.length, dead = state === "dying";
-    const rad = i => cell * (0.46 - 0.3 * Math.pow(i / Math.max(1, n - 1), 1.35));
+    const rad = i => cell * (0.3 - 0.17 * Math.pow(i / Math.max(1, n - 1), 1.35));
     const cont = i => { const a = pts[i], b = pts[i + 1]; return b && !b.jump && !(a.jump && i > 0) && Math.abs(a.x - b.x) < 1.5 && Math.abs(a.y - b.y) < 1.5; };
     const XY = p => P(p.x, p.y), mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
     function piece(i, col, wmul, ox, oy) {
@@ -3515,7 +3515,7 @@ html.mzLocked #mzLock{ display:block; }
     // head: the real head from the photo, turned to the moving direction; black forked tongue
     const h = pts[0], [hx, hy] = P(h.x, h.y), ang = Math.atan2(dir[1], dir[0]);
     g.save(); g.translate(hx, hy); g.rotate(ang);
-    const hw = rad(0) * 2 * 1.22, sh = hw / HEAD_WH, sw = sh * (snImg.head.naturalWidth || 212) / (snImg.head.naturalHeight || 120);
+    const hw = rad(0) * 2 * 1.55, sh = hw / HEAD_WH, sw = sh * (snImg.head.naturalWidth || 212) / (snImg.head.naturalHeight || 120);
     const fx = -sw * HEAD_ANCHOR + cell * 0.18;   // head centre slightly ahead of the body point
     if (!dead && frame % 45 < 12) {
       g.strokeStyle = "#111"; g.lineWidth = Math.max(1.3, cell * 0.055); const tip = fx + sw - cell * 0.02, L = cell * (0.4 + 0.18 * Math.sin(frame * 0.9));
@@ -7277,7 +7277,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.20.7";
+const APP_VERSION = "2026.11.20.8";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
