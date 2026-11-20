@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sms-reports-cache-v8';
+const CACHE_NAME = 'sms-reports-cache-v9';
 const LEGACY_CACHE_NAMES = new Set([
   'sms-reports-v3'
 ]);
@@ -12,14 +12,38 @@ const ASSETS_TO_CACHE = [
   './manifest.json'
 ];
 
-// Install: precache the app shell (straight from the network, not an old browser-cached copy).
+// The app's code is in parts: index.html loads js/*.js and css/*.css as "<file>?v=<content hash>".
+// A part's address never changes its content, so a saved part is used as it is (no network).
+const partsOf = (html) => [...new Set([...(html || '').matchAll(/(?:src|href)="((?:js|css)\/[\w.-]+\.(?:js|css)\?v=[0-9a-f]+)"/g)].map((m) => m[1]))];
+const isPart = (url) => /^\/(js|css)\//.test(url.pathname) && /[?&]v=/.test(url.search);
+// Save every part a page needs (only the missing ones are downloaded). true = all saved.
+async function cacheParts(cache, html) {
+  const parts = partsOf(html).map((p) => new URL(p, self.registration.scope).href);
+  const res = await Promise.all(parts.map(async (u) => {
+    if (await cache.match(u)) return true;
+    try { const r = await fetch(new Request(u, { cache: 'no-cache' })); if (r && r.status === 200) { await cache.put(u, r); return true; } } catch (e) {}
+    return false;
+  }));
+  return res.every(Boolean);
+}
+// Remove saved parts that the saved page no longer uses (old ?v= copies).
+async function pruneParts(cache, html) {
+  const keep = new Set(partsOf(html).map((p) => new URL(p, self.registration.scope).href));
+  for (const req of await cache.keys()) { const u = new URL(req.url); if (isPart(u) && !keep.has(u.href)) await cache.delete(req); }
+}
+
+// Install: precache the app shell and all its parts (straight from the network, not an old browser-cached copy).
 // The page is always network-first, so a new worker can take over at once.
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(ASSETS_TO_CACHE.map((u) => new Request(u, { cache: 'reload' }))))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const res = await fetch(new Request('./index.html', { cache: 'reload' }));
+    const html = await res.clone().text();
+    await cacheParts(cache, html);
+    await saveShell(res, '/');
+    await cache.add(new Request('./manifest.json', { cache: 'reload' })).catch(() => {});
+    await self.skipWaiting();
+  })());
 });
 
 // Activate: remove only caches owned by this application. Never delete
@@ -84,6 +108,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // App code parts (js/…, css/… with ?v=hash): the saved copy, else the network (then saved)
+  if (isPart(requestUrl)) {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const hit = await cache.match(req);
+      if (hit) return hit;
+      const res = await fetch(req);
+      if (res && res.status === 200 && res.type === 'basic') event.waitUntil(cache.put(req, res.clone()));
+      return res;
+    })().catch(() => fromCache(req)));
+    return;
+  }
+
   // Data files taken out of the page (data/…, e.g. the SOP / WI list): the saved copy at once, refreshed in the background
   if (requestUrl.pathname.startsWith('/data/')) {
     event.respondWith((async () => {
@@ -101,8 +138,12 @@ self.addEventListener('fetch', (event) => {
   // Keep the worker alive until the network copy is SAVED - also when the saved copy was already shown
   // because the network was slow (before, the late copy was never saved, so an old page kept opening).
   if (isShell) {
-    event.waitUntil(network.then((res) => {
-      if (res && res.status === 200 && res.type === 'basic') return saveShell(res, requestUrl.pathname);
+    event.waitUntil(network.then(async (res) => {
+      if (!(res && res.status === 200 && res.type === 'basic')) return;
+      const copy = res.clone(); const html = await copy.text();
+      if (versionOf(html) === '') return;
+      const cache = await caches.open(CACHE_NAME);
+      if (await cacheParts(cache, html)) await saveShell(res, requestUrl.pathname);   // a page is saved only with all its parts
     }).catch(() => {}));
   }
 
@@ -145,7 +186,10 @@ self.addEventListener('message', (event) => {
         if (!res || res.status !== 200) return;
         const html = await res.clone().text();
         if (versionOf(html) === '') return;                 // not our page (error page etc.) - keep the old copy
+        const cache = await caches.open(CACHE_NAME);
+        if (!(await cacheParts(cache, html))) return;      // parts not all downloaded: keep the old page (it still has its own parts)
         await saveShell(res, '/');
+        await pruneParts(cache, html);
         const latest = versionOf(html);
         if (d.version && latest && latest !== d.version && event.source) event.source.postMessage({ type: 'sms-new-version', version: latest });
       } catch (e) { /* offline - try next time */ }
