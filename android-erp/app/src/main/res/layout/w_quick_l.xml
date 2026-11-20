@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@drawable/w_bg" android:padding="10dp">
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+  <ImageView android:layout_width="16dp" android:layout_height="16dp" android:src="@drawable/ic_stat_moltrix" />
+  <TextView android:id="@+id/q_title" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:text="Moltrix" android:textSize="12sp" android:textColor="#FFA9B6CC" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+  
+</LinearLayout>
+<LinearLayout android:id="@+id/q_fetch" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:background="@drawable/w_btn_orange" android:padding="10dp" android:layout_marginTop="8dp" android:layout_marginBottom="4dp">
+  <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/wi_sync" />
+  <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="10dp">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Fetch now" android:textSize="14sp" android:textColor="#FFFFFFFF" android:textStyle="bold" />
+    <TextView android:id="@+id/q_sync" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="#E6FFFFFF" android:maxLines="1" />
+  </LinearLayout>
+</LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal"><LinearLayout android:id="@+id/q_prod" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" android:background="@drawable/w_tile" android:layout_margin="3dp">
+  <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/wi_clip" />
+  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Prod Update" android:textSize="10sp" android:textColor="#FFE8ECF4" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+</LinearLayout><LinearLayout android:id="@+id/q_reports" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" android:background="@drawable/w_tile" android:layout_margin="3dp">
+  <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/wi_doc" />
+  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Reports" android:textSize="10sp" android:textColor="#FFE8ECF4" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+</LinearLayout><LinearLayout android:id="@+id/q_dashboard" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" android:background="@drawable/w_tile" android:layout_margin="3dp">
+  <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/wi_dash" />
+  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Dashboard" android:textSize="10sp" android:textColor="#FFE8ECF4" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+</LinearLayout><LinearLayout android:id="@+id/q_stock" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" android:background="@drawable/w_tile" android:layout_margin="3dp">
+  <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/wi_box" />
+  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Stock" android:textSize="10sp" android:textColor="#FFE8ECF4" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+</LinearLayout></LinearLayout><LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal"><LinearLayout android:id="@+id/q_oos" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" android:background="@drawable/w_tile" android:layout_margin="3dp">
+  <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/wi_warn" />
+  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Out of Spec" android:textSize="10sp" android:textColor="#FFE8ECF4" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+</LinearLayout><LinearLayout android:id="@+id/q_fno" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" android:background="@drawable/w_tile" android:layout_margin="3dp">
+  <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/wi_chart" />
+  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="F&amp;O" android:textSize="10sp" android:textColor="#FFE8ECF4" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+</LinearLayout><LinearLayout android:id="@+id/q_scr" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" android:background="@drawable/w_tile" android:layout_margin="3dp">
+  <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/wi_search" />
+  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Screener" android:textSize="10sp" android:textColor="#FFE8ECF4" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+</LinearLayout><LinearLayout android:id="@+id/q_trends" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" android:background="@drawable/w_tile" android:layout_margin="3dp">
+  <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/wi_trend" />
+  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Trends" android:textSize="10sp" android:textColor="#FFE8ECF4" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+</LinearLayout></LinearLayout>
+</LinearLayout>

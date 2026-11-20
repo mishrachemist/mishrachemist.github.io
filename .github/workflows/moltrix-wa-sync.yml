@@ -196,11 +196,12 @@ jobs:
               waAutoRun = true;
               try { await waInboxFetch(); } finally { waAutoRun = false; }
               await waCloudPush();
+              let w = null; try { if (window.mzWidgetProd) w = await mzWidgetProd(); } catch (e) { w = null; }   // for the app's Production widget
               const st = document.getElementById("status");
               let retry = 0; try { retry = (JSON.parse(localStorage.getItem("waInboxRetry") || "[]") || []).length; } catch (e) {}
               const lines = String(st ? st.textContent : "").split("\n").map(x => x.trim()).filter(Boolean);
               return { pull, cls: st ? st.className : "", first: (lines[0] || "").slice(0, 160), detail: lines.slice(1, 9).join("\n").slice(0, 600),
-                       rowFrom: c.lastRow, rowTo: waInboxCfg().lastRow, retry };
+                       rowFrom: c.lastRow, rowTo: waInboxCfg().lastRow, retry, w };
             }, { email, token, exp, force });
             if (res.err) fail(res.err);
             if (res.skipped) { out("Another device fetched just now - nothing to do."); }
@@ -217,6 +218,7 @@ jobs:
                   // the Moltrix Android app shows its own notification: no Chrome (Android browser) notification as well
                   const subs = ((cfg && cfg.subs) || []).filter(x => !(cfg.app && cfg.app.key && x && x.device === "Android"));
                   const news = { title: (res.cls === "err" ? "⚠️ " : "") + "Moltrix - WhatsApp sync", body: res.first.replace(/^WhatsApp fetch: /, "") + (res.detail ? "\n" + res.detail : "") };
+                  const appNews = res.w ? Object.assign({ w: res.w }, news) : news;   // the app's Production widget reads w
                   // Moltrix Android app (own WebView, no Chrome): it checks every hour for this file - encrypted with the key in
                   // push_config.json (AES-256-GCM), so the copy on GitHub can't be read by anyone else; the next step uploads it
                   if (cfg && cfg.app && cfg.app.key) {
@@ -224,7 +226,7 @@ jobs:
                       const { createCipheriv, randomBytes } = await import("node:crypto");
                       const { writeFileSync } = await import("node:fs");
                       const iv = randomBytes(12), c = createCipheriv("aes-256-gcm", Buffer.from(cfg.app.key, "base64"), iv);
-                      const enc = Buffer.concat([c.update(JSON.stringify(Object.assign({ id: Date.now() }, news)), "utf8"), c.final(), c.getAuthTag()]);
+                      const enc = Buffer.concat([c.update(JSON.stringify(Object.assign({ id: Date.now() }, appNews)), "utf8"), c.final(), c.getAuthTag()]);
                       writeFileSync("/tmp/moltrix-news.bin", Buffer.concat([iv, enc]).toString("base64"));
                       out("📱 News for the Moltrix app made.");
                     } catch (e) { out("⚠️ News for the Moltrix app not made: " + e.message); }
