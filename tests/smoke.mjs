@@ -42,15 +42,17 @@ const signIn = p => p.evaluate(() => { account = { username: ALLOWED_EMAILS[0], 
   await signIn(p); await p.waitForTimeout(2000);
   const n = await p.evaluate(async () => {
     const items = [...document.querySelectorAll(".navItem, .bottomTabItem, .navDrawerItem")].filter(e => !/signout|logout|switchacc|apk|qr/i.test(e.id + " " + (e.dataset.drawerAction || "")));
-    for (const el of items) { try { el.click(); } catch (e) {} await new Promise(r => setTimeout(r, 30)); document.querySelectorAll(".mzBkOv").forEach(x => x.remove()); }
+    for (const el of items) { try { el.click(); } catch (e) {} await new Promise(r => setTimeout(r, 30)); document.querySelectorAll(".mzBkOv, #mzErrBox").forEach(x => x.remove()); }
     return items.length;
   });
   await p.evaluate(() => window.openGames && window.openGames()); await p.waitForTimeout(2500);
   const games = await p.evaluate(() => { const o = document.getElementById("gamesOverlay"); return !!o && !o.classList.contains("hidden"); });
+  const errlog = await p.evaluate(() => { window.mzErr("Test", "sample error"); document.querySelector('[data-drawer-action="errlog"]').click(); const b = document.getElementById("mzErrBox"); const ok = !!b && /sample error/.test(b.textContent); if (b) b.remove(); return ok; });
+  if (!errlog) fails.push("A: error log did not show the sample error");
   if (!games) fails.push("A: games did not open");
   if (n < 50) fails.push("A: only " + n + " menu items found");
   errs.forEach(e => fails.push("A: " + e));
-  console.log(`A website: ${n} menu items clicked, games ${games ? "open" : "NOT open"}, ${errs.length} page errors`);
+  console.log(`A website: ${n} menu items clicked, games ${games ? "open" : "NOT open"}, error log ${errlog ? "ok" : "NOT ok"}, ${errs.length} page errors`);
   await ctx.close();
 }
 

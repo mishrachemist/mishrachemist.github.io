@@ -26,6 +26,7 @@
   const $ = id => document.getElementById(id);
   const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => "&#" + c.charCodeAt(0) + ";");
   const NF = "NOT FOUND";
+  const mzErrAdd = (src, msg) => { try { if (window.mzErr) window.mzErr(src, msg); } catch (e) {} };
   const native = () => !!(window.MoltrixApp && typeof MoltrixApp.mkGet === "function" && typeof MoltrixApp.mkTake === "function");
   const nativeOld = () => !!(window.MoltrixApp && !native());
 
@@ -108,7 +109,10 @@
     let mp = null, mpPain = Infinity;
     for (const S of R) { let p = 0; for (const r of R) p += oi(r.ce) * Math.max(0, S.k - r.k) + oi(r.pe) * Math.max(0, r.k - S.k); if (p < mpPain) { mpPain = p; mp = S.k; } }
     const maxBy = f => R.reduce((b, r) => (f(r) > f(b) ? r : b), R[0]);
-    const res = maxBy(r => oi(r.ce)), sup = maxBy(r => oi(r.pe));
+    // resistance = biggest CE OI ABOVE the price, support = biggest PE OI BELOW it (a wall the price has already crossed is not one)
+    const up = R.filter(r => r.k > ch.spot), dn = R.filter(r => r.k < ch.spot);
+    const maxIn = (L, f) => L.length ? L.reduce((b, r) => (f(r) > f(b) ? r : b), L[0]) : null;
+    const res = maxIn(up, r => oi(r.ce)) || maxBy(r => oi(r.ce)), sup = maxIn(dn, r => oi(r.pe)) || maxBy(r => oi(r.pe));
     const near = R.slice(Math.max(0, atmI - FNO_CFG.NEAR_STEPS), atmI + FNO_CFG.NEAR_STEPS + 1);
     return { step, atmI, atm: R[atmI].k, ceOI, peOI, ceD, peD, pcr: ceOI ? peOI / ceOI : null, pcrD: ceD > 0 && peD > 0 ? peD / ceD : null, maxPain: mp,
       res: oi(res.ce) ? res.k : null, sup: oi(sup.pe) ? sup.k : null, nearCeD: near.reduce((s, r) => s + doi(r.ce), 0), nearPeD: near.reduce((s, r) => s + doi(r.pe), 0) };
@@ -219,7 +223,7 @@
     state.busy = true; state.err = ""; renderStatus("…");
     try {
       await loadVix();
-      try { const d = await load(state.sel, true); d.g = gamma(state.sel, d.ch, d.a); } catch (e) { state.err = e.message || String(e); }
+      try { const d = await load(state.sel, true); d.g = gamma(state.sel, d.ch, d.a); } catch (e) { state.err = e.message || String(e); mzErrAdd("F&O " + state.sel, state.err); }
       renderAll();
       if (all || Date.now() - state.allAt > FNO_CFG.POLL_ALL_S * 1000) {
         for (const x of FNO_CFG.INDICES) if (x.s !== state.sel) { try { await load(x.s, true); } catch (e) {} renderCards(); }
@@ -343,7 +347,7 @@
             <td class="fK">${r.k}${r.k === a.res ? " 🔴" : ""}${r.k === a.sup ? " 🟢" : ""}${r.k === a.maxPain ? " ◎" : ""}</td>
             <td class="${itmP ? "fItm" : ""}">${r.pe ? f2(ltp(r.pe)) : "-"}</td><td class="${itmP ? "fItm" : ""}">${r.pe && num(r.pe.impliedVolatility) ? (+r.pe.impliedVolatility).toFixed(1) : "-"}</td>
             <td class="${itmP ? "fItm" : ""} ${doi(r.pe) < 0 ? "fNo" : ""}">${fmtN(doi(r.pe))}</td><td class="${itmP ? "fItm" : ""}">${bar(oi(r.pe), maxPe, "p")}<span>${fmtN(oi(r.pe))}</span></td></tr>`; }).join("")}
-        </tbody></table></div><small>🔴 biggest CE OI · 🟢 biggest PE OI · ◎ max pain</small></div>`;
+        </tbody></table></div><small>🔴 biggest CE OI above the price · 🟢 biggest PE OI below it · ◎ max pain</small></div>`;
   }
   // background gamma watch (Android app v4: GammaService) - all 4 indices, each only on its own expiry day
   const gwOk = () => !!(window.MoltrixApp && typeof MoltrixApp.gammaWatch === "function");
@@ -580,6 +584,18 @@
     const row = d.ch.rows[d.a.atmI], p = ltp(row.ce);
     return { exp: d.exp, k: row.k, p, oi: oi(row.ce), sl: p ? tick(p * (1 - FNO_CFG.SL_PCT / 100)) : null, t1: p ? tick(p * (1 + FNO_CFG.T1_PCT / 100)) : null, t2: p ? tick(p * (1 + FNO_CFG.T2_PCT / 100)) : null };
   }
+  // a phone notification for every NEW Screener BUY (once per stock per day)
+  function scrNotify(buys) {
+    if (!buys.length || !(window.MoltrixApp && MoltrixApp.notify)) return;
+    let seen = {}; try { seen = JSON.parse(localStorage.getItem("fnoScrNotified") || "{}"); } catch (e) {}
+    const day = istDate(); if (seen.day !== day) seen = { day, syms: [] };
+    const fresh = buys.filter(x => !seen.syms.includes(x.q.symbol));
+    if (!fresh.length) return;
+    fresh.forEach(x => seen.syms.push(x.q.symbol));
+    try { localStorage.setItem("fnoScrNotified", JSON.stringify(seen)); } catch (e) {}
+    const one = x => `${x.q.symbol} · Entry ${f2(x.a.entry)} · SL ${f2(x.a.sl)} · T1 ${f2(x.a.t1)} · T2 ${f2(x.a.t2)}`;
+    try { MoltrixApp.notify(fresh.length === 1 ? `🔎 BUY ${fresh[0].q.symbol} (${fresh[0].a.score}/10)` : `🔎 ${fresh.length} new BUY`, fresh.slice(0, 6).map(one).join("\n")); } catch (e) {}
+  }
   const RANK = s => !s ? -1 : s === "BUY" ? 3 : /^BUY/.test(s) ? 2 : s === "WATCH" ? 1 : 0;
   async function scan() {
     if (scr.busy || !native()) { renderScr(); return; }
@@ -599,13 +615,14 @@
       }));
       out.sort((x, y) => (RANK(y.a && y.a.signal) - RANK(x.a && x.a.signal)) || ((y.a ? y.a.score : -1) - (x.a ? x.a.score : -1)) || (y.q.ch - x.q.ch));
       scr.list = out; scr.at = Date.now(); renderScr();
+      scrNotify(out.filter(x => x.a && x.a.signal === "BUY" && x.a.entry));
       out.filter(x => x.a && x.a.signal === "BUY" && x.a.entry).forEach(x => logAdd({ kind: "stock", sym: x.q.symbol, t: x.a.t, entry: x.a.entry, sl: x.a.sl, t1: x.a.t1, t2: x.a.t2, score: x.a.score }));
       logEvalStocks().catch(() => {});
       for (const r of out.filter(x => x.a && /^BUY/.test(x.a.signal)).slice(0, SCR_CFG.CE_TOP)) {
         try { r.ce = await ceFor(r.q.symbol); } catch (e) { r.ce = { err: e.message }; }
         renderScr();
       }
-    } catch (e) { scr.err = e.message || String(e); }
+    } catch (e) { scr.err = e.message || String(e); mzErrAdd("Screener", scr.err); }
     finally { scr.busy = false; renderScr(); scheduleScr(); }
   }
   function scheduleScr() {
@@ -653,7 +670,7 @@
     return `Step 1 (NSE list of all F&O stocks): up today, above today's open, in the upper 40 % of today's range; the best ${c.PREFILTER_MAX} go on. ` +
       `Step 2 (Yahoo 15-min candles, 1 month): the 10 checks of the V5 PRO Intraday dashboard - VWAP, EMA 9/21, Supertrend 10,3 (these 3 are a must), RSI ${c.RSI[0]}–${c.RSI[1]}, MACD histogram positive and rising, above the opening-range high, above pivot, last candle volume ≥ ${c.RVOL_MIN}× the same time on earlier days (green candle), above the daily EMA 20, Nifty UP. ` +
       `BUY = ≥ ${c.SIGNAL_SCORE}/10 with the 3 musts (RSI not above ${c.RSI_MAX}), ${c.WINDOW[0]}–${c.WINDOW[1]}; WATCH = 4–5. Entry = last candle high + 0.05 %, SL = ${c.ATR_MULT} × ATR(14), T1 / T2 = 1R / 2R. ` +
-      `CE = ATM call of the nearest expiry (the next one when it expires today or tomorrow), SL −${FNO_CFG.SL_PCT} %, T1 +${FNO_CFG.T1_PCT} %, T2 +${FNO_CFG.T2_PCT} %. Scan again every ${c.RESCAN_MIN} min while this tab is open. Delay of Yahoo data: NOT FOUND. A checklist, not a prediction; not investment advice.`;
+      `CE = ATM call of the nearest expiry (the next one when it expires today or tomorrow), SL −${FNO_CFG.SL_PCT} %, T1 +${FNO_CFG.T1_PCT} %, T2 +${FNO_CFG.T2_PCT} %. Scan again every ${c.RESCAN_MIN} min while this tab is open; a phone notification for every new BUY (once per stock per day). Delay of Yahoo data: NOT FOUND. A checklist, not a prediction; not investment advice.`;
   }
 
   window.mzFno = {
@@ -663,7 +680,7 @@
       else if (state.tab === "log") logUpdate(); else refresh(!Object.keys(state.data).length); },
     hide() { state.open = false; clearTimeout(state.timer); clearTimeout(scr.timer); const r = $("fnoRoot"); if (r) r.classList.add("hidden"); },
     refresh() { if (state.tab === "scr") scan(); else refresh(true); },
-    _test: { logLoad, logSave, logEvalStock: evalStock, scr, intraScan: (bars, nb) => intra(bars, nb), niftyBias, prefilter, parseChain, analyse, signal, sellSetup, trendOf, gamma, expISO, dte, FNO_CFG, state }
+    _test: { scrNotify, logLoad, logSave, logEvalStock: evalStock, scr, intraScan: (bars, nb) => intra(bars, nb), niftyBias, prefilter, parseChain, analyse, signal, sellSetup, trendOf, gamma, expISO, dte, FNO_CFG, state }
   };
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && state.open && state.tab === "chain") refresh(false); });
 })();

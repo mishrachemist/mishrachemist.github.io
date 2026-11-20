@@ -154,6 +154,7 @@
     if (action === "iconstyle") { openIconStylePicker(); return; }
     if (action === "fpsignin") { openFpSignInSetup(); return; }
     if (action === "backup") { if (window.mzOpenBackup) window.mzOpenBackup(); return; }
+    if (action === "errlog") { if (window.mzShowErrLog) window.mzShowErrLog(); return; }
     if (action === "locklog") { if (window.mzShowLockLog) window.mzShowLockLog(); return; }
     if (action === "fplock") { const b = document.getElementById("fpLockToggle"); if (b) b.click(); return; }
     if (action === "apk") { downloadAndroidApk(); return; }

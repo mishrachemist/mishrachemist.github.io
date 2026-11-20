@@ -54,7 +54,7 @@ function uiHiDict() {
     "← Back to Trend Charts Menu": "← ट्रेंड चार्ट मेनू पर वापस", "← Back to Production Menu": "← प्रोडक्शन मेनू पर वापस",
     "← Back to Reports Menu": "← रिपोर्ट्स मेनू पर वापस", "← Back to ISO 9001 Menu": "← आईएसओ 9001 मेनू पर वापस",
     "Search": "खोजें", "Get Started": "शुरुआत करें", "File Location": "फ़ाइल लोकेशन", "Share via QR": "QR से शेयर करें", "Download Android App": "एंड्रॉइड ऐप डाउनलोड करें", "Dark Mode": "डार्क मोड",
-    "Theme Colour": "थीम रंग", "Icon Style": "आइकन स्टाइल", "Backup & Restore": "बैकअप और रिस्टोर", "Home": "होम", "More": "और", "Fetch": "फ़ेच", "Fetching": "फ़ेच हो रहा",
+    "Theme Colour": "थीम रंग", "Icon Style": "आइकन स्टाइल", "Backup & Restore": "बैकअप और रिस्टोर", "Error Log": "एरर लॉग", "Home": "होम", "More": "और", "Fetch": "फ़ेच", "Fetching": "फ़ेच हो रहा",
     "★ Pinned": "★ पिन किए गए", "Production": "उत्पादन", "Quality": "गुणवत्ता", "Stock & Raw Material": "स्टॉक और कच्चा माल",
     "Documents": "दस्तावेज़",
     "Dashboard - Daily Summary": "डैशबोर्ड - दैनिक सारांश", "Dashboard - Period Summary": "डैशबोर्ड - अवधि सारांश",

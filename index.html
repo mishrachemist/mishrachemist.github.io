@@ -3,8 +3,31 @@
 <head>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; connect-src 'self' https://api.open-meteo.com https://graph.microsoft.com https://login.microsoftonline.com https://login.live.com https://*.1drv.com https://*.files.1drv.com https://*.livefilestore.com https://*.sharepoint.com https://script.google.com https://script.googleusercontent.com https://get.geojs.io https://cdn.jsdelivr.net https://tessdata.projectnaptha.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; frame-src 'self' blob: data: https://login.microsoftonline.com https://login.live.com https://script.google.com https://*.googleusercontent.com; media-src 'self' blob: data:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<script>const APP_VERSION = "2026.11.20.15";
+<script>const APP_VERSION = "2026.11.20.16";
 /* the app is in several files (js/…): work that must wait for ALL of them (sign-in, timers) starts through mzAfterLoad */
+/* Error log (☰ → Error Log): page errors and errors that parts of the app report through mzErr(source, message) */
+(function () {
+  var K = "mzErrLog", last = {};
+  window.mzErr = function (src, msg) {
+    try {
+      msg = String(msg == null ? "" : msg).slice(0, 400); src = String(src || "App").slice(0, 60);
+      if (!msg || /^Script error\.?$/.test(msg) || /ResizeObserver loop/.test(msg)) return;
+      var key = src + "|" + msg, now = Date.now();
+      if (last[key] && now - last[key] < 10 * 60000) return;          // the same error again within 10 min: once
+      last[key] = now;
+      var L = JSON.parse(localStorage.getItem(K) || "[]");
+      L.push([now, src, msg, typeof APP_VERSION !== "undefined" ? APP_VERSION : ""]);
+      localStorage.setItem(K, JSON.stringify(L.slice(-150)));
+    } catch (e) {}
+  };
+  window.addEventListener("error", function (e) {
+    if (e && e.target && e.target !== window && e.target.tagName) { if (!/^(SCRIPT|LINK)$/.test(e.target.tagName)) return; window.mzErr("File", "not loaded: " + String(e.target.src || e.target.href).replace(location.origin, "")); return; }
+    window.mzErr(e && e.filename ? String(e.filename).split("/").pop().split("?")[0] + ":" + (e.lineno || "") : "Page", (e && e.message) || "error");
+  }, true);
+  window.addEventListener("unhandledrejection", function (e) {
+    var r = e && e.reason; window.mzErr("Promise", (r && (r.message || r.errorMessage)) || String(r));
+  });
+})();
 window.mzAfterLoad = function (f) { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { f(); }, { once: true }); else setTimeout(f, 0); };</script>
 <script>
   // Text from Excel / OneDrive / WhatsApp / typed boxes is shown as TEXT, never as HTML (stops "<img onerror=...>" tricks).
@@ -609,6 +632,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
     <button class="navDrawerItem" data-drawer-action="iconstyle"><span class="navDrawerIcon">🧩</span><span>Icon Style</span></button>
     <button class="navDrawerItem" data-drawer-action="backup"><span class="navDrawerIcon">💾</span><span>Backup &amp; Restore</span></button>
     <button class="navDrawerItem" data-drawer-action="fplock" id="navFpLockItem" style="display:none"><span class="navDrawerIcon">🔒</span><span>Fingerprint Lock: OFF</span></button>
+    <button class="navDrawerItem" data-drawer-action="errlog"><span class="navDrawerIcon">🐞</span><span>Error Log</span></button>
     <button class="navDrawerItem" data-drawer-action="locklog" id="navLockLogItem" style="display:none"><span class="navDrawerIcon">🧾</span><span>Lock Log</span></button>
   </div>
   <div class="navDrawerFooter">
@@ -2949,7 +2973,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
   </div>
 </div>
 
-<script src="js/app-01.js?v=9dfa0194a8"></script>
+<script src="js/app-01.js?v=ed4f488b49"></script>
 <script src="js/app-02.js?v=9c17544f89"></script>
 <script src="js/app-03.js?v=7298ba63a2"></script>
 <script src="js/app-04.js?v=cfce6e12d4"></script>
@@ -2973,7 +2997,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
   <button class="bottomTabItem" data-tab-action="more"><span class="bottomTabIcon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg></span><span>More</span></button>
 </nav>
 
-<script src="js/nav-drawer.js?v=0853b715e4"></script>
+<script src="js/nav-drawer.js?v=8987d658b3"></script>
 
 
 <script src="js/home-effects.js?v=808f96f4b3"></script>
@@ -3276,7 +3300,8 @@ async function downloadAndroidApk() {
 <script src="js/mirror.js?v=b18e150954"></script>
 <script src="js/fingerprint-lock.js?v=d25e33d8d0"></script>
 <script src="js/backup.js?v=1433669fe5"></script>
+<script src="js/error-log.js?v=0f7ce5fd2c"></script>
 <script src="js/info-notes.js?v=133c976721"></script>
-<script src="js/fno.js?v=b4c8bb5204"></script>
+<script src="js/fno.js?v=e504a163fa"></script>
 </body>
 </html>
