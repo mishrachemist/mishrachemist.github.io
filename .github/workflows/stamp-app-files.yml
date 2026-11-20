@@ -1,0 +1,34 @@
+# Safety net: index.html loads js/*.js and css/*.css with ?v=<content hash>. If a file was changed without
+# running "node tools/stamp.mjs", this puts the right hash into index.html (else phones would keep the old file).
+name: Stamp app files
+
+on:
+  push:
+    branches: [main]
+    paths: ["js/**", "css/**", "index.html"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stamp-app-files
+  cancel-in-progress: false
+
+jobs:
+  stamp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Stamp
+        run: node tools/stamp.mjs
+      - name: Commit if changed
+        run: |
+          if git diff --quiet index.html; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Stamp app files (new ?v= hashes)" index.html
+          for i in 1 2 3; do git pull --rebase -q origin main && git push -q origin HEAD:main && exit 0; sleep 5; done
+          exit 1
