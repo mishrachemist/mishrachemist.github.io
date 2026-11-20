@@ -68,6 +68,7 @@ public class MoltrixActivity extends FragmentActivity {
     private boolean signIn = false;           // inside a Microsoft sign-in: every page of it stays in the app
     private long stoppedAt = 0;               // elapsedRealtime when the app went to the background
     private boolean unlocked = false, prompting = false;
+    private MarketFetch market;               // F&O screen: NSE / Yahoo data fetched on the phone
 
     static SharedPreferences prefs(Context c) { return c.getSharedPreferences("moltrix", MODE_PRIVATE); }
 
@@ -107,6 +108,7 @@ public class MoltrixActivity extends FragmentActivity {
         cm.setAcceptThirdPartyCookies(web, true);     // Microsoft token renewal (hidden frame) needs its cookies
 
         web.addJavascriptInterface(new Bridge(), "MoltrixApp");
+        market = new MarketFetch(this, root, id -> jsCall("mzMkDone", org.json.JSONObject.quote(id)));
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
@@ -250,6 +252,12 @@ public class MoltrixActivity extends FragmentActivity {
     }
 
     @Override
+    protected void onDestroy() {
+        if (market != null) market.destroy();
+        super.onDestroy();
+    }
+
+    @Override
     protected void onStop() {
         super.onStop();
         stoppedAt = SystemClock.elapsedRealtime();
@@ -360,7 +368,11 @@ public class MoltrixActivity extends FragmentActivity {
 
     /** window.MoltrixApp - what the Moltrix page may ask this app to do */
     final class Bridge {
-        @JavascriptInterface public String version() { return "2"; }
+        @JavascriptInterface public String version() { return "3"; }
+        /** F&O screen: NSE / BSE data through the exchange's own page; Yahoo candles; answer = mkTake(id) after window.mzMkDone(id) */
+        @JavascriptInterface public void mkGet(String id, String page, String path) { market.site(id, page, path); }
+        @JavascriptInterface public void httpGet(String id, String url) { market.yahoo(id, url); }
+        @JavascriptInterface public String mkTake(String id) { return market.take(id); }
         @JavascriptInterface public void saveFile(String name, String mime, String b64) {
             try { MoltrixActivity.this.saveFile(name, mime, Base64.decode(b64, Base64.DEFAULT)); }
             catch (Exception e) { runOnUiThread(() -> Toast.makeText(MoltrixActivity.this, "Not saved: " + e.getMessage(), Toast.LENGTH_LONG).show()); }

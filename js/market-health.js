@@ -27,7 +27,16 @@
   };
   const valid = u => !why(u);
   let loaded = false, loadedUrl = "";
+  // F&O: its own screen (js/fno.js, data from NSE through the Android app) instead of a dashboard link
+  const fnoMode = on => {
+    ["mdWideBtn", "mdSetupBtn", "mdPan"].forEach(id => { const el = $(id); if (el) el.classList.toggle("fnoHide", on); });
+    const w = document.querySelector("#section-marketdash .mdWrap"); if (w) w.classList.toggle("hidden", on);
+    if (on) { $("mdEmpty").classList.add("hidden"); $("mdSetup").classList.add("hidden"); $("mdLoading").classList.add("hidden"); $("mdSub").textContent = "Option chain · NSE"; if (window.mzFno) window.mzFno.show(); }
+    else if (window.mzFno) window.mzFno.hide();
+  };
   function load(force) {
+    if (cur === "fno") { fnoMode(true); if (force && window.mzFno) window.mzFno.refresh(); return; }
+    fnoMode(false);
     const u = getUrl(), f = $("mdFrame");
     if (!(typeof canMarket === "function" ? canMarket() : isOwner())) { f.removeAttribute("src"); $("mdEmpty").textContent = "Owner only."; $("mdEmpty").classList.remove("hidden"); return; }
     if (!u) { f.classList.add("hidden"); f.removeAttribute("src"); loaded = false; loadedUrl = ""; $("mdLoading").classList.add("hidden"); $("mdReload").classList.remove("spin");
@@ -63,6 +72,7 @@
   }
   document.querySelectorAll("#marketSubNav .navItem").forEach(b => b.addEventListener("click", () => openMarket(b.dataset.submkt)));
   $("backToMarketMenuBtn").addEventListener("click", () => {
+    if (window.mzFno) window.mzFno.hide();
     $("marketSubContent").classList.add("hidden");
     $("marketSubNav").classList.remove("hidden");
     const mb = $("mainBackBar"); if (mb) mb.classList.remove("hidden");
