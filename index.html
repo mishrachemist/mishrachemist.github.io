@@ -2886,7 +2886,7 @@
   .mzHeadLock{ display:flex; align-items:center; gap:calc(var(--mz-logo-h) * .25); }
   .mzHeadLock .mzLogoIcon{ height:var(--mz-logo-h); width:var(--mz-logo-h); flex:none; }
   .mzHeadCol{ display:flex; flex-direction:column; align-items:flex-start; gap:calc(var(--mz-logo-h) * .07); }
-  .mzHeadCol .mzLogoWord{ height:calc(var(--mz-logo-h) * 105.3 / 200); width:auto; aspect-ratio:476.9/105.3; }
+  .mzHeadCol .mzLogoWord{ height:calc(var(--mz-logo-h) * .41); width:auto; aspect-ratio:476.9/105.3; }
   header .liveClock, html body.tex-clean header .liveClock{ margin:0 !important; padding:0 !important; line-height:1 !important;
     font-family:"Inter","Poppins",system-ui,sans-serif !important; font-weight:800 !important; font-variant-numeric:tabular-nums; font-size:calc(var(--mz-logo-h) * .25) !important; letter-spacing:1.5px !important; }
 
@@ -7277,7 +7277,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.20.6";
+const APP_VERSION = "2026.11.20.7";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
@@ -34207,6 +34207,20 @@ async function downloadAndroidApk() {
     label();
     window.mzNativeLock = () => label();
     window.mzLockRecovered = () => { try { if (!MoltrixApp.lockOn() && MoltrixApp.lockPossible()) setTimeout(() => MoltrixApp.setLock(true), 900); } catch (e) {} };
+    // signed in but the lock is off (e.g. the sign-in check was missed when the app was installed): ask once per app start to set it
+    (function () {
+      let n = 0;
+      const t = setInterval(() => {
+        n++;
+        try {
+          if (MoltrixApp.lockOn() || n > 40) { clearInterval(t); return; }
+          if (typeof account === "undefined" || !account || !MoltrixApp.lockPossible()) return;
+          if (sessionStorage.getItem("mzNatLockAsk") === "1") { clearInterval(t); return; }
+          sessionStorage.setItem("mzNatLockAsk", "1"); clearInterval(t);
+          MoltrixApp.setLock(true);
+        } catch (e) { clearInterval(t); }
+      }, 1500);
+    })();
     if (btn) btn.addEventListener("click", () => {
       if (!MoltrixApp.lockOn() && !MoltrixApp.lockPossible()) { alert("The fingerprint lock cannot work on this phone (a fingerprint or screen lock must be set on the phone)."); return; }
       MoltrixApp.setLock(!MoltrixApp.lockOn());
