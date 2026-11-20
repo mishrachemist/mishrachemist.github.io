@@ -255,6 +255,7 @@
       if (e.target.closest("#logUpd")) { logUpdate(); return; }
       if (e.target.closest("#logClr")) { if (confirm("Clear the whole signal log on this device?")) { logSave([]); renderLog(); } return; }
       if (e.target.closest("#scrGo")) { scan(); return; }
+      if (e.target.closest("#gwTgl")) { gwToggle(); return; }
       const row = e.target.closest("[data-scrsym]");
       if (row) { state.sel = row.dataset.scrsym; state.tab = "chain"; renderAll(); refresh(false); window.scrollTo({ top: 0, behavior: "instant" }); return; }
       const chip = e.target.closest("[data-fsym]"); if (chip) { state.sel = chip.dataset.fsym; renderAll(); refresh(false); return; }
@@ -326,7 +327,8 @@
         <div><div class="fSub">BUY PE ${s.pe.pass}/${s.pe.chk.length}</div><ul class="fChk">${chkList(s.pe)}</ul></div></div></div>
       <div class="fBox"><div class="fHead">⚡ Expiry-day gamma ${g.isExp ? `<i class="${g.hits && g.hits.length ? "fSell" : "fNone"}">${g.hits && g.hits.length ? "ALERT" : "watching"}</i>` : ""}</div>
         ${g.isExp ? (g.hits && g.hits.length ? `<ul class="fChk">${g.hits.map(h => `<li><b class="fSell">${esc(h.k)}</b> ${f2(h.from)} → ${f2(h.now)} <small>+${h.pct.toFixed(0)} %</small></li>`).join("")}</ul>`
-          : `<small>ATM ± 2 · from ${esc(g.from)} · ${g.samples || 0} readings</small>`) : `<small>Expiry ${esc(ch.exp)}${dte(ch.exp) !== null ? ` · ${dte(ch.exp)} day(s) left` : ""}</small>`}</div>
+          : `<small>ATM ± 2 · from ${esc(g.from)} · ${g.samples || 0} readings</small>`) : `<small>Expiry ${esc(ch.exp)}${dte(ch.exp) !== null ? ` · ${dte(ch.exp)} day(s) left` : ""}</small>`}
+        ${gwHtml()}</div>
       <div class="fBox"><div class="fHead">🛡️ Option selling ${ss ? `<i class="${ss.ok ? "fBuy" : "fNone"}">${ss.ok ? "SETUP OK" : "NOT NOW"}</i>` : ""}</div>
         ${ss ? `<div class="fLv"><span>Sell ${ss.sp} PE ${f2(ss.pP)}</span><span>Sell ${ss.sc} CE ${f2(ss.cP)}</span><span>Credit ${f2(ss.credit)}</span></div>
           <div class="fLv"><span>Break-even ${f2(ss.beDn)} – ${f2(ss.beUp)}</span></div>
@@ -343,10 +345,23 @@
             <td class="${itmP ? "fItm" : ""} ${doi(r.pe) < 0 ? "fNo" : ""}">${fmtN(doi(r.pe))}</td><td class="${itmP ? "fItm" : ""}">${bar(oi(r.pe), maxPe, "p")}<span>${fmtN(oi(r.pe))}</span></td></tr>`; }).join("")}
         </tbody></table></div><small>🔴 biggest CE OI · 🟢 biggest PE OI · ◎ max pain</small></div>`;
   }
+  // background gamma watch (Android app v4: GammaService) - all 4 indices, each only on its own expiry day
+  const gwOk = () => !!(window.MoltrixApp && typeof MoltrixApp.gammaWatch === "function");
+  function gwHtml() {
+    if (!gwOk()) return "";
+    let on = false, st = ""; try { on = MoltrixApp.gammaWatchOn(); st = MoltrixApp.gammaWatchStatus() || ""; } catch (e) {}
+    return `<div class="gwRow"><button type="button" id="gwTgl" class="scrGo ${on ? "on" : ""}">🔔 Background watch: ${on ? "ON" : "OFF"}</button>${on && st ? `<small>${esc(st)}</small>` : ""}</div>`;
+  }
+  function gwToggle() {
+    let on = false; try { on = MoltrixApp.gammaWatchOn(); } catch (e) {}
+    const cfg = { syms: FNO_CFG.INDICES.map(x => x.s), base: nseBase, from: FNO_CFG.GAMMA_FROM, jump: FNO_CFG.GAMMA_JUMP_PCT, win: FNO_CFG.GAMMA_WIN_MIN, minPrem: FNO_CFG.GAMMA_MIN_PREM };
+    try { MoltrixApp.gammaWatch(!on, JSON.stringify(cfg)); } catch (e) {}
+    setTimeout(renderAll, 300);
+  }
   function rulesText() {
     const c = FNO_CFG;
     return `BUY CE: 5-min EMA9 > EMA21 and price above EMA21; price above VWAP (stocks) or up in the last 15 min (indices); PCR ≥ ${c.PCR_BULL}; ATM ± ${c.NEAR_STEPS} put writing more than call writing; ≥ ${c.ROOM_PCT} % room to the biggest CE OI strike; ${c.SIG_WINDOW[0]}–${c.SIG_WINDOW[1]}. BUY PE: the mirror (PCR ≤ ${c.PCR_BEAR}). ATM option; SL −${c.SL_PCT} %, T1 +${c.T1_PCT} %, T2 +${c.T2_PCT} % of the premium. ` +
-      `Gamma alert: expiry day after ${c.GAMMA_FROM}, an ATM ± 2 premium up ≥ ${c.GAMMA_JUMP_PCT} % within ${c.GAMMA_WIN_MIN} min (only while this screen is open). ` +
+      `Gamma alert: expiry day after ${c.GAMMA_FROM}, an ATM ± 2 premium up ≥ ${c.GAMMA_JUMP_PCT} % within ${c.GAMMA_WIN_MIN} min (on this screen; with 🔔 Background watch ON the app also watches all 4 indices on their own expiry day, 11:00–15:30, with the screen off - a notification shows while it runs). ` +
       `Option selling: sell the biggest-OI CE above / PE below the price, hedge ${c.SELL_HEDGE_STEPS} strikes further; VIX ≤ ${c.SELL_VIX_MAX}, PCR ${c.SELL_PCR[0]}–${c.SELL_PCR[1]}, ≤ ${c.SELL_MAX_DTE} days to expiry. ` +
       `Data: NSE (on this phone) and Yahoo 5-min candles; delay NOT FOUND. Rules are a checklist, not a prediction; not investment advice.`;
   }

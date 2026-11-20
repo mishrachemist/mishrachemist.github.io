@@ -149,6 +149,7 @@ public class MoltrixActivity extends FragmentActivity {
         if (b != null) web.restoreState(b);
         if (web.getUrl() == null) web.loadUrl(startUrl(getIntent()));
         if (prefs(this).getBoolean("notify", false)) NotifyWorker.schedule(this);
+        if (GammaAlarm.on(this)) GammaAlarm.schedule(this);   // keep the gamma watch's alarm booked
         if (lockOn()) cover.post(this::askFingerprint);
     }
 
@@ -368,7 +369,19 @@ public class MoltrixActivity extends FragmentActivity {
 
     /** window.MoltrixApp - what the Moltrix page may ask this app to do */
     final class Bridge {
-        @JavascriptInterface public String version() { return "3"; }
+        @JavascriptInterface public String version() { return "4"; }
+        /** expiry-day gamma watch in the background (GammaService); cfg = {syms, base, from, jump, win, minPrem} */
+        @JavascriptInterface public boolean gammaWatchOn() { return GammaAlarm.on(MoltrixActivity.this); }
+        @JavascriptInterface public String gammaWatchStatus() { return prefs(MoltrixActivity.this).getString("gwStatus", ""); }
+        @JavascriptInterface public void gammaWatch(boolean on, String cfg) {
+            Context c = MoltrixActivity.this;
+            prefs(c).edit().putBoolean("gwOn", on).putString("gwCfg", cfg == null ? "{}" : cfg).apply();
+            if (on) {
+                runOnUiThread(MoltrixActivity.this::askNotifyPermission);
+                GammaAlarm.schedule(c);
+                if (GammaService.inWindowNow() && !GammaService.running) runOnUiThread(() -> { try { GammaService.start(c); } catch (Exception ignored) { } });
+            } else { GammaAlarm.cancel(c); GammaService.stop(c); prefs(c).edit().putString("gwStatus", "").apply(); }
+        }
         /** F&O screen: NSE / BSE data through the exchange's own page; Yahoo candles; answer = mkTake(id) after window.mzMkDone(id) */
         @JavascriptInterface public void mkGet(String id, String page, String path) { market.site(id, page, path); }
         @JavascriptInterface public void httpGet(String id, String url) { market.yahoo(id, url); }

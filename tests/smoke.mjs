@@ -93,7 +93,7 @@ const NATIVE_MOCK = (today) => {
   window.__bump = 1;
   const reply = (id, s, t) => setTimeout(() => { store[id] = JSON.stringify({ s, t }); window.mzMkDone && window.mzMkDone(id); }, 20);
   window.MoltrixApp = { version: () => "3", lockOn: () => false, lockPossible: () => false, setLock() {}, notifyOn: () => false, notifyAllowed: () => true, setBars() {}, setNotify() {}, gameMode() {}, saveFile() {}, shareFile() {}, shareText() {}, askNotify() {},
-    notify(t, bd) { window.__calls.push("NOTIFY " + t + " | " + bd); },
+    notify(t, bd) { window.__calls.push("NOTIFY " + t + " | " + bd); }, gwOn: false, gammaWatchOn() { return this.gwOn; }, gammaWatchStatus() { return this.gwOn ? "11:05 · NIFTY 25600.00 · watching" : ""; }, gammaWatch(on, cfg) { this.gwOn = on; window.__calls.push("GW " + on + " " + cfg); },
     mkTake(id) { const r = store[id]; delete store[id]; return r || ""; },
     mkGet(id, page, path) { window.__calls.push(page.replace("https://www.", "") + " " + path);
       const sym = (/symbol=([^&]+)/.exec(path) || [])[1];
@@ -114,13 +114,16 @@ const NATIVE_MOCK = (today) => {
   await p.waitForTimeout(3000);
   const chain = await p.evaluate(() => { const d = mzFno._test.state.data.NIFTY; return d ? { pcr: d.a.pcr, mp: d.a.maxPain, sig: d.sig.signal } : null; });
   if (!chain || !(chain.pcr > 0) || !chain.mp) fails.push("B: option chain not built " + JSON.stringify(chain));
+  await p.evaluate(() => document.getElementById("gwTgl").click()); await p.waitForTimeout(600);
+  const gw = await p.evaluate(() => (document.getElementById("gwTgl") || {}).textContent || "none");
+  if (!/ON/.test(gw)) fails.push("B: background watch toggle " + gw);
   await p.evaluate(() => document.querySelector('[data-ftab="scr"]').click()); await p.waitForTimeout(6000);
   const sc = await p.evaluate(() => { const S = mzFno._test.scr; return { u: S.universe, n: S.list.length, err: S.err }; });
   if (!(sc.u > 0 && sc.n > 0) || sc.err) fails.push("B: screener " + JSON.stringify(sc));
   await p.evaluate(() => document.querySelector('[data-ftab="log"]').click()); await p.waitForTimeout(2500);
   const lg = await p.evaluate(() => mzFno._test.logLoad().length);
   errs.forEach(e => fails.push("B: " + e));
-  console.log(`B app: option chain ${chain ? "PCR " + chain.pcr.toFixed(2) + " · max pain " + chain.mp + " · " + chain.sig : "none"}, screener ${sc.n}/${sc.u}, log ${lg}, ${errs.length} page errors`);
+  console.log(`B app: gamma toggle ${gw}, option chain ${chain ? "PCR " + chain.pcr.toFixed(2) + " · max pain " + chain.mp + " · " + chain.sig : "none"}, screener ${sc.n}/${sc.u}, log ${lg}, ${errs.length} page errors`);
   await ctx.close();
 }
 await browser.close();
