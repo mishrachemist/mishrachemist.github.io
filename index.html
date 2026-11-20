@@ -2868,6 +2868,20 @@
   #kvVoicePanel .kvvPresets button.on{ outline:2px solid #c9a227; }
   #kvVoicePanel .kvvNote{ font-size:11px; opacity:.75; margin-top:6px; line-height:1.4; }
 
+
+  /* ===== Moltrix logo (svg symbol #mzLogoSym): its ink follows the theme, the "i" stays flame coloured ===== */
+  .mzLogo{ display:block; color:var(--mz-logo-ink, var(--navy-text, #1f3864)); max-width:100%; }
+  header h1.mzLogoH1{ margin:0 0 2px; line-height:0; background:none !important; animation:none !important; filter:none !important; }
+  /* the logo takes the photo's place in the header (the photo file still feeds the home greeting card and the menu) */
+  header #headerLogoImg{ display:none !important; }
+  html body.tex-clean header .mzLogo{ color:var(--cl-head-ink); }
+  .navDrawerVersion{ display:inline-flex; align-items:center; gap:6px; }
+  .navDrawerVersion .mzLogo{ display:inline-block; color:inherit; }
+  .signedOutMsg .mzLogo{ color:var(--navy, #1f3864); }
+  html body.tex-clean .signedOutMsg .mzLogo{ color:var(--cl-head-ink); }
+  body.dark-mode:not(.tex-clean) .signedOutMsg .mzLogo{ color:#e8ecf4; }
+  @media (max-width:360px){ header .mzLogoHead{ height:38px !important; } }
+
   /* ===== Molten-steel title ===== */
   header h1.molten{
     background:linear-gradient(100deg, var(--navy-text) 0%, var(--navy-text) 34%, #ffe9a8 42%, #ffb02e 46%, #ff5e1a 50%, #ffcf5a 55%, var(--navy-text) 64%, var(--navy-text) 100%);
@@ -3162,7 +3176,13 @@ html.mzLocked #mzLock{ display:block; }
 </style>
 </head>
 
-<body><script>
+<body>
+<!-- Moltrix logo (icon + wordmark, the "i" in flame colours) - used with <use href="#mzLogoSym"> -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient id="mzLogoFlame" x1="0" y1="25.3" x2="0" y2="128.0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FFB74D"/><stop offset="0.55" stop-color="#F28C28"/><stop offset="1" stop-color="#E0601B"/></linearGradient><symbol id="mzLogoSym" viewBox="-10 -10 747.1 220.0">
+<g transform="translate(0 0.0) scale(0.390625)"><g><rect x="12" y="12" width="488" height="488" rx="104" fill="none" stroke="currentColor" stroke-width="24"/>
+<path d="M92 384 H148 L176 300 L204 384 H236 L268 156 L300 384 H328 L350 262 L372 384 H420" fill="none" stroke="currentColor" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/><circle cx="268" cy="118" r="28" fill="currentColor"/></g></g>
+<g transform="translate(240 16.8)"><path fill="currentColor" d="M9.768 128.04V31.679999999999993H43.824000000000005L63.624 82.5H66.26400000000001L85.932 31.679999999999993H120.64800000000001V128.04H96.36V45.80399999999999L100.188 46.067999999999984L75.372 108.636H53.064L28.116 46.067999999999984L32.208 45.80399999999999V128.04Z M172.788 130.67999999999998Q163.152 130.67999999999998 155.628 127.77599999999998Q148.10399999999998 124.87199999999999 142.89 119.72399999999999Q137.676 114.576 134.97 107.844Q132.264 101.112 132.264 93.45599999999999V90.28799999999998Q132.264 82.368 135.102 75.50399999999999Q137.94 68.63999999999999 143.22 63.49199999999999Q148.5 58.343999999999994 156.024 55.43999999999999Q163.548 52.53599999999999 172.788 52.53599999999999Q182.16 52.53599999999999 189.618 55.43999999999999Q197.076 58.343999999999994 202.356 63.49199999999999Q207.636 68.63999999999999 210.474 75.50399999999999Q213.312 82.368 213.312 90.28799999999998V93.45599999999999Q213.312 101.112 210.606 107.844Q207.9 114.576 202.68599999999998 119.72399999999999Q197.47199999999998 124.87199999999999 189.94799999999998 127.77599999999998Q182.424 130.67999999999998 172.788 130.67999999999998ZM172.788 110.61599999999999Q178.332 110.61599999999999 181.962 108.23999999999998Q185.59199999999998 105.86399999999999 187.44 101.57399999999998Q189.288 97.28399999999999 189.288 91.87199999999999Q189.288 86.196 187.37400000000002 81.90599999999999Q185.46 77.61599999999999 181.764 75.10799999999999Q178.06799999999998 72.6 172.788 72.6Q167.50799999999998 72.6 163.81199999999998 75.10799999999999Q160.11599999999999 77.61599999999999 158.202 81.90599999999999Q156.288 86.196 156.288 91.87199999999999Q156.288 97.28399999999999 158.136 101.57399999999998Q159.98399999999998 105.86399999999999 163.68 108.23999999999998Q167.376 110.61599999999999 172.788 110.61599999999999Z M224.928 128.04V31.679999999999993H248.952V128.04ZM216.744 49.103999999999985V31.679999999999993H248.952V49.103999999999985Z M298.716 129.096Q286.836 129.096 279.774 126.19200000000001Q272.712 123.288 269.544 116.55599999999998Q266.37600000000003 109.82399999999998 266.37600000000003 98.33999999999999L266.50800000000004 36.16799999999999H288.684L288.552 98.99999999999999Q288.552 103.88399999999999 291.126 106.45799999999998Q293.7 109.03199999999998 298.584 109.03199999999998H308.616V129.096ZM255.816 72.6V55.17599999999999H308.616V72.6Z M318.912 128.04V55.17599999999999H337.92V86.856H337.656Q337.656 71.54399999999998 344.058 62.83199999999999Q350.46 54.11999999999999 362.472 54.11999999999999H365.376V74.71199999999999H359.832Q351.78 74.71199999999999 347.35799999999995 79.06799999999998Q342.936 83.42399999999999 342.936 91.60799999999999V128.04Z M406.824 128.04 428.34000000000003 88.704 427.812 92.136 407.48400000000004 55.17599999999999H433.35600000000005L445.10400000000004 79.06799999999998H447.21600000000007L458.30400000000003 55.17599999999999H482.59200000000004L463.18800000000005 92.79599999999999L463.71600000000007 89.892L486.552 128.04H460.68000000000006L446.42400000000004 102.564H444.312L431.112 128.04Z"/><path fill="url(#mzLogoFlame)" d="M375.672 128.04V55.17599999999999H399.696V128.04ZM366.432 72.6V55.17599999999999H399.696V72.6Z"/><circle fill="url(#mzLogoFlame)" cx="386.1" cy="37.1" r="11.7"/></g>
+</symbol></defs></svg><script>
 /* Fingerprint lock on this device: hide the page from the first paint until it is unlocked */
 (function () { try {
   if (window.MZ_NATIVE) return;     // Moltrix Android app: the app's own fingerprint lock
@@ -4637,7 +4657,7 @@ window.__gmFS = {
   <div style="display:flex;align-items:center;gap:12px;">
     <img src="img/5cc65070350e.png" alt="Durgesh Mishra" id="headerLogoImg" style="width:68px;height:68px;border-radius:10px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.3);object-fit:cover;">
     <div>
-      <h1 class="molten">Moltrix</h1>
+      <h1 class="molten mzLogoH1"><svg class="mzLogo mzLogoHead" viewBox="-10 -10 747.1 220.0" style="height:48px;width:auto;aspect-ratio:747.1/220.0" role="img" aria-label="Moltrix"><use href="#mzLogoSym"></use></svg></h1>
       <div id="liveClock" class="liveClock">--:--:--</div>
     </div>
   </div>
@@ -4682,7 +4702,7 @@ window.__gmFS = {
     <button class="navDrawerItem" data-drawer-action="locklog" id="navLockLogItem" style="display:none"><span class="navDrawerIcon">🧾</span><span>Lock Log</span></button>
   </div>
   <div class="navDrawerFooter">
-    <span class="navDrawerVersion">Moltrix <span id="navDrawerVer" class="navDrawerVer"></span></span>
+    <span class="navDrawerVersion"><svg class="mzLogo mzLogoSmall" viewBox="-10 -10 747.1 220.0" style="height:18px;width:auto;aspect-ratio:747.1/220.0" role="img" aria-label="Moltrix"><use href="#mzLogoSym"></use></svg> <span id="navDrawerVer" class="navDrawerVer"></span></span>
     <button id="navDrawerSignOut" class="navDrawerSignOutBtn hidden" title="Sign Out">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 2v10"/>
@@ -4745,6 +4765,7 @@ window.__gmFS = {
 <main>
 
   <div id="signedOutMsg" class="signedOutMsg">
+    <div style="display:flex;justify-content:center;margin:6px 0 18px;"><svg class="mzLogo mzLogoBig" viewBox="-10 -10 747.1 220.0" style="height:64px;width:auto;aspect-ratio:747.1/220.0" role="img" aria-label="Moltrix"><use href="#mzLogoSym"></use></svg></div>
     Click "Sign-in" above to connect your OneDrive account.
   </div>
 
@@ -7244,7 +7265,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.20.2";
+const APP_VERSION = "2026.11.20.4";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
