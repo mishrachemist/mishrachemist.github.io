@@ -96,6 +96,7 @@ const NATIVE_MOCK = (today) => {
   const reply = (id, s, t) => setTimeout(() => { store[id] = JSON.stringify({ s, t }); window.mzMkDone && window.mzMkDone(id); }, 20);
   window.MoltrixApp = { version: () => "3", lockOn: () => false, lockPossible: () => false, setLock() {}, notifyOn: () => false, notifyAllowed: () => true, setBars() {}, setNotify() {}, gameMode() {}, saveFile() {}, shareFile() {}, shareText() {}, askNotify() {},
     notify(t, bd) { window.__calls.push("NOTIFY " + t + " | " + bd); }, gwOn: false, gammaWatchOn() { return this.gwOn; }, gammaWatchStatus() { return this.gwOn ? "11:05 · NIFTY 25600.00 · watching" : ""; }, gammaWatch(on, cfg) { this.gwOn = on; window.__calls.push("GW " + on + " " + cfg); },
+    widgets: {}, open: "", widgetSet(k, j) { this.widgets[k] = JSON.parse(j); }, takeOpen() { const o = this.open; this.open = ""; return o; },
     mkTake(id) { const r = store[id]; delete store[id]; return r || ""; },
     mkGet(id, page, path) { window.__calls.push(page.replace("https://www.", "") + " " + path);
       const sym = (/symbol=([^&]+)/.exec(path) || [])[1];
@@ -124,8 +125,24 @@ const NATIVE_MOCK = (today) => {
   if (!(sc.u > 0 && sc.n > 0) || sc.err) fails.push("B: screener " + JSON.stringify(sc));
   await p.evaluate(() => document.querySelector('[data-ftab="log"]').click()); await p.waitForTimeout(2500);
   const lg = await p.evaluate(() => mzFno._test.logLoad().length);
+  const wm = await p.evaluate(() => { const w = MoltrixApp.widgets.mkt; return w ? { n: w.idx.length, nifty: w.idx[0].pcr > 0, scr: !!w.scr } : null; });
+  if (!wm || wm.n !== 4 || !wm.nifty || !wm.scr) fails.push("B: market widget data " + JSON.stringify(wm));
+  await p.evaluate(() => { account = { username: ALLOWED_EMAILS[0], homeAccountId: "test" }; document.getElementById("app").classList.remove("hidden"); MoltrixApp.open = "scr"; window.mzWidgetOpen(); }); await p.waitForTimeout(1500);
+  const wo = await p.evaluate(() => localStorage.getItem("fnoTab"));
+  if (wo !== "scr") fails.push("B: widget button (Screener) " + wo);
+  // production widget: a fake Prod. sheet (today 3 heats of 30 MT + a MIN row; yesterday 2 heats)
+  const wp = await p.evaluate(async () => {
+    const ser = iso => Math.round((Date.parse(iso + "T00:00:00Z") - Date.UTC(1899, 11, 30)) / 86400000);
+    const t = todayISO(), d = new Date(); d.setDate(d.getDate() - 1); const y = localDateToISO(d);
+    const row = (a, heat, mt) => { const r = new Array(28).fill(""); r[0] = a; r[1] = heat; r[27] = mt; return r; };
+    const values = [row("", "", ""), row(ser(y), "H1", 20), row("", "H2", 22), row("", "MIN", ""), row(ser(t), "H3", 30), row("", "H4", 30), row("", "H5", 30), row("", "", ""), row("", "MIN", "")];
+    window.getToken = async () => "x"; window.getWorkbooksForRange = async () => ({ results: [{ wb: "WB", cru: "A" }], missing: [] });
+    window.graphFetch = async () => ({ values });
+    return await mzWidgetProd();
+  });
+  if (!wp || wp.mt !== 90 || wp.heats !== 3 || wp.days.length !== 7 || wp.days[6].mt !== 90 || (wp.yMt !== 42 && new Date().getDate() !== 1)) fails.push("B: production widget " + JSON.stringify(wp));
   errs.forEach(e => fails.push("B: " + e));
-  console.log(`B app: gamma toggle ${gw}, option chain ${chain ? "PCR " + chain.pcr.toFixed(2) + " · max pain " + chain.mp + " · " + chain.sig : "none"}, screener ${sc.n}/${sc.u}, log ${lg}, ${errs.length} page errors`);
+  console.log(`B app: gamma toggle ${gw}, option chain ${chain ? "PCR " + chain.pcr.toFixed(2) + " · max pain " + chain.mp + " · " + chain.sig : "none"}, screener ${sc.n}/${sc.u}, log ${lg}, widget ${wm ? wm.n + " indices" : "none"} / prod ${wp ? wp.mt + " MT " + wp.heats + " heats" : "none"}, ${errs.length} page errors`);
   await ctx.close();
 }
 await browser.close();

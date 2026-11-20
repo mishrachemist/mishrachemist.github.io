@@ -229,7 +229,7 @@
         for (const x of FNO_CFG.INDICES) if (x.s !== state.sel) { try { await load(x.s, true); } catch (e) {} renderCards(); }
         state.allAt = Date.now();
       }
-    } finally { state.busy = false; renderAll(); schedule(); }
+    } finally { state.busy = false; renderAll(); schedule(); widgetPush(); }
   }
   function schedule() {
     clearTimeout(state.timer);
@@ -596,6 +596,15 @@
     const one = x => `${x.q.symbol} · Entry ${f2(x.a.entry)} · SL ${f2(x.a.sl)} · T1 ${f2(x.a.t1)} · T2 ${f2(x.a.t2)}`;
     try { MoltrixApp.notify(fresh.length === 1 ? `🔎 BUY ${fresh[0].q.symbol} (${fresh[0].a.score}/10)` : `🔎 ${fresh.length} new BUY`, fresh.slice(0, 6).map(one).join("\n")); } catch (e) {}
   }
+  // the Market home-screen widget (Android app): PCR / signal / expiry of the indices + the last Screener BUYs
+  function widgetPush() {
+    if (!(window.MoltrixApp && typeof MoltrixApp.widgetSet === "function")) return;
+    try {
+      const idx = FNO_CFG.INDICES.map(x => { const d = state.data[x.s]; return d ? { s: x.s, spot: d.ch.spot, pcr: d.a.pcr, sig: d.sig.signal, exp: d.exp, dte: dte(d.exp), at: d.at } : { s: x.s }; });
+      const buys = scr.list.filter(x => x.a && x.a.signal === "BUY").map(x => x.q.symbol);
+      MoltrixApp.widgetSet("mkt", JSON.stringify({ t: Date.now(), day: istDate(), idx, vix: state.vix, scr: scr.at ? { t: scr.at, n: buys.length, top: buys.slice(0, 3) } : null }));
+    } catch (e) {}
+  }
   const RANK = s => !s ? -1 : s === "BUY" ? 3 : /^BUY/.test(s) ? 2 : s === "WATCH" ? 1 : 0;
   async function scan() {
     if (scr.busy || !native()) { renderScr(); return; }
@@ -623,7 +632,7 @@
         renderScr();
       }
     } catch (e) { scr.err = e.message || String(e); mzErrAdd("Screener", scr.err); }
-    finally { scr.busy = false; renderScr(); scheduleScr(); }
+    finally { scr.busy = false; renderScr(); scheduleScr(); widgetPush(); }
   }
   function scheduleScr() {
     clearTimeout(scr.timer);

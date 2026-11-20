@@ -70,6 +70,7 @@ public class MoltrixActivity extends FragmentActivity {
     private boolean unlocked = false, prompting = false;
     private MarketFetch market;               // F&O screen: NSE / Yahoo data fetched on the phone
 
+    private volatile String widgetOpen;   // the screen a widget button asked for; the page takes it (takeOpen)
     static SharedPreferences prefs(Context c) { return c.getSharedPreferences("moltrix", MODE_PRIVATE); }
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
@@ -147,6 +148,7 @@ public class MoltrixActivity extends FragmentActivity {
         });
 
         if (b != null) web.restoreState(b);
+        widgetOpen = getIntent() != null ? getIntent().getStringExtra("open") : null;   // a home-screen widget button
         if (web.getUrl() == null) web.loadUrl(startUrl(getIntent()));
         if (prefs(this).getBoolean("notify", false)) NotifyWorker.schedule(this);
         if (GammaAlarm.on(this)) GammaAlarm.schedule(this);   // keep the gamma watch's alarm booked
@@ -175,6 +177,8 @@ public class MoltrixActivity extends FragmentActivity {
     @Override
     protected void onNewIntent(Intent i) {
         super.onNewIntent(i);
+        String w = i.getStringExtra("open");
+        if (w != null) { widgetOpen = w; jsCall("mzWidgetOpen", ""); }
         Uri d = i.getData();
         if (d != null && "https".equals(d.getScheme()) && HOST.equalsIgnoreCase(d.getHost())) web.loadUrl(d.toString());
     }
@@ -370,6 +374,8 @@ public class MoltrixActivity extends FragmentActivity {
     /** window.MoltrixApp - what the Moltrix page may ask this app to do */
     final class Bridge {
         @JavascriptInterface public String version() { return "4"; }
+        @JavascriptInterface public void widgetSet(String kind, String json) { Widgets.set(getApplicationContext(), kind, json); }
+        @JavascriptInterface public String takeOpen() { String w = widgetOpen; widgetOpen = null; return w == null ? "" : w; }
         /** expiry-day gamma watch in the background (GammaService); cfg = {syms, base, from, jump, win, minPrem} */
         @JavascriptInterface public boolean gammaWatchOn() { return GammaAlarm.on(MoltrixActivity.this); }
         @JavascriptInterface public String gammaWatchStatus() { return prefs(MoltrixActivity.this).getString("gwStatus", ""); }

@@ -80,6 +80,8 @@ public class NotifyWorker extends Worker {
             Cipher ci = Cipher.getInstance("AES/GCM/NoPadding");
             ci.init(Cipher.DECRYPT_MODE, new SecretKeySpec(Base64.decode(key, Base64.DEFAULT), "AES"), new GCMParameterSpec(128, Arrays.copyOfRange(all, 0, 12)));
             JSONObject j = new JSONObject(new String(ci.doFinal(all, 12, all.length - 12), StandardCharsets.UTF_8));
+            JSONObject w = j.optJSONObject("w");                     // production snapshot for the home-screen widget
+            if (w != null) Widgets.set(c, "prod", w.toString());
             long id = j.optLong("id", 0), last = p.getLong("lastNewsId", 0);
             if (id <= last) return Result.success();
             p.edit().putLong("lastNewsId", id).apply();

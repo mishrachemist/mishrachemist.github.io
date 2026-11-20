@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@drawable/w_bg" android:padding="11dp">
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+  <ImageView android:layout_width="16dp" android:layout_height="16dp" android:src="@drawable/ic_stat_moltrix" />
+  <TextView android:id="@+id/m_title" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:text="F&amp;O · NSE" android:textSize="12sp" android:textColor="#FFA9B6CC" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+  <TextView android:id="@+id/m_time" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textSize="11sp" android:textColor="#FFA9B6CC" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+</LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:layout_marginTop="4dp">
+<LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:background="@drawable/w_tile" android:padding="9dp" android:layout_margin="3dp">
+  <TextView android:id="@+id/t1_name" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textSize="11sp" android:textColor="#FFF1D27A" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+  <TextView android:id="@+id/t1_spot" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="–" android:textSize="19sp" android:textColor="#FFFFFFFF" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+  <TextView android:id="@+id/t1_chg" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textSize="11sp" android:textColor="#FFE8ECF4" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+  <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="bottom|center_vertical">
+    <TextView android:id="@+id/t1_sig" android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="@drawable/w_chip_none" android:paddingStart="8dp" android:paddingEnd="8dp" android:paddingTop="2dp" android:paddingBottom="2dp" android:text="–" android:textSize="10sp" android:textColor="#FFFFFFFF" android:textStyle="bold" android:maxLines="1" />
+    <TextView android:id="@+id/t1_exp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:gravity="end" android:textSize="10sp" android:textColor="#FFA9B6CC" android:maxLines="1" />
+  </LinearLayout>
+</LinearLayout><LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:background="@drawable/w_tile" android:padding="9dp" android:layout_margin="3dp">
+  <TextView android:id="@+id/t2_name" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textSize="11sp" android:textColor="#FFF1D27A" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+  <TextView android:id="@+id/t2_spot" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="–" android:textSize="19sp" android:textColor="#FFFFFFFF" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+  <TextView android:id="@+id/t2_chg" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textSize="11sp" android:textColor="#FFE8ECF4" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+  <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="bottom|center_vertical">
+    <TextView android:id="@+id/t2_sig" android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="@drawable/w_chip_none" android:paddingStart="8dp" android:paddingEnd="8dp" android:paddingTop="2dp" android:paddingBottom="2dp" android:text="–" android:textSize="10sp" android:textColor="#FFFFFFFF" android:textStyle="bold" android:maxLines="1" />
+    <TextView android:id="@+id/t2_exp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:gravity="end" android:textSize="10sp" android:textColor="#FFA9B6CC" android:maxLines="1" />
+  </LinearLayout>
+</LinearLayout>
+</LinearLayout>
+</LinearLayout>
