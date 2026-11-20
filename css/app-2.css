@@ -144,3 +144,44 @@ html.mzLocked #mzLock{ display:block; }
 .mzInfoBtn:focus-visible{ outline:2px solid var(--gold,#c9a227); outline-offset:2px; }
 .irqPhoneOnlyBtn{ display:none; }
 body.erpPhone .irqPhoneOnlyBtn{ display:inline-flex; }
+
+/* ===== F&O screen (js/fno.js) ===== */
+#section-marketdash .fnoRoot{color:#e8ecf4;animation:mdIn .4s ease both}
+#section-marketdash .fnoRoot small{opacity:.75;font-size:11.5px}
+.fnoRoot .fnoMsg{padding:24px 18px;text-align:center;background:#0b2545;color:#fff;border-radius:14px;font-weight:600}
+.fnoRoot .fCards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:8px}
+@media (max-width:420px){ .fnoRoot .fCards{grid-template-columns:repeat(2,minmax(0,1fr))} }
+.fnoRoot .fCard{display:flex!important;flex-direction:column;align-items:flex-start;gap:2px;margin:0!important;padding:8px 9px!important;width:auto!important;border-radius:12px!important;
+  background:linear-gradient(135deg,#0b2545,#13315c)!important;border:1px solid rgba(201,162,39,.35)!important;color:#e8ecf4!important;font-size:11.5px!important;text-align:left;box-shadow:none!important}
+.fnoRoot .fCard.on{border-color:#f1d27a!important;box-shadow:0 0 0 1px #f1d27a inset!important}
+.fnoRoot .fCard b{font-size:12.5px;color:#f1d27a}.fnoRoot .fCard .fSpot{font-size:15px;font-weight:800}
+.fnoRoot .fCard i,.fnoRoot .fHead i{font-style:normal;font-weight:800;font-size:11px;padding:2px 7px;border-radius:999px}
+.fnoRoot .fBuy{background:#16a34a;color:#fff}.fnoRoot .fSell{background:#dc2626;color:#fff}.fnoRoot .fWatch{background:#d97706;color:#fff}.fnoRoot .fNone{background:rgba(255,255,255,.14);color:#cbd5e1}
+.fnoRoot .fBar{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.fnoRoot .fBar input,.fnoRoot .fBar select{margin:0!important;height:38px;padding:0 10px!important;font-size:13px!important;border-radius:10px!important}
+.fnoRoot .fStk{flex:1;min-width:0}.fnoRoot #fnoExp{width:auto!important;max-width:42%}
+.fnoRoot #fnoStkGo{width:auto!important;margin:0!important;height:38px;padding:0 14px!important;border-radius:10px!important}
+.fnoRoot .fStatus{font-size:12px;color:#e8ecf4;background:#0b2545;border-radius:10px;padding:6px 10px;margin:0 0 8px;display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.fnoRoot .fRules{flex-basis:100%;background:#0b2545;color:#e8ecf4;border-radius:10px;padding:8px 10px;line-height:1.45}
+.fnoRoot .fGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px}
+.fnoRoot .fTile{background:#0b2545;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:8px 10px}
+.fnoRoot .fTile small{display:block}.fnoRoot .fTile b{font-size:15px}
+.fnoRoot .fBox{background:#0b2545;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px 12px;margin-bottom:8px}
+.fnoRoot .fHead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:800;font-size:14px;margin-bottom:6px;color:#f1d27a}
+.fnoRoot .fSub{font-weight:700;font-size:12px;color:#93c5fd;margin:4px 0 2px}
+.fnoRoot .fTwo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:420px){ .fnoRoot .fTwo{grid-template-columns:1fr} }
+.fnoRoot .fChk{list-style:none;margin:0;padding:0;font-size:12.5px}.fnoRoot .fChk li{margin:3px 0}
+.fnoRoot .fOk{color:#4ade80}.fnoRoot .fNo{color:#f87171}.fnoRoot .fNa{color:#fbbf24}
+.fnoRoot .fLv{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:13px;font-weight:700;margin:2px 0 6px}
+.fnoRoot .fChainWrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.fnoRoot .fChain{width:100%;border-collapse:collapse;font-size:11.5px;font-variant-numeric:tabular-nums;min-width:520px}
+.fnoRoot .fChain th{position:sticky;top:0;background:#13315c;color:#f1d27a;padding:5px 4px;font-size:11px}
+.fnoRoot .fChain td{padding:4px;text-align:right;border-bottom:1px solid rgba(255,255,255,.06);position:relative;white-space:nowrap}
+.fnoRoot .fChain td span{position:relative}
+.fnoRoot .fChain .fK{text-align:center;font-weight:800;background:#13315c;color:#fff}
+.fnoRoot .fChain .fItm{background:rgba(241,210,122,.08)}
+.fnoRoot .fChain tr.fAtm td{border-top:2px solid #f1d27a;border-bottom:2px solid #f1d27a}
+.fnoRoot .fOiBar{position:absolute!important;top:3px;bottom:3px;right:0;opacity:.35;border-radius:3px}
+.fnoRoot .fOiBar.c{background:#ef4444}.fnoRoot .fOiBar.p{background:#22c55e;left:0;right:auto}
+#section-marketdash .fnoHide{display:none!important}
