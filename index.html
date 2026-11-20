@@ -2880,7 +2880,11 @@
   .signedOutMsg .mzLogo{ color:var(--navy, #1f3864); }
   html body.tex-clean .signedOutMsg .mzLogo{ color:var(--cl-head-ink); }
   body.dark-mode:not(.tex-clean) .signedOutMsg .mzLogo{ color:#e8ecf4; }
-  @media (max-width:360px){ header .mzLogoHead{ height:38px !important; } }
+  /* header: logo size, and the clock starts under the "M" of the wordmark (wordmark starts 250/220 of the logo height in) */
+  header{ --mz-logo-h:58px; }
+  @media (max-width:360px){ header{ --mz-logo-h:46px; } }
+  header .liveClock, html body.tex-clean header .liveClock{ margin-top:0 !important; margin-left:calc(var(--mz-logo-h) * 250 / 220) !important; padding-left:0 !important;
+    font-family:"Inter","Poppins",system-ui,sans-serif !important; font-weight:800 !important; font-variant-numeric:tabular-nums; font-size:14px !important; letter-spacing:1.5px !important; }
 
   /* ===== Molten-steel title ===== */
   header h1.molten{
@@ -4657,7 +4661,7 @@ window.__gmFS = {
   <div style="display:flex;align-items:center;gap:12px;">
     <img src="img/5cc65070350e.png" alt="Durgesh Mishra" id="headerLogoImg" style="width:68px;height:68px;border-radius:10px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.3);object-fit:cover;">
     <div>
-      <h1 class="molten mzLogoH1"><svg class="mzLogo mzLogoHead" viewBox="-10 -10 747.1 220.0" style="height:48px;width:auto;aspect-ratio:747.1/220.0" role="img" aria-label="Moltrix"><use href="#mzLogoSym"></use></svg></h1>
+      <h1 class="molten mzLogoH1"><svg class="mzLogo mzLogoHead" viewBox="-10 -10 747.1 220.0" style="height:var(--mz-logo-h);width:auto;aspect-ratio:747.1/220.0" role="img" aria-label="Moltrix"><use href="#mzLogoSym"></use></svg></h1>
       <div id="liveClock" class="liveClock">--:--:--</div>
     </div>
   </div>
@@ -7265,7 +7269,7 @@ document.getElementById("clearFixedPathBtn").addEventListener("click", () => {
 });
 
 /* ===================== CHANGELOG POPUP ("What's New") ===================== */
-const APP_VERSION = "2026.11.20.4";
+const APP_VERSION = "2026.11.20.5";
 // Newest change FIRST - the What's New popup shows only that one line.
 const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the newest few are kept
   "🔒 Fingerprint asked less often: a refresh within a minute does not ask again (slow network), and a Microsoft sign-in renewal waits until the app is unlocked",
