@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; connect-src 'self' https://api.open-meteo.com https://graph.microsoft.com https://login.microsoftonline.com https://login.live.com https://*.1drv.com https://*.files.1drv.com https://*.livefilestore.com https://*.sharepoint.com https://script.google.com https://script.googleusercontent.com https://get.geojs.io https://cdn.jsdelivr.net https://tessdata.projectnaptha.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; frame-src 'self' blob: data: https://login.microsoftonline.com https://login.live.com https://script.google.com https://*.googleusercontent.com; media-src 'self' blob: data:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<script>const APP_VERSION = "2026.11.20.9";
+<script>const APP_VERSION = "2026.11.20.10";
 /* the app is in several files (js/…): work that must wait for ALL of them (sign-in, timers) starts through mzAfterLoad */
 window.mzAfterLoad = function (f) { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { f(); }, { once: true }); else setTimeout(f, 0); };</script>
 <script>
@@ -2757,6 +2757,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
             <div id="mdSetupHelp">Paste the <b>dashboard website link</b> (Google Sheet → 📊 V5 PRO → 🌐 Dashboard 2 website link). It is saved only on this phone / PC, never in the website code.</div>
             <textarea id="mdUrlIn" rows="3" placeholder="https://script.google.com/macros/s/…/exec?key=…"></textarea>
             <div><button type="button" id="mdSave">Save</button> <button type="button" id="mdClear">Remove link from this device</button> <span id="mdMsg"></span></div>
+            <div style="margin-top:8px;"><a class="codeCopyLink" href="formats/Moltrix_Dash_Addons.gs">📋 Dashboard add-on code (Apps Script)</a></div>
           </div>
           <div id="mdEmpty" class="hidden mdEmpty">No link saved on this device yet — tap ⚙️ Link.</div>
           <input type="range" id="mdPan" class="mdPan hidden" min="0" max="1000" value="0" aria-label="Move sideways">
