@@ -59,8 +59,8 @@
     }
     throw new Error("NSE: " + (last ? (last.s ? "HTTP " + last.s : last.t || "no answer") : "no answer"));
   }
-  async function yahoo(sym) {
-    const r = await call("httpGet", "https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(sym) + "?interval=5m&range=5d");
+  async function yahoo(sym, interval, range) {
+    const r = await call("httpGet", "https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(sym) + "?interval=" + (interval || "5m") + "&range=" + (range || "5d"));
     const j = json(r), res = j && j.chart && j.chart.result && j.chart.result[0];
     if (!res || !res.timestamp) return null;
     const q = (res.indicators && res.indicators.quote && res.indicators.quote[0]) || {};
@@ -189,7 +189,8 @@
   }
 
   // ---------- data per symbol ----------
-  const state = { sel: "NIFTY", exp: {}, data: {}, vix: null, vixAt: 0, busy: false, timer: 0, allAt: 0, open: false, err: "" };
+  const state = { sel: "NIFTY", exp: {}, data: {}, vix: null, vixAt: 0, busy: false, timer: 0, allAt: 0, open: false, err: "",
+    tab: (() => { try { return localStorage.getItem("fnoTab") === "scr" ? "scr" : "chain"; } catch (e) { return "chain"; } })() };
   const isIndex = s => FNO_CFG.INDICES.some(x => x.s === s);
   const ySym = s => (FNO_CFG.INDICES.find(x => x.s === s) || {}).y || (s + ".NS");
   async function load(sym, withTrend) {
@@ -226,7 +227,7 @@
   }
   function schedule() {
     clearTimeout(state.timer);
-    if (!state.open || !marketOpen()) return;
+    if (!state.open || !marketOpen() || state.tab !== "chain") return;
     state.timer = setTimeout(() => {
       const r = $("fnoRoot");
       if (!r || r.offsetParent === null) { state.open = false; return; }   // F&O screen left (another tab / section)
@@ -245,6 +246,12 @@
     r = document.createElement("div"); r.id = "fnoRoot"; r.className = "fnoRoot hidden";
     wrap.parentNode.insertBefore(r, wrap.nextSibling);
     r.addEventListener("click", e => {
+      const tab = e.target.closest("[data-ftab]");
+      if (tab) { state.tab = tab.dataset.ftab; try { localStorage.setItem("fnoTab", state.tab); } catch (x) {} renderAll();
+        if (state.tab === "scr") { if (Date.now() - scr.at > SCR_CFG.RESCAN_MIN * 60000) scan(); else scheduleScr(); } else refresh(false); return; }
+      if (e.target.closest("#scrGo")) { scan(); return; }
+      const row = e.target.closest("[data-scrsym]");
+      if (row) { state.sel = row.dataset.scrsym; state.tab = "chain"; renderAll(); refresh(false); window.scrollTo({ top: 0, behavior: "instant" }); return; }
       const chip = e.target.closest("[data-fsym]"); if (chip) { state.sel = chip.dataset.fsym; renderAll(); refresh(false); return; }
       if (e.target.id === "fnoStkGo") { const v = ($("fnoStk").value || "").trim().toUpperCase().replace(/[^A-Z0-9&-]/g, ""); if (v) { state.sel = v; renderAll(); refresh(false); } }
     });
@@ -271,13 +278,18 @@
     }
     if (!r.dataset.built) {
       r.dataset.built = "1";
-      r.innerHTML = `<div class="fCards" id="fnoCards"></div>
+      r.innerHTML = `<div class="fTabs"><button type="button" data-ftab="chain">📋 Option chain</button><button type="button" data-ftab="scr">🔎 Screener</button></div>
+        <div id="fnoScrView" class="hidden"></div><div id="fnoChainView"><div class="fCards" id="fnoCards"></div>
         <div class="fBar"><input id="fnoStk" class="fStk" placeholder="F&amp;O stock e.g. RELIANCE" autocomplete="off" spellcheck="false"><button type="button" id="fnoStkGo">Go</button>
           <select id="fnoExp" aria-label="Expiry"></select></div>
         <div class="fStatus"><span id="fnoStatus"></span><span class="mzInfoNote fRules" data-info-for=".fStatus">${esc(rulesText())}</span></div>
-        <div id="fnoBody"></div>`;
+        <div id="fnoBody"></div></div>`;
       if (window.mzInfoAttach) window.mzInfoAttach(r);
     }
+    r.querySelectorAll("[data-ftab]").forEach(b => b.classList.toggle("on", b.dataset.ftab === state.tab));
+    $("fnoChainView").classList.toggle("hidden", state.tab !== "chain");
+    $("fnoScrView").classList.toggle("hidden", state.tab !== "scr");
+    if (state.tab === "scr") { renderScr(); return; }
     renderCards();
     const d = state.data[state.sel], body = $("fnoBody");
     const sel = $("fnoExp");
@@ -330,11 +342,189 @@
       `Data: NSE (on this phone) and Yahoo 5-min candles; delay NOT FOUND. Rules are a checklist, not a prediction; not investment advice.`;
   }
 
-  window.mzFno = {
-    show() { const r = ensureRoot(); if (!r) return; state.open = true; r.classList.remove("hidden"); renderAll(); if (native()) refresh(!Object.keys(state.data).length); },
-    hide() { state.open = false; clearTimeout(state.timer); const r = $("fnoRoot"); if (r) r.classList.add("hidden"); },
-    refresh() { refresh(true); },
-    _test: { parseChain, analyse, signal, sellSetup, trendOf, gamma, expISO, dte, FNO_CFG, state }
+
+  // ================= SCREENER: all F&O stocks, intraday BUY (same 10 checks as the V5 PRO Intraday dashboard) =================
+  const SCR_CFG = {
+    PREFILTER_MAX: 40,            // step 1 (one NSE list): up today, above open, in the upper 40 % of today's range -> best 40 go to step 2
+    SIGNAL_SCORE: 6, RSI: [55, 75], RSI_MAX: 80, RVOL_MIN: 1.5, ATR_MULT: 1.5, ENTRY_BUFFER: 0.0005,
+    WINDOW: ["09:30", "14:45"], RESCAN_MIN: 15, PARALLEL: 4, CE_TOP: 6, TF: 900
   };
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && state.open) refresh(false); });
+  const scr = { busy: false, at: 0, done: 0, total: 0, universe: 0, list: [], nifty: null, err: "", timer: 0 };
+  async function foList() {
+    let last = null;
+    for (const ep of ["equity-stockIndex", "equity-stockIndices"]) {
+      try { const j = await nse(`/api/${ep}?index=${encodeURIComponent("SECURITIES IN F&O")}`); const d = (j && j.data || []).filter(x => x && x.symbol && !/\s/.test(x.symbol) && x.priority !== 1); if (d.length > 20) return d; last = "empty list"; }
+      catch (e) { last = e.message; }
+    }
+    throw new Error("F&O list: " + (last || "no answer"));
+  }
+  function prefilter(list) {
+    return list.map(q => {
+      const lp = num(q.lastPrice), op = num(q.open), hi = num(q.dayHigh), lo = num(q.dayLow), pc = num(q.previousClose), ch = num(q.pChange);
+      if ([lp, op, hi, lo, pc, ch].some(v => v === null) || hi <= lo) return null;
+      const pos = (lp - lo) / (hi - lo);
+      return lp > op && lp > pc && ch > 0 && pos >= 0.6 ? { symbol: q.symbol, lp, ch, pos, rank: ch + 2 * pos } : null;
+    }).filter(Boolean).sort((a, b) => b.rank - a.rank).slice(0, SCR_CFG.PREFILTER_MAX);
+  }
+  const istDay = t => istDate(new Date(t * 1000)), istSlot = t => istHM(new Date(t * 1000));
+  function wilder(arr, n) { let a = null; return arr.map((x, i) => { if (i < n - 1) return null; if (a === null) { a = arr.slice(0, n).reduce((s, v) => s + v, 0) / n; return a; } a = (a * (n - 1) + x) / n; return a; }); }
+  function atrOf(B, n) { const tr = B.map((b, i) => i ? Math.max(b.h - b.l, Math.abs(b.h - B[i - 1].c), Math.abs(b.l - B[i - 1].c)) : b.h - b.l); return wilder(tr, n); }
+  function rsiOf(c, n) {
+    if (c.length <= n) return null;
+    let g = 0, l = 0; for (let i = 1; i <= n; i++) { const d = c[i] - c[i - 1]; if (d > 0) g += d; else l -= d; }
+    g /= n; l /= n;
+    for (let i = n + 1; i < c.length; i++) { const d = c[i] - c[i - 1]; g = (g * (n - 1) + Math.max(d, 0)) / n; l = (l * (n - 1) + Math.max(-d, 0)) / n; }
+    return l === 0 ? 100 : 100 - 100 / (1 + g / l);
+  }
+  function superTrend(B, n, m) {
+    const atr = atrOf(B, n); let fu = null, fl = null, dir = 1;
+    B.forEach((b, i) => {
+      if (atr[i] === null) return;
+      const mid = (b.h + b.l) / 2, bu = mid + m * atr[i], bl = mid - m * atr[i], pc = i ? B[i - 1].c : b.c;
+      const nu = fu === null || bu < fu || pc > fu ? bu : fu, nl = fl === null || bl > fl || pc < fl ? bl : fl;
+      if (fu !== null) dir = dir === 1 ? (b.c < fl ? -1 : 1) : (b.c > fu ? 1 : -1);
+      fu = nu; fl = nl;
+    });
+    return atr[atr.length - 1] === null ? null : { dir, line: dir === 1 ? fl : fu };
+  }
+  function days(B) { const m = new Map(); B.forEach(b => { const d = istDay(b.t); if (!m.has(d)) m.set(d, []); m.get(d).push(b); }); return [...m.entries()].map(([d, bs]) => ({ d, bs, h: Math.max(...bs.map(x => x.h)), l: Math.min(...bs.map(x => x.l)), c: bs[bs.length - 1].c })); }
+  function niftyBias(bars) {
+    if (!bars) return { up: null, txt: NF };
+    const B = bars.filter(b => b.t + SCR_CFG.TF <= Date.now() / 1000); if (B.length < 25) return { up: null, txt: NF };
+    const c = B.map(b => b.c), L = c.length - 1, e9 = ema(c, 9)[L], e21 = ema(c, 21)[L], D = days(B), pdc = D.length > 1 ? D[D.length - 2].c : null;
+    const up = c[L] > e21 && e9 > e21 && (pdc === null || c[L] > pdc), dn = c[L] < e21 && e9 < e21 && (pdc === null || c[L] < pdc);
+    return { up, txt: `${c[L].toFixed(2)} → ${up ? "UP" : dn ? "DOWN" : "MIXED"}` };
+  }
+  function intra(bars, nb) {
+    if (!bars) return null;
+    const B = bars.filter(b => b.t + SCR_CFG.TF <= Date.now() / 1000 && b.o != null);
+    if (B.length < 40) return null;
+    const D = days(B); if (D.length < 2) return null;
+    const T = D[D.length - 1], P = D[D.length - 2], tb = T.bs, last = B[B.length - 1], L = B.length - 1;
+    const c = B.map(b => b.c), e9 = ema(c, 9)[L], e21 = ema(c, 21)[L];
+    let pv = 0, vv = 0; tb.forEach(b => { if (b.v) { pv += (b.h + b.l + b.c) / 3 * b.v; vv += b.v; } });
+    const vwap = vv ? pv / vv : null, st = superTrend(B, 10, 3), rsi = rsiOf(c, 14);
+    const m12 = ema(c, 12), m26 = ema(c, 26), macd = c.map((x, i) => m12[i] - m26[i]), sig = ema(macd, 9), hist = macd.map((x, i) => x - sig[i]);
+    const orh = tb.length >= 2 ? tb[0].h : null;
+    const piv = (P.h + P.l + P.c) / 3, r1 = 2 * piv - P.l, r2 = piv + (P.h - P.l);
+    const slot = istSlot(last.t), same = D.slice(-5, -1).map(d => (d.bs.find(b => istSlot(b.t) === slot) || {}).v).filter(v => v), avgV = same.length ? same.reduce((s, v) => s + v, 0) / same.length : null;
+    const rv = avgV ? last.v / avgV : null;
+    const dEma = ema(D.map(d => d.c), 20)[D.length - 1];
+    const chk = [];
+    const add = (k, name, ok, txt) => chk.push({ k, name, ok, txt });
+    add("vwap", "VWAP", vwap === null ? null : last.c > vwap, vwap === null ? NF : vwap.toFixed(2));
+    add("ema", "EMA 9/21", e9 > e21, `${e9.toFixed(1)} / ${e21.toFixed(1)}`);
+    add("st", "Supertrend", st ? st.dir === 1 : null, st ? (st.dir === 1 ? "UP " : "DOWN ") + st.line.toFixed(2) : NF);
+    add("rsi", "RSI", rsi === null ? null : rsi >= SCR_CFG.RSI[0] && rsi <= SCR_CFG.RSI[1], rsi === null ? NF : rsi.toFixed(1));
+    add("macd", "MACD", hist[L] > 0 && hist[L] > hist[L - 1], hist[L].toFixed(2));
+    add("orb", "Opening range", orh === null ? null : last.c > orh, orh === null ? NF : "ORH " + orh.toFixed(2));
+    add("piv", "Pivot", last.c > piv, "P " + piv.toFixed(2));
+    add("rvol", "Volume", rv === null ? null : rv >= SCR_CFG.RVOL_MIN && last.c > last.o, rv === null ? NF : rv.toFixed(2) + "×");
+    add("d20", "Daily EMA 20", last.c > dEma, dEma.toFixed(2));
+    add("nifty", "Nifty", nb ? nb.up : null, nb ? nb.txt : NF);
+    const score = chk.filter(x => x.ok === true).length, must = ["vwap", "ema", "st"].every(k => chk.find(x => x.k === k).ok === true);
+    const hm = istHM(), today = T.d === istDate(), inWin = today && marketOpen() && hm >= SCR_CFG.WINDOW[0] && hm <= SCR_CFG.WINDOW[1];
+    const out = { chk, score, last: last.c, at: istSlot(last.t + SCR_CFG.TF), today, rsi };
+    if (score >= SCR_CFG.SIGNAL_SCORE && must && !(rsi !== null && rsi > SCR_CFG.RSI_MAX)) {
+      out.signal = inWin ? "BUY" : "BUY setup (outside entry time)";
+      const atr = atrOf(B, 14)[L];
+      if (atr) {
+        const e = tick(last.h * (1 + SCR_CFG.ENTRY_BUFFER)), sl = tick(e - SCR_CFG.ATR_MULT * atr), risk = e - sl;
+        Object.assign(out, { entry: e, sl, t1: tick(e + risk), t2: tick(e + 2 * risk), riskPct: risk / e * 100 });
+        const blk = [P.h, r1, r2].filter(x => x > e && x < out.t1).sort((a, b) => a - b)[0];
+        if (blk) out.block = blk;
+      }
+    } else out.signal = score >= 4 ? "WATCH" : "NO TRADE";
+    if (out.signal === "WATCH") out.miss = chk.filter(x => x.ok !== true).map(x => x.name);
+    return out;
+  }
+  async function ceFor(sym) {
+    let d = await load(sym, false);
+    if (dte(d.exp) !== null && dte(d.exp) <= 1 && d.exps[1]) { state.exp[sym] = d.exps[1]; d = await load(sym, false); }   // expiry today / tomorrow: next expiry's CE
+    const row = d.ch.rows[d.a.atmI], p = ltp(row.ce);
+    return { exp: d.exp, k: row.k, p, oi: oi(row.ce), sl: p ? tick(p * (1 - FNO_CFG.SL_PCT / 100)) : null, t1: p ? tick(p * (1 + FNO_CFG.T1_PCT / 100)) : null, t2: p ? tick(p * (1 + FNO_CFG.T2_PCT / 100)) : null };
+  }
+  const RANK = s => !s ? -1 : s === "BUY" ? 3 : /^BUY/.test(s) ? 2 : s === "WATCH" ? 1 : 0;
+  async function scan() {
+    if (scr.busy || !native()) { renderScr(); return; }
+    clearTimeout(scr.timer);
+    scr.busy = true; scr.err = ""; scr.done = 0; scr.total = 0; renderScr();
+    try {
+      const all = await foList(); scr.universe = all.length;
+      const cands = prefilter(all); scr.total = cands.length; renderScr();
+      scr.nifty = niftyBias(await yahoo("^NSEI", "15m", "1mo"));
+      const out = []; let i = 0;
+      await Promise.all(Array.from({ length: SCR_CFG.PARALLEL }, async () => {
+        while (i < cands.length) {
+          const q = cands[i++]; let a = null;
+          try { a = intra(await yahoo(q.symbol + ".NS", "15m", "1mo"), scr.nifty); } catch (e) { a = null; }
+          out.push({ q, a }); scr.done++; renderScrProgress();
+        }
+      }));
+      out.sort((x, y) => (RANK(y.a && y.a.signal) - RANK(x.a && x.a.signal)) || ((y.a ? y.a.score : -1) - (x.a ? x.a.score : -1)) || (y.q.ch - x.q.ch));
+      scr.list = out; scr.at = Date.now(); renderScr();
+      for (const r of out.filter(x => x.a && /^BUY/.test(x.a.signal)).slice(0, SCR_CFG.CE_TOP)) {
+        try { r.ce = await ceFor(r.q.symbol); } catch (e) { r.ce = { err: e.message }; }
+        renderScr();
+      }
+    } catch (e) { scr.err = e.message || String(e); }
+    finally { scr.busy = false; renderScr(); scheduleScr(); }
+  }
+  function scheduleScr() {
+    clearTimeout(scr.timer);
+    if (!state.open || state.tab !== "scr" || !marketOpen()) return;
+    scr.timer = setTimeout(() => {
+      const r = $("fnoRoot"); if (!r || r.offsetParent === null) { state.open = false; return; }
+      if (document.visibilityState === "visible" && state.tab === "scr") scan(); else scheduleScr();
+    }, SCR_CFG.RESCAN_MIN * 60000);
+  }
+  function renderScrProgress() { const p = $("scrProg"); if (p) { p.style.width = (scr.total ? scr.done / scr.total * 100 : 5) + "%"; } const t = $("scrStat"); if (t && scr.busy) t.textContent = scr.total ? `Scanning ${scr.done} / ${scr.total}…` : "Loading the F&O list…"; }
+  const SHORT = { vwap: "VWAP", ema: "EMA", st: "ST", rsi: "RSI", macd: "MACD", orb: "ORB", piv: "PIV", rvol: "VOL", d20: "D20", nifty: "NIFTY" };
+  function renderScr() {
+    const v = $("fnoScrView"); if (!v || state.tab !== "scr") return;
+    if (!v.dataset.built) {
+      v.dataset.built = "1";
+      v.innerHTML = `<div class="fBar"><button type="button" id="scrGo" class="scrGo">🔎 Scan now</button><span class="fStatus scrStat"><span id="scrStat"></span><span class="mzInfoNote fRules" data-info-for=".scrStat">${esc(scrRules())}</span></span></div>
+        <div class="scrProgW"><i id="scrProg"></i></div><div id="scrList"></div>`;
+      if (window.mzInfoAttach) window.mzInfoAttach(v);
+    }
+    const go = $("scrGo"); go.disabled = scr.busy;
+    $("scrProg").parentNode.classList.toggle("hidden", !scr.busy);
+    renderScrProgress();
+    const buys = scr.list.filter(x => x.a && /^BUY/.test(x.a.signal)), watch = scr.list.filter(x => x.a && x.a.signal === "WATCH");
+    if (!scr.busy) $("scrStat").textContent = scr.err ? "⚠️ " + scr.err : scr.at ? `${istHM(new Date(scr.at))} · ${scr.universe} F&O · ${scr.total} checked · ${buys.length} BUY · Nifty ${scr.nifty ? scr.nifty.txt : NF}${marketOpen() ? "" : " · market closed"}` : "";
+    const card = r => {
+      const a = r.a, q = r.q, ce = r.ce;
+      const chips = a.chk.map(x => `<span class="sChip ${x.ok === true ? "y" : x.ok === false ? "n" : "u"}" title="${esc(x.name + ": " + x.txt)}">${SHORT[x.k]}</span>`).join("");
+      return `<div class="sCard" data-scrsym="${esc(q.symbol)}"><div class="sTop"><b>${esc(q.symbol)}</b><span>${q.lp.toFixed(2)} <small class="fOk">+${q.ch.toFixed(2)} %</small></span>
+          <i class="${/^BUY/.test(a.signal) ? "fBuy" : "fWatch"}">${esc(a.signal)} · ${a.score}/10</i></div>
+        <div class="sChips">${chips}</div>
+        ${a.entry ? `<div class="fLv"><span>Entry ${f2(a.entry)}</span><span class="fNo">SL ${f2(a.sl)}</span><span class="fOk">T1 ${f2(a.t1)}</span><span class="fOk">T2 ${f2(a.t2)}</span><small>risk ${a.riskPct.toFixed(2)} %</small></div>` : ""}
+        ${a.block ? `<div class="sWarn">⚠ resistance ${f2(a.block)} before T1</div>` : ""}
+        ${a.miss ? `<div class="sMiss">missing: ${esc(a.miss.join(", "))}</div>` : ""}
+        ${ce ? (ce.err ? `<div class="sMiss">CE: ${esc(ce.err)}</div>` : `<div class="fLv sCe"><span>CE ${ce.k} · ${esc(ce.exp)}</span><span>${f2(ce.p)}</span><span class="fNo">SL ${f2(ce.sl)}</span><span class="fOk">T1 ${f2(ce.t1)}</span><span class="fOk">T2 ${f2(ce.t2)}</span></div>`) : (/^BUY/.test(a.signal) && scr.busy === false && buys.indexOf(r) >= SCR_CFG.CE_TOP ? "" : "")}
+      </div>`;
+    };
+    const L = $("scrList");
+    if (!scr.at) { L.innerHTML = scr.busy ? "" : `<div class="fnoMsg">${native() ? "🔎 Scan now" : "📱"}</div>`; return; }
+    L.innerHTML = (buys.length ? buys.map(card).join("") : `<div class="fnoMsg">No BUY right now</div>`) +
+      (watch.length ? `<div class="sHead">WATCH (${watch.length})</div>` + watch.map(card).join("") : "");
+  }
+  function scrRules() {
+    const c = SCR_CFG;
+    return `Step 1 (NSE list of all F&O stocks): up today, above today's open, in the upper 40 % of today's range; the best ${c.PREFILTER_MAX} go on. ` +
+      `Step 2 (Yahoo 15-min candles, 1 month): the 10 checks of the V5 PRO Intraday dashboard - VWAP, EMA 9/21, Supertrend 10,3 (these 3 are a must), RSI ${c.RSI[0]}–${c.RSI[1]}, MACD histogram positive and rising, above the opening-range high, above pivot, last candle volume ≥ ${c.RVOL_MIN}× the same time on earlier days (green candle), above the daily EMA 20, Nifty UP. ` +
+      `BUY = ≥ ${c.SIGNAL_SCORE}/10 with the 3 musts (RSI not above ${c.RSI_MAX}), ${c.WINDOW[0]}–${c.WINDOW[1]}; WATCH = 4–5. Entry = last candle high + 0.05 %, SL = ${c.ATR_MULT} × ATR(14), T1 / T2 = 1R / 2R. ` +
+      `CE = ATM call of the nearest expiry (the next one when it expires today or tomorrow), SL −${FNO_CFG.SL_PCT} %, T1 +${FNO_CFG.T1_PCT} %, T2 +${FNO_CFG.T2_PCT} %. Scan again every ${c.RESCAN_MIN} min while this tab is open. Delay of Yahoo data: NOT FOUND. A checklist, not a prediction; not investment advice.`;
+  }
+
+  window.mzFno = {
+    show() { const r = ensureRoot(); if (!r) return; state.open = true; r.classList.remove("hidden"); renderAll();
+      if (!native()) return;
+      if (state.tab === "scr") { if (Date.now() - scr.at > SCR_CFG.RESCAN_MIN * 60000) scan(); else scheduleScr(); } else refresh(!Object.keys(state.data).length); },
+    hide() { state.open = false; clearTimeout(state.timer); clearTimeout(scr.timer); const r = $("fnoRoot"); if (r) r.classList.add("hidden"); },
+    refresh() { if (state.tab === "scr") scan(); else refresh(true); },
+    _test: { scr, intraScan: (bars, nb) => intra(bars, nb), niftyBias, prefilter, parseChain, analyse, signal, sellSetup, trendOf, gamma, expISO, dte, FNO_CFG, state }
+  };
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && state.open && state.tab === "chain") refresh(false); });
 })();
