@@ -267,6 +267,7 @@
       return `<button type="button" class="fCard${state.sel === x.s ? " on" : ""}" data-fsym="${x.s}"><b>${x.s}</b>
         <span class="fSpot">${d ? d.ch.spot.toFixed(2) : "…"}</span>
         <span>PCR ${d && d.a.pcr !== null ? d.a.pcr.toFixed(2) : "…"}</span>
+        <span class="fExp">${d ? "Exp " + esc(d.exp.replace(/-\d{4}$/, "")) + (dte(d.exp) !== null ? " · " + (dte(d.exp) === 0 ? "today" : dte(d.exp) + "d") : "") : ""}</span>
         <i class="${d ? sigCls(d.sig.signal) : "fNone"}">${d ? esc(d.sig.signal) : "…"}</i></button>`;
     }).join("");
   }
