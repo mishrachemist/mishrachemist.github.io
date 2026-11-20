@@ -1,0 +1,31 @@
+# Opens Moltrix in headless Chrome on every pull request (and by hand): signed-in click through every menu item,
+# games, and the F&O screens with a mocked Android app. Any page error = red cross on the pull request.
+name: Test
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Stamps up to date
+        run: |
+          node tools/stamp.mjs
+          git diff --exit-code index.html || { echo "::error::js/css changed without 'node tools/stamp.mjs'"; exit 1; }
+      - name: Playwright (uses the runner's Chrome)
+        run: npm install --no-save --no-audit --no-fund --silent playwright-core@1
+      - name: Smoke test
+        run: |
+          python3 -m http.server 8123 >/dev/null 2>&1 &
+          sleep 2
+          node tests/smoke.mjs

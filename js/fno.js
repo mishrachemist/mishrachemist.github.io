@@ -190,7 +190,7 @@
 
   // ---------- data per symbol ----------
   const state = { sel: "NIFTY", exp: {}, data: {}, vix: null, vixAt: 0, busy: false, timer: 0, allAt: 0, open: false, err: "",
-    tab: (() => { try { return localStorage.getItem("fnoTab") === "scr" ? "scr" : "chain"; } catch (e) { return "chain"; } })() };
+    tab: (() => { try { const t = localStorage.getItem("fnoTab"); return t === "scr" || t === "log" ? t : "chain"; } catch (e) { return "chain"; } })() };
   const isIndex = s => FNO_CFG.INDICES.some(x => x.s === s);
   const ySym = s => (FNO_CFG.INDICES.find(x => x.s === s) || {}).y || (s + ".NS");
   async function load(sym, withTrend) {
@@ -205,6 +205,8 @@
     const d = { sym, exps, exp, ch, a, at: Date.now(), tr: (state.data[sym] || {}).tr || null };
     if (withTrend) { try { d.tr = trendOf(await yahoo(ySym(sym)), isIndex(sym)); } catch (e) { d.tr = null; } }
     d.sig = signal(ch, a, d.tr);
+    logWatchOptions(sym, ch);
+    if (d.sig.sl && /^BUY (CE|PE)$/.test(d.sig.signal)) logAdd({ kind: "opt", sym, exp, strike: d.sig.strike, type: d.sig.type, t: Math.floor(Date.now() / 1000), entry: d.sig.prem, sl: d.sig.sl, t1: d.sig.t1, t2: d.sig.t2 });
     state.data[sym] = d;
     return d;
   }
@@ -248,7 +250,10 @@
     r.addEventListener("click", e => {
       const tab = e.target.closest("[data-ftab]");
       if (tab) { state.tab = tab.dataset.ftab; try { localStorage.setItem("fnoTab", state.tab); } catch (x) {} renderAll();
-        if (state.tab === "scr") { if (Date.now() - scr.at > SCR_CFG.RESCAN_MIN * 60000) scan(); else scheduleScr(); } else refresh(false); return; }
+        if (state.tab === "scr") { if (Date.now() - scr.at > SCR_CFG.RESCAN_MIN * 60000) scan(); else scheduleScr(); }
+        else if (state.tab === "log") logUpdate(); else refresh(false); return; }
+      if (e.target.closest("#logUpd")) { logUpdate(); return; }
+      if (e.target.closest("#logClr")) { if (confirm("Clear the whole signal log on this device?")) { logSave([]); renderLog(); } return; }
       if (e.target.closest("#scrGo")) { scan(); return; }
       const row = e.target.closest("[data-scrsym]");
       if (row) { state.sel = row.dataset.scrsym; state.tab = "chain"; renderAll(); refresh(false); window.scrollTo({ top: 0, behavior: "instant" }); return; }
@@ -279,7 +284,8 @@
     }
     if (!r.dataset.built) {
       r.dataset.built = "1";
-      r.innerHTML = `<div class="fTabs"><button type="button" data-ftab="chain">📋 Option chain</button><button type="button" data-ftab="scr">🔎 Screener</button></div>
+      r.innerHTML = `<div class="fTabs"><button type="button" data-ftab="chain">📋 Option chain</button><button type="button" data-ftab="scr">🔎 Screener</button><button type="button" data-ftab="log">📒 Log</button></div>
+        <div id="fnoLogView" class="hidden"></div>
         <div id="fnoScrView" class="hidden"></div><div id="fnoChainView"><div class="fCards" id="fnoCards"></div>
         <div class="fBar"><input id="fnoStk" class="fStk" placeholder="F&amp;O stock e.g. RELIANCE" autocomplete="off" spellcheck="false"><button type="button" id="fnoStkGo">Go</button>
           <select id="fnoExp" aria-label="Expiry"></select></div>
@@ -290,7 +296,9 @@
     r.querySelectorAll("[data-ftab]").forEach(b => b.classList.toggle("on", b.dataset.ftab === state.tab));
     $("fnoChainView").classList.toggle("hidden", state.tab !== "chain");
     $("fnoScrView").classList.toggle("hidden", state.tab !== "scr");
+    $("fnoLogView").classList.toggle("hidden", state.tab !== "log");
     if (state.tab === "scr") { renderScr(); return; }
+    if (state.tab === "log") { renderLog(); return; }
     renderCards();
     const d = state.data[state.sel], body = $("fnoBody");
     const sel = $("fnoExp");
@@ -343,6 +351,118 @@
       `Data: NSE (on this phone) and Yahoo 5-min candles; delay NOT FOUND. Rules are a checklist, not a prediction; not investment advice.`;
   }
 
+
+
+  // ================= SIGNAL LOG: every BUY signal and what really happened after it =================
+  // Shares (Screener BUY): checked on Yahoo 15-min candles - entry reached within 3 candles (else EXPIRED), then SL / T1 / T2
+  // in candle order (SL and a target in the same candle = SL, so results never look better than they were), squared off at 15:15.
+  // Options (F&O BUY CE / PE): the premium is only seen while the F&O screen is open (NSE gives no premium candles here).
+  const LOG_KEY = "fnoSigLog", LOG_MAX = 400, PEND_CANDLES = 3, SQ_OFF = "15:15";
+  const logLoad = () => { try { return JSON.parse(localStorage.getItem(LOG_KEY) || "[]"); } catch (e) { return []; } };
+  const logSave = L => { try { localStorage.setItem(LOG_KEY, JSON.stringify(L.slice(-LOG_MAX))); } catch (e) {} };
+  function logAdd(e) {
+    if (!e.entry || !e.sl || e.entry === e.sl) return;
+    const L = logLoad(), day = istDate(new Date(e.t * 1000));
+    const key = e.kind === "opt" ? `${day}|opt|${e.sym}|${e.strike}${e.type}` : `${day}|stock|${e.sym}`;
+    if (L.some(x => x.key === key)) return;          // one signal per stock (per option strike) per day
+    L.push(Object.assign({ key, day, status: e.kind === "opt" ? "ACTIVE" : "PENDING", at: Date.now() }, e));
+    logSave(L);
+  }
+  const dayOver = day => day < istDate() || (day === istDate() && istHM() >= "15:30");
+  function evalStock(e, bars) {
+    const B = bars.filter(b => istDay(b.t) === e.day && b.t >= e.t && istSlot(b.t) < SQ_OFF);
+    const risk = e.entry - e.sl, out = { status: "PENDING", r: null };
+    let i = 0, inAt = -1;
+    for (; i < B.length && i < PEND_CANDLES; i++) if (B[i].h >= e.entry) { inAt = i; break; }
+    if (inAt < 0) { out.status = B.length >= PEND_CANDLES || dayOver(e.day) ? "EXPIRED" : "PENDING"; return out; }
+    let t1 = false;
+    for (let j = inAt; j < B.length; j++) {
+      const b = B[j];
+      if (b.l <= e.sl) { if (t1) { out.status = "T1"; out.r = 1; } else { out.status = "SL"; out.r = -1; } out.endAt = istSlot(b.t); return out; }
+      if (b.h >= e.t2) { out.status = "T2"; out.r = 2; out.endAt = istSlot(b.t); return out; }
+      if (b.h >= e.t1) t1 = true;
+    }
+    const last = B[B.length - 1];
+    if (dayOver(e.day)) {
+      if (t1) { out.status = "T1"; out.r = 1; } else { out.status = "SQ OFF"; out.r = Math.round((last.c - e.entry) / risk * 100) / 100; }
+    } else { out.status = t1 ? "ACTIVE · T1" : "ACTIVE"; out.r = null; }
+    return out;
+  }
+  async function logEvalStocks() {
+    const L = logLoad(), open = L.filter(e => e.kind === "stock" && !e.final);
+    const syms = [...new Set(open.map(e => e.sym))];
+    for (const sym of syms) {
+      const old = open.filter(e => e.sym === sym).some(e => Date.parse(e.day) < Date.now() - 4 * 86400000);
+      let bars = null; try { bars = await yahoo(sym + ".NS", "15m", old ? "1mo" : "5d"); } catch (e) { bars = null; }
+      if (!bars) continue;
+      open.filter(e => e.sym === sym).forEach(e => { const r = evalStock(e, bars); Object.assign(e, r, { final: dayOver(e.day) && !/^(PENDING|ACTIVE)/.test(r.status) }); });
+    }
+    logSave(L);
+  }
+  function logWatchOptions(sym, ch) {
+    const L = logLoad(); let changed = false;
+    L.filter(e => e.kind === "opt" && !e.final && e.sym === sym).forEach(e => {
+      if (e.day !== istDate()) return;
+      const row = ch.rows.find(r => r.k === e.strike), lp = row ? ltp(e.type === "CE" ? row.ce : row.pe) : null;
+      if (lp === null || !marketOpen()) return;
+      e.seen = (e.seen || 0) + 1; e.lastP = lp; changed = true;
+      if (lp <= e.sl) { Object.assign(e, e.t1hit ? { status: "T1", r: 1 } : { status: "SL", r: -1 }, { final: true, endAt: istHM() }); }
+      else if (lp >= e.t2) Object.assign(e, { status: "T2", r: 2, final: true, endAt: istHM() });
+      else if (lp >= e.t1) { e.t1hit = true; e.status = "ACTIVE · T1"; }
+    });
+    if (changed) logSave(L);
+  }
+  function logCloseOptions() {   // after the day: options never seen again are not counted
+    const L = logLoad(); let changed = false;
+    L.filter(e => e.kind === "opt" && !e.final && dayOver(e.day)).forEach(e => {
+      changed = true; e.final = true;
+      if (e.t1hit) Object.assign(e, { status: "T1", r: 1 });
+      else if (e.seen > 1 && e.lastP != null) Object.assign(e, { status: "SQ OFF", r: Math.round((e.lastP - e.entry) / (e.entry - e.sl) * 100) / 100 });
+      else Object.assign(e, { status: "NOT WATCHED", r: null });
+    });
+    if (changed) logSave(L);
+  }
+  let logBusy = false;
+  async function logUpdate() {
+    renderLog();
+    if (logBusy || !native()) return;
+    logBusy = true; renderLog();
+    try { logCloseOptions(); await logEvalStocks(); } finally { logBusy = false; renderLog(); }
+  }
+  function stats(list) {
+    const done = list.filter(e => /^(SL|T1|T2|SQ OFF)$/.test(e.status));
+    const n = done.length, c = st => done.filter(e => e.status === st).length;
+    const t1 = c("T1") + c("T2"), r = done.reduce((s, e) => s + (e.r || 0), 0);
+    return { n, signals: list.length, t1: n ? t1 / n * 100 : null, t2: n ? c("T2") / n * 100 : null, sl: n ? c("SL") / n * 100 : null, sq: n ? c("SQ OFF") / n * 100 : null,
+      avgR: n ? r / n : null, exp: list.filter(e => e.status === "EXPIRED").length };
+  }
+  function renderLog() {
+    const v = $("fnoLogView"); if (!v || state.tab !== "log") return;
+    const L = logLoad().slice().reverse(), today = istDate(), wk = istDate(new Date(Date.now() - 6 * 86400000));
+    const pct = x => x === null ? "-" : x.toFixed(0) + " %";
+    const row = (name, list) => { const s = stats(list); return `<tr><td>${name}</td><td>${s.signals}</td><td>${s.n}</td><td class="fOk">${pct(s.t1)}</td><td class="fOk">${pct(s.t2)}</td><td class="fNo">${pct(s.sl)}</td><td>${s.avgR === null ? "-" : (s.avgR >= 0 ? "+" : "") + s.avgR.toFixed(2)}</td></tr>`; };
+    const part = (title, kind) => {
+      const K = L.filter(e => e.kind === kind);
+      return `<div class="fBox"><div class="fHead">${title}</div><div class="fChainWrap"><table class="fChain lStat"><thead><tr><th></th><th>Signals</th><th>Closed</th><th>T1+</th><th>T2</th><th>SL</th><th>Avg R</th></tr></thead><tbody>
+        ${row("Today", K.filter(e => e.day === today))}${row("7 days", K.filter(e => e.day >= wk))}${row("All", K)}</tbody></table></div></div>`;
+    };
+    const cls = st => /T2|T1/.test(st) ? "fBuy" : st === "SL" ? "fSell" : /ACTIVE|PENDING/.test(st) ? "fWatch" : "fNone";
+    const item = e => `<div class="lRow"><b>${esc(e.sym)}${e.kind === "opt" ? ` ${e.strike} ${e.type}` : ""}</b><small>${esc(e.day.slice(5).split("-").reverse().join("-"))} ${esc(istHM(new Date(e.t * 1000)))}</small>
+      <span>${f2(e.entry)} · <span class="fNo">${f2(e.sl)}</span> · <span class="fOk">${f2(e.t1)} / ${f2(e.t2)}</span></span>
+      <i class="${cls(e.status)}">${esc(e.status)}${e.r != null && /^(SL|T1|T2|SQ OFF)$/.test(e.status) ? ` ${e.r >= 0 ? "+" : ""}${e.r}R` : ""}</i></div>`;
+    v.innerHTML = `<div class="fBar"><button type="button" id="logUpd" class="scrGo" ${logBusy ? "disabled" : ""}>${logBusy ? "…" : "⟳ Update results"}</button>
+        <span class="fStatus scrStat"><span>${L.length} signals</span><span class="mzInfoNote fRules" data-info-for="#fnoLogView .scrStat">${esc(logRules())}</span></span>
+        <button type="button" id="logClr" class="scrGo" title="Clear">🗑</button></div>
+      ${part("🔎 Screener · shares", "stock")}${part("📋 Options · BUY CE / PE", "opt")}
+      <div class="fBox"><div class="fHead">Signals</div>${L.slice(0, 80).map(item).join("") || "<small>-</small>"}</div>`;
+    if (window.mzInfoAttach) window.mzInfoAttach(v);
+  }
+  function logRules() {
+    return `Every Screener BUY (share levels) and every F&O BUY CE / PE is saved once per day per stock / strike. ` +
+      `Shares: checked on Yahoo 15-min candles - entry must be reached within ${PEND_CANDLES} candles (else EXPIRED, not counted); then SL / T1 / T2 in candle order; SL and a target in the same candle count as SL; open trades are squared off at ${SQ_OFF} (SQ OFF, result in R). ` +
+      `Options: the premium is only seen while the F&O screen is open (NSE gives no premium candles here); signals not watched again are NOT WATCHED and not counted. ` +
+      `T1+ = T1 or T2 reached. R = profit / risk (SL −1R, T1 +1R, T2 +2R). Before brokerage and tax. Saved on this device (included in Backup & Restore).`;
+  }
 
   // ================= SCREENER: all F&O stocks, intraday BUY (same 10 checks as the V5 PRO Intraday dashboard) =================
   const SCR_CFG = {
@@ -425,7 +545,7 @@
     add("nifty", "Nifty", nb ? nb.up : null, nb ? nb.txt : NF);
     const score = chk.filter(x => x.ok === true).length, must = ["vwap", "ema", "st"].every(k => chk.find(x => x.k === k).ok === true);
     const hm = istHM(), today = T.d === istDate(), inWin = today && marketOpen() && hm >= SCR_CFG.WINDOW[0] && hm <= SCR_CFG.WINDOW[1];
-    const out = { chk, score, last: last.c, at: istSlot(last.t + SCR_CFG.TF), today, rsi };
+    const out = { chk, score, last: last.c, at: istSlot(last.t + SCR_CFG.TF), t: last.t + SCR_CFG.TF, today, rsi };
     if (score >= SCR_CFG.SIGNAL_SCORE && must && !(rsi !== null && rsi > SCR_CFG.RSI_MAX)) {
       out.signal = inWin ? "BUY" : "BUY setup (outside entry time)";
       const atr = atrOf(B, 14)[L];
@@ -464,6 +584,8 @@
       }));
       out.sort((x, y) => (RANK(y.a && y.a.signal) - RANK(x.a && x.a.signal)) || ((y.a ? y.a.score : -1) - (x.a ? x.a.score : -1)) || (y.q.ch - x.q.ch));
       scr.list = out; scr.at = Date.now(); renderScr();
+      out.filter(x => x.a && x.a.signal === "BUY" && x.a.entry).forEach(x => logAdd({ kind: "stock", sym: x.q.symbol, t: x.a.t, entry: x.a.entry, sl: x.a.sl, t1: x.a.t1, t2: x.a.t2, score: x.a.score }));
+      logEvalStocks().catch(() => {});
       for (const r of out.filter(x => x.a && /^BUY/.test(x.a.signal)).slice(0, SCR_CFG.CE_TOP)) {
         try { r.ce = await ceFor(r.q.symbol); } catch (e) { r.ce = { err: e.message }; }
         renderScr();
@@ -522,10 +644,11 @@
   window.mzFno = {
     show() { const r = ensureRoot(); if (!r) return; state.open = true; r.classList.remove("hidden"); renderAll();
       if (!native()) return;
-      if (state.tab === "scr") { if (Date.now() - scr.at > SCR_CFG.RESCAN_MIN * 60000) scan(); else scheduleScr(); } else refresh(!Object.keys(state.data).length); },
+      if (state.tab === "scr") { if (Date.now() - scr.at > SCR_CFG.RESCAN_MIN * 60000) scan(); else scheduleScr(); }
+      else if (state.tab === "log") logUpdate(); else refresh(!Object.keys(state.data).length); },
     hide() { state.open = false; clearTimeout(state.timer); clearTimeout(scr.timer); const r = $("fnoRoot"); if (r) r.classList.add("hidden"); },
     refresh() { if (state.tab === "scr") scan(); else refresh(true); },
-    _test: { scr, intraScan: (bars, nb) => intra(bars, nb), niftyBias, prefilter, parseChain, analyse, signal, sellSetup, trendOf, gamma, expISO, dte, FNO_CFG, state }
+    _test: { logLoad, logSave, logEvalStock: evalStock, scr, intraScan: (bars, nb) => intra(bars, nb), niftyBias, prefilter, parseChain, analyse, signal, sellSetup, trendOf, gamma, expISO, dte, FNO_CFG, state }
   };
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && state.open && state.tab === "chain") refresh(false); });
 })();
