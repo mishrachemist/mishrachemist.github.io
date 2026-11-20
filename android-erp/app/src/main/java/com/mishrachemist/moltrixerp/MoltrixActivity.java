@@ -10,6 +10,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -42,6 +43,7 @@ import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.fragment.app.FragmentActivity;
 
@@ -398,6 +400,17 @@ public class MoltrixActivity extends FragmentActivity {
             if (top == null || bottom == null || !top.matches("#[0-9a-fA-F]{6}") || !bottom.matches("#[0-9a-fA-F]{6}")) return;
             prefs(MoltrixActivity.this).edit().putString("barTop", top).putString("barBottom", bottom).apply();
             runOnUiThread(() -> applyBars(top, bottom));
+        }
+        /** games: landscape (either side) and full screen; false = back to normal */
+        @JavascriptInterface public void gameMode(boolean on) {
+            runOnUiThread(() -> {
+                setRequestedOrientation(on ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+                WindowInsetsControllerCompat w = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+                if (on) {
+                    w.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                    w.hide(WindowInsetsCompat.Type.systemBars());
+                } else w.show(WindowInsetsCompat.Type.systemBars());
+            });
         }
         @JavascriptInterface public void askNotify() { runOnUiThread(MoltrixActivity.this::askNotifyPermission); }
     }
