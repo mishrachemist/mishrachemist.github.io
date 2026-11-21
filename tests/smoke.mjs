@@ -4,6 +4,7 @@
 // Part B: the Android app's bridge mocked (fake NSE / Yahoo data): F&O option chain, Screener, Log.
 // Part C: Moltrix Sheet - formulas incl. Google-style ones, saving to a mocked OneDrive, .xlsx out and in.
 import fs from "node:fs";
+import { EXCEL_CASES } from "./excel-cases.mjs";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PW_PATH || "playwright-core");
@@ -185,13 +186,33 @@ const NATIVE_MOCK = (today) => {
     return { r, a1: c[0][0].v, b1f: c[0][1].f, size: buf.byteLength };
   });
   if (JSON.stringify(x.r) !== JSON.stringify([["Name", "Dept", "Pay"], ["A", "QA", 50]]) || x.a1 !== 7 || x.b1f !== "=SUM(A1,10)") fails.push("C: importrange / xlsx " + JSON.stringify(x));
+  // Excel functions: a sample with known results, and the ones added in js/sheet-fns.js
+  const ex = await p.evaluate(async cases => {
+    const ws = mzSheet._test.cur.api.getActiveWorkbook().insertSheet("Excel");
+    cases.forEach((c, i) => ws.getRange(i, 0).setValue({ f: "=" + c[0] }));
+    const t = [...Array(24).keys()].map(i => i + 1), y = t.map(i => 100 + 2 * (i - 1) + 10 * Math.sin(2 * Math.PI * (i - 1) / 6));
+    t.forEach((v, i) => { ws.getRange(i, 5).setValue(v); ws.getRange(i, 6).setValue(+y[i].toFixed(6)); });
+    ws.getRange("I1:J3").setValues([[1, 1], [2, 5], [3, 3]]);
+    const extra = [['FORECAST.ETS(25,G1:G24,F1:F24)', 148], ['FORECAST.ETS.SEASONALITY(G1:G24,F1:F24)', 6], ['JIS("AB 1")', "ＡＢ　１"], ['INFO("recalc")', "Automatic"],
+      ['INDEX(TRIMRANGE(F1:G30),24,1)', 24], ['DETECTLANGUAGE("This is a simple English sentence for the test")', "en"],
+      ['INDEX(PIVOTBY({"QA";"SMS";"QA"},{"Q1";"Q1";"Q2"},{10;20;30},"SUM",0),4,4)', 60], ['ROWS(STOCKHISTORY("XNSE:RELIANCE",DATE(2026,11,1),DATE(2026,11,20)))', ">1"]];
+    extra.forEach((c, i) => ws.getRange(150 + i, 0).setValue({ f: "=" + c[0] }));
+    await new Promise(r => setTimeout(r, 6000));
+    const bad = [];
+    const ok = (v, w) => w === ">1" ? v > 1 : typeof w === "number" ? typeof v === "number" && Math.abs(v - w) <= 1e-6 * Math.max(1, Math.abs(w)) : w === true ? (v === true || v === 1) : v === w;
+    const val = r => { const x = r.getRawValue ? r.getRawValue() : undefined; return x === undefined || x === null ? r.getValue() : x; };
+    cases.forEach((c, i) => { const v = val(ws.getRange(i, 0)); if (!ok(v, c[1])) bad.push(c[0] + " = " + JSON.stringify(v) + " (Excel: " + JSON.stringify(c[1]) + ")"); });
+    extra.forEach((c, i) => { const v = val(ws.getRange(150 + i, 0)); if (!ok(v, c[1])) bad.push(c[0] + " = " + JSON.stringify(v) + " (expected " + JSON.stringify(c[1]) + ")"); });
+    return { n: cases.length + extra.length, bad };
+  }, EXCEL_CASES);
+  ex.bad.forEach(b => fails.push("C: " + b));
   if (process.env.SHOT) await p.screenshot({ path: process.env.SHOT });
   await p.evaluate(() => mzSheet.close()); await p.waitForTimeout(1500);
   if (process.env.SHOT) await p.screenshot({ path: process.env.SHOT.replace(".png", "-list.png") });
   const listed = await p.evaluate(() => [...document.querySelectorAll("#msList .msItem")].map(b => b.dataset.name));
   if (!listed.includes("T1")) fails.push("C: sheet list " + JSON.stringify(listed));
   errs.forEach(e => fails.push("C: " + e));
-  console.log(`C sheet: ${JSON.stringify(got)}, saved A1=${saved}, xlsx ${x.size} bytes, list ${listed.length}, ${errs.length} page errors`);
+  console.log(`C sheet: ${JSON.stringify(got)}, saved A1=${saved}, xlsx ${x.size} bytes, list ${listed.length}, Excel functions ${ex.n - ex.bad.length}/${ex.n}, ${errs.length} page errors`);
   await ctx.close();
 }
 await browser.close();
