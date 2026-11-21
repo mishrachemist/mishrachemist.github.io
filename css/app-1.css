@@ -2676,9 +2676,6 @@
   html body.tex-clean header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) .mzLogo{ color:var(--cl-head-ink); }
   .navDrawerVersion{ display:inline-flex; align-items:center; gap:6px; }
   .navDrawerVersion .mzLogo{ display:inline-block; color:inherit; }
-  /* the same picture on the small logo at the bottom of the menu: the word "Moltrix" is 34.8% from the left, 63.8% wide, its top 23.7% down, 47.9% high */
-  .mzDrawerLogo{ position:relative; display:inline-block; line-height:0; margin-top:20px; }
-  .mzSleeperSm{ position:absolute; left:34.8%; width:63.8%; height:auto; bottom:calc(100% - 23.7% - 47.9% * .23); pointer-events:none; user-select:none; filter:drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
   .signedOutMsg .mzLogo{ color:var(--navy, #1f3864); }
   html body.tex-clean .signedOutMsg .mzLogo{ color:var(--cl-head-ink); }
   body.dark-mode:not(.tex-clean) .signedOutMsg .mzLogo{ color:#e8ecf4; }
@@ -2689,13 +2686,9 @@
   .mzHeadLock .mzLogoIcon{ height:var(--mz-logo-h); width:var(--mz-logo-h); flex:none; transform:translateY(calc(var(--mz-logo-h) * -.22)); }
   .mzHeadCol{ display:flex; flex-direction:column; align-items:flex-start; gap:calc(var(--mz-logo-h) * .07); }
   .mzHeadCol .mzLogoWord{ height:calc(var(--mz-logo-h) * .41); width:auto; aspect-ratio:476.9/105.3; }
-  /* Durgesh lying on "Moltrix": the picture is as wide as the word and rests on the top of the letters (a little sunk in), with a soft shadow under it */
-  .mzLogoH1{ position:relative; }
+  /* Durgesh lying on "Moltrix" is part of the logo symbols (index.html); the logo may draw above its box, and the header row leaves room for it */
+  .mzLogo{ overflow:visible; }
   .mzHeadRow{ margin-top:calc(var(--mz-logo-h) * .38); }
-  .mzSleeper{ position:absolute; left:0; width:100%; height:auto; bottom:calc(var(--mz-logo-h) * .41 * .77); pointer-events:none; user-select:none;
-    filter:drop-shadow(0 2px 1.5px rgba(0,0,0,.22)); }
-  .mzSleepShadow{ position:absolute; left:8%; width:80%; height:6px; top:calc(var(--mz-logo-h) * .41 * .23 - 4px); border-radius:50%;
-    background:rgba(11,37,69,.32); filter:blur(3px); pointer-events:none; }
   header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) .liveClock, html body.tex-clean header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) .liveClock{ margin:0 !important; padding:0 !important; line-height:1 !important;
     font-family:"Inter","Poppins",system-ui,sans-serif !important; font-weight:800 !important; font-variant-numeric:tabular-nums; font-size:calc(var(--mz-logo-h) * .25) !important; letter-spacing:1.5px !important; }
 
