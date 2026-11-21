@@ -2672,7 +2672,6 @@
   .mzLogo{ display:block; color:var(--mz-logo-ink, var(--navy-text, #1f3864)); max-width:100%; }
   header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) h1.mzLogoH1{ margin:0 0 2px; line-height:0; background:none !important; animation:none !important; filter:none !important; }
   /* the logo takes the photo's place in the header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) (the photo file still feeds the home greeting card and the menu) */
-  header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) #headerLogoImg{ display:none !important; }
   html body.tex-clean header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) .mzLogo{ color:var(--cl-head-ink); }
   .navDrawerVersion{ display:inline-flex; align-items:center; gap:6px; }
   .navDrawerVersion .mzLogo{ display:inline-block; color:inherit; }

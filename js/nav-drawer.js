@@ -114,13 +114,12 @@
   // Apply the saved theme (if any) right away, before sign-in even completes.
   applyTheme(localStorage.getItem("themeColor") || "clean");
 
-  // Sync the drawer's avatar/name from the header logo once it's available.
+  // The drawer's avatar: the photo he chose (greeting card), else a plain avatar.
   function syncDrawerProfile() {
     const drawerImg = document.getElementById("navDrawerAvatar");
     if (!drawerImg) return;
     const savedPhoto = localStorage.getItem("customProfilePhoto");
-    const headerImg = document.getElementById("headerLogoImg");
-    const src = savedPhoto || (headerImg && headerImg.src) || "";
+    const src = savedPhoto || "img/0d420fa9e375.svg";   // no photo of his own yet: a plain avatar
     if (src) drawerImg.src = src;
   }
   syncDrawerProfile();

@@ -49,7 +49,6 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
   body{ font-family:'Inter','Poppins','Segoe UI',Tahoma,sans-serif; }
   header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ padding-top:10px; padding-bottom:10px; }
   header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) h1, header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) h1.molten{ font-family:'Inter','Poppins',sans-serif !important; font-weight:800; letter-spacing:.2px; }
-  #headerLogoImg{ width:46px !important; height:46px !important; border-radius:50% !important; box-shadow:0 0 0 2px var(--gold) !important; }
   .liveClock{ background:transparent !important; border-color:transparent !important; box-shadow:none !important; padding-left:0 !important; font-size:12.5px !important; letter-spacing:1px; }
   .card{ border-radius:16px !important; border:1px solid rgba(128,128,128,.18) !important; border-top:1px solid rgba(128,128,128,.18) !important; }
   .card h2{ font-family:'Inter','Poppins',sans-serif !important; font-weight:800; letter-spacing:.6px; }
@@ -81,7 +80,6 @@ body.tex-steel:not(.dark-mode){ --muted:#36404c; } body.tex-kraft:not(.dark-mode
   html body.tex-clean #hamburgerBtn, html body.tex-clean #settingsMenuBtn{ color:var(--cl-head-ink) !important; }
   html body.tex-clean #hamburgerBtn:hover, html body.tex-clean #settingsMenuBtn:hover{ background:rgba(128,128,128,.12) !important; }
   html body.tex-clean .liveClock{ color:var(--cl-accent) !important; background:transparent !important; border-color:transparent !important; box-shadow:none !important; padding-left:0 !important; font-size:12.5px !important; letter-spacing:1px; }
-  html body.tex-clean #headerLogoImg{ width:46px !important; height:46px !important; border-radius:50% !important; box-shadow:0 0 0 2px var(--cl-accent) !important; }
   html body.tex-clean .card{ background:var(--cl-card) !important; color:var(--cl-ink); border:1px solid var(--cl-line) !important; border-top:1px solid var(--cl-line) !important; border-radius:16px !important; box-shadow:var(--cl-shadow) !important; backdrop-filter:none !important; -webkit-backdrop-filter:none !important; }
   html body.tex-clean .card::before, html body.tex-clean .card::after{ display:none !important; }
   html body.tex-clean .card h2{ color:var(--cl-navy) !important; font-family:'Inter','Poppins',sans-serif !important; font-weight:800; letter-spacing:.6px; }

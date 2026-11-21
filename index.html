@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; connect-src 'self' https://api.open-meteo.com https://graph.microsoft.com https://login.microsoftonline.com https://login.live.com https://*.1drv.com https://*.files.1drv.com https://*.livefilestore.com https://*.sharepoint.com https://script.google.com https://script.googleusercontent.com https://get.geojs.io https://cdn.jsdelivr.net https://tessdata.projectnaptha.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; frame-src 'self' blob: data: https://login.microsoftonline.com https://login.live.com https://script.google.com https://*.googleusercontent.com; media-src 'self' blob: data:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<script>const APP_VERSION = "2026.11.21.10";
+<script>const APP_VERSION = "2026.11.21.11";
 /* the app is in several files (js/…): work that must wait for ALL of them (sign-in, timers) starts through mzAfterLoad */
 /* Error log (☰ → Error Log): page errors and errors that parts of the app report through mzErr(source, message) */
 (function () {
@@ -224,9 +224,9 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js" integrity="sha384-XcdcwHqIPULERb2yDEM4R0XaQKU3YnDsrTmjACBZyfdVVqjh6xQ4/DCMd7XLcA6Y" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
-<link rel="stylesheet" href="css/app-1.css?v=a7606a9b4c">
+<link rel="stylesheet" href="css/app-1.css?v=1071ad4077">
 
-<link rel="stylesheet" href="css/app-2.css?v=965ee814c9">
+<link rel="stylesheet" href="css/app-2.css?v=ed52732d47">
 <link rel="stylesheet" href="css/sheet.css?v=fab259b750">
 </head>
 
@@ -585,7 +585,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
     <button id="signOutBtn" class="hidden">🚪 Sign Out</button>
   </div>
   <div class="mzHeadRow" style="display:flex;align-items:center;gap:12px;">
-    <img src="img/5cc65070350e.png" alt="Durgesh Mishra" id="headerLogoImg" style="width:68px;height:68px;border-radius:10px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.3);object-fit:cover;">
+    
     <div class="mzHeadLock">
       <svg class="mzLogo mzLogoIcon" viewBox="0 0 200 200" aria-hidden="true"><use href="#mzLogoIconSym"></use></svg>
       <div class="mzHeadCol">
@@ -615,7 +615,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
 <div id="navDrawerBackdrop" class="navDrawerBackdrop closed"></div>
 <nav id="navDrawer" class="navDrawer closed">
   <div class="navDrawerHead">
-    <img id="navDrawerAvatar" class="navDrawerAvatar" alt="">
+    <img id="navDrawerAvatar" class="navDrawerAvatar" alt="" src="img/0d420fa9e375.svg">
     <div>
       <div class="navDrawerWelcome">Welcome :)</div>
       <div class="navDrawerName" id="navDrawerName">DURGESH MISHRA</div>
@@ -2987,7 +2987,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
 
 <script src="js/app-01.js?v=5a7ff81384"></script>
 <script src="js/app-02.js?v=9c17544f89"></script>
-<script src="js/app-03.js?v=7298ba63a2"></script>
+<script src="js/app-03.js?v=12319e49dc"></script>
 <script src="js/app-04.js?v=cfce6e12d4"></script>
 <script src="js/app-05.js?v=9d369ae25e"></script>
 <script src="js/app-06.js?v=455f01999f"></script>
@@ -3009,7 +3009,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
   <button class="bottomTabItem" data-tab-action="more"><span class="bottomTabIcon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg></span><span>More</span></button>
 </nav>
 
-<script src="js/nav-drawer.js?v=8987d658b3"></script>
+<script src="js/nav-drawer.js?v=5b79932894"></script>
 
 
 <script src="js/home-effects.js?v=808f96f4b3"></script>

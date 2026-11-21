@@ -1,4 +1,5 @@
 const CACHE_NAME = 'sms-reports-cache-v9';
+const REMOVED_FILES = ['/img/5cc65070350e.png'];   // deleted pictures (the coffee photo)
 const LEGACY_CACHE_NAMES = new Set([
   'sms-reports-v3'
 ]);
@@ -46,6 +47,16 @@ self.addEventListener('install', (event) => {
   })());
 });
 
+async function dropRemovedFiles() {
+  for (const key of await caches.keys()) {
+    if (!(key.startsWith(CACHE_PREFIX) || LEGACY_CACHE_NAMES.has(key))) continue;   // only this app's caches
+    const cache = await caches.open(key);
+    for (const req of await cache.keys()) {
+      if (REMOVED_FILES.some((f) => new URL(req.url).pathname.endsWith(f))) await cache.delete(req);
+    }
+  }
+}
+
 // Activate: remove only caches owned by this application. Never delete
 // unrelated Cache Storage entries that may belong to another app on the origin.
 self.addEventListener('activate', (event) => {
@@ -59,6 +70,7 @@ self.addEventListener('activate', (event) => {
           )
           .map((key) => caches.delete(key))
       ))
+      .then(dropRemovedFiles)   // pictures taken out of the app: also gone from the saved copies on the phone
       .then(() => self.clients.claim())
   );
 });
