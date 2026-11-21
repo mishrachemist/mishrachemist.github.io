@@ -1,0 +1,4 @@
+franc-min 6.2.0 - MIT License - Copyright (c) Titus Wormer <tituswormer@gmail.com>
+https://github.com/wooorm/franc
+Bundled into one file (franc.js) with its dependencies (trigram-utils, n-gram, collapse-white-space), all MIT.
+Used by Moltrix Sheet for DETECTLANGUAGE.

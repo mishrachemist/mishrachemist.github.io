@@ -12,3 +12,5 @@ npx esbuild entry.js --bundle --minify --format=esm --splitting --outdir=../../v
 
 The licences of the bundled packages are in `univer.js.LEGAL.txt` and `LICENSE-univer.txt`.
 For a new version build into a new folder (`vendor/univer-<version>/`) and change `VER` in `js/sheet.js`.
+
+`vendor/franc-min-6.2.0/franc.js` (DETECTLANGUAGE): `echo 'export { franc, francAll } from "franc-min";' > f.js && npx esbuild f.js --bundle --minify --format=esm --outfile=franc.js`

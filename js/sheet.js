@@ -1,7 +1,8 @@
 /* ===================== MOLTRIX SHEET (☰ / Home → Moltrix Sheet) =====================
    A spreadsheet like Google Sheets inside Moltrix. The grid and its ~540 Excel-style functions are Univer
    (open source, Apache-2.0, vendor/univer-1.6.0/, loaded only when a sheet is opened); the Google-only functions
-   (QUERY, GOOGLEFINANCE, IMPORTRANGE, IMPORTDATA/HTML/XML, SPLIT, JOIN …) are in js/sheet-fns.js.
+   (QUERY, GOOGLEFINANCE, IMPORTRANGE, IMPORTDATA/HTML/XML, SPLIT, JOIN …) and the Excel ones Univer lacks
+   (PIVOTBY, FORECAST.ETS…, STOCKHISTORY, WEBSERVICE, DETECTLANGUAGE, TRIMRANGE, INFO, JIS, PHONETIC) are in js/sheet-fns.js.
    Saved in the user's own OneDrive app folder ("Moltrix Sheets/<name>.json") and on this device (IndexedDB),
    so a sheet opens offline too; changes are saved a few seconds after each edit.
    .xlsx: open into a Moltrix Sheet / download as .xlsx (values, formulas, number formats, merges, column widths). ===== */
@@ -107,6 +108,7 @@
 
   // ---------- data for the Google-style functions ----------
   const fcache = new Map();
+  let francP = null;
   async function fetcher(kind, arg) {
     if (kind === "yahoo" || kind === "web") {
       if (kind === "yahoo" ? !native() : !nativeWeb()) throw new Error("Moltrix Android app only");
@@ -115,6 +117,7 @@
       return r.t;
     }
     if (kind === "range") return readRange(arg);
+    if (kind === "franc") { const m = await (francP || (francP = import(new URL("vendor/franc-min-6.2.0/franc.js", location.href).href).catch(e => { francP = null; throw e; }))); return m.franc(arg, { minLength: 3 }); }
     throw new Error("?");
   }
   const colNum = s => { let n = 0; for (const ch of s.toUpperCase()) n = n * 26 + ch.charCodeAt(0) - 64; return n - 1; };
@@ -150,6 +153,8 @@
   function ttlFor(name, args) {
     if (name === "GOOGLEFINANCE") return args.length > 2 && args[2] !== 0 && args[2] !== undefined ? 6 * 3600e3 : 120e3;
     if (name === "IMPORTRANGE") return 30e3;
+    if (name === "STOCKHISTORY") return 6 * 3600e3;
+    if (name === "DETECTLANGUAGE") return 24 * 3600e3;
     return 30 * 60e3;
   }
   function cached(name, args, run) {
@@ -250,7 +255,7 @@
     try { res = await listAll(); } catch (e) { box.innerHTML = `<div class="msEmpty">⚠️ ${esc(e.message || e)}</div>`; return; }
     const { list, offline } = res;
     box.innerHTML = (offline ? `<div class="msOff">⚠️ OneDrive not reachable - showing the sheets on this device</div>` : "") +
-      (list.length ? list.map(x => `<button type="button" class="msItem" data-name="${esc(x.name)}"><span class="msIco">▦</span><span class="msTxt"><b>${esc(x.name)}</b><small>${fmtT(x.t)}${x.size ? " · " + fmtSize(x.size) : ""}${x.where === "device" ? " · not yet in OneDrive" : ""}</small></span></button>`).join("")
+      (list.length ? list.map(x => `<button type="button" class="msItem" data-name="${esc(x.name)}"><img class="msIco" alt="" src="img/50e46126292c.svg"><span class="msTxt"><b>${esc(x.name)}</b><small>${fmtT(x.t)}${x.size ? " · " + fmtSize(x.size) : ""}${x.where === "device" ? " · not yet in OneDrive" : ""}</small></span></button>`).join("")
         : `<div class="msEmpty">No sheets yet</div>`);
   }
   function uniqueName(base) { let n = base, k = 2; const has = s => listCache.some(x => x.name.toLowerCase() === s.toLowerCase()); while (has(n)) n = base + " " + k++; return n; }

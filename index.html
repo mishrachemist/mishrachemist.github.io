@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; connect-src 'self' https://api.open-meteo.com https://graph.microsoft.com https://login.microsoftonline.com https://login.live.com https://*.1drv.com https://*.files.1drv.com https://*.livefilestore.com https://*.sharepoint.com https://script.google.com https://script.googleusercontent.com https://get.geojs.io https://cdn.jsdelivr.net https://tessdata.projectnaptha.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; frame-src 'self' blob: data: https://login.microsoftonline.com https://login.live.com https://script.google.com https://*.googleusercontent.com; media-src 'self' blob: data:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<script>const APP_VERSION = "2026.11.21.1";
+<script>const APP_VERSION = "2026.11.21.3";
 /* the app is in several files (js/…): work that must wait for ALL of them (sign-in, timers) starts through mzAfterLoad */
 /* Error log (☰ → Error Log): page errors and errors that parts of the app report through mzErr(source, message) */
 (function () {
@@ -227,7 +227,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
 <link rel="stylesheet" href="css/app-1.css?v=778bccafa7">
 
 <link rel="stylesheet" href="css/app-2.css?v=965ee814c9">
-<link rel="stylesheet" href="css/sheet.css?v=cd92a5a95f">
+<link rel="stylesheet" href="css/sheet.css?v=5ac9f395fe">
 </head>
 
 <body>
@@ -741,7 +741,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
         <button class="navItem" data-section="sopwi"><span class="navPin">☆</span><span class="navIcon">📋</span><span class="navLabel" data-en="SOP / WI" data-hi="एसओपी / डब्ल्यूआई">SOP / WI</span><span class="navShort">SOP/WI</span></button>
         <button class="navItem ownerOnly" data-section="aop"><span class="navPin">☆</span><span class="navIcon">📑</span><span class="navLabel" data-en="AOP" data-hi="AOP">AOP</span><span class="navShort">AOP</span></button>
         <button class="navItem" data-section="element"><span class="navPin">☆</span><span class="navIcon">⚛️</span><span class="navLabel" data-en="Element" data-hi="तत्व">Element</span><span class="navShort">Element</span></button>
-        <button class="navItem" data-section="msheet"><span class="navPin">☆</span><span class="navIcon">▦</span><span class="navLabel" data-en="Moltrix Sheet" data-hi="मोल्ट्रिक्स शीट">Moltrix Sheet</span><span class="navShort">Sheet</span></button>
+        <button class="navItem" data-section="msheet"><span class="navPin">☆</span><span class="navIcon"><img class="navImg" alt="Sheet" src="img/50e46126292c.svg"></span><span class="navLabel" data-en="Moltrix Sheet" data-hi="मोल्ट्रिक्स शीट">Moltrix Sheet</span><span class="navShort">Sheet</span></button>
         <button class="navItem ownerOnly" data-section="marketdash"><span class="navPin">☆</span><span class="navIcon"><img class="mkIco" alt="Nifty 50" src="img/ae8d90f089d3.webp"></span><span class="navLabel" data-en="Market Health" data-hi="मार्केट हेल्थ">Market Health</span><span class="navShort">Market</span></button>
       </nav>
 
@@ -2751,8 +2751,8 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
 
         <div class="sectionPanel hidden" id="section-msheet">
           <div class="card">
-            <h2>▦ Moltrix Sheet</h2>
-            <div class="mzInfoNote" style="font-size:12.5px;line-height:1.5;margin:0 0 10px;">Saved in your OneDrive (app folder → Moltrix Sheets) and on this device, a few seconds after each change. All the usual spreadsheet functions work (SUM, VLOOKUP, XLOOKUP, FILTER, SORT, UNIQUE, REGEXMATCH, LAMBDA …), plus Google-style QUERY, SPLIT, JOIN, FLATTEN, SORTN, COUNTUNIQUE, IMPORTRANGE (another Moltrix Sheet by name, or an Excel file in your OneDrive), and in the Moltrix Android app GOOGLEFINANCE ("NSE:RELIANCE", "INDEXNSE:NIFTY_50"), IMPORTDATA, IMPORTHTML and IMPORTXML. ⟳ in a sheet fetches their data again. In QUERY, the letters A, B, C … count from the first column of the data.</div>
+            <h2><img class="msHeadIco" alt="" src="img/50e46126292c.svg"> Moltrix Sheet</h2>
+            <div class="mzInfoNote" style="font-size:12.5px;line-height:1.5;margin:0 0 10px;">Saved in your OneDrive (app folder → Moltrix Sheets) and on this device, a few seconds after each change. Almost all Excel functions work (SUM, VLOOKUP, XLOOKUP, FILTER, SORT, UNIQUE, GROUPBY, PIVOTBY, TEXTSPLIT, LAMBDA, LET, FORECAST.ETS, financial, statistical, engineering …). In PIVOTBY write the function name in quotes: "SUM". Not possible here: CUBE functions, CALL, REGISTER.ID, RTD, TRANSLATE, ISOMITTED. Also Google-style QUERY, SPLIT, JOIN, FLATTEN, SORTN, COUNTUNIQUE, IMPORTRANGE (another Moltrix Sheet by name, or an Excel file in your OneDrive), and in the Moltrix Android app GOOGLEFINANCE ("NSE:RELIANCE", "INDEXNSE:NIFTY_50"), STOCKHISTORY ("XNSE:RELIANCE"), WEBSERVICE, IMPORTDATA, IMPORTHTML and IMPORTXML. ⟳ in a sheet fetches their data again. In QUERY, the letters A, B, C … count from the first column of the data.</div>
             <div class="msTools"><button type="button" class="primary" id="msNew">+ New sheet</button><button type="button" class="secondary" id="msImport">Open .xlsx</button></div>
             <input type="file" id="msFile" accept=".xlsx,.xlsm,.xls,.csv,.ods" hidden>
             <div id="msList"></div>
@@ -3316,7 +3316,7 @@ async function downloadAndroidApk() {
 <script src="js/widgets.js?v=da4d544a69"></script>
 <script src="js/info-notes.js?v=133c976721"></script>
 <script src="js/fno.js?v=d24b01b9ba"></script>
-<script src="js/sheet-fns.js?v=0c5cc0da89"></script>
-<script src="js/sheet.js?v=d69649a4be"></script>
+<script src="js/sheet-fns.js?v=640bfbf43e"></script>
+<script src="js/sheet.js?v=7e4a3f9177"></script>
 </body>
 </html>
