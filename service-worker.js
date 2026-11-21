@@ -95,8 +95,8 @@ self.addEventListener('fetch', (event) => {
   const requestUrl = new URL(req.url);
   if (requestUrl.origin !== self.location.origin) return;
 
-  // Pictures moved out of the page (img/…, name = content hash, so a file never changes): saved copy first
-  if (requestUrl.pathname.startsWith('/img/')) {
+  // Pictures moved out of the page (img/…, name = content hash) and libraries (vendor/<name-version>/…): a file never changes, saved copy first
+  if (requestUrl.pathname.startsWith('/img/') || requestUrl.pathname.startsWith('/vendor/')) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);
       const hit = await cache.match(req, { ignoreSearch: true });

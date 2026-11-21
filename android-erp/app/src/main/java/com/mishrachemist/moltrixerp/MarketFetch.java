@@ -165,6 +165,35 @@ final class MarketFetch {
         });
     }
 
+    /** Moltrix Sheet: IMPORTDATA / IMPORTHTML / IMPORTXML read a public https page (GET only, at most 5 MB) */
+    void web(String id, String url) {
+        if (url == null || !url.startsWith("https://") || url.length() > 2000) { finish(id, 0, "not allowed"); return; }
+        pool.execute(() -> {
+            HttpURLConnection c = null;
+            try {
+                c = (HttpURLConnection) new URL(url).openConnection();
+                c.setConnectTimeout(12_000); c.setReadTimeout(20_000);
+                c.setInstanceFollowRedirects(true);
+                c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Mobile Safari/537.36");
+                int code = c.getResponseCode();
+                InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                if (in != null) {
+                    byte[] b = new byte[16384]; int n;
+                    while ((n = in.read(b)) > 0) { out.write(b, 0, n); if (out.size() > 5_000_000) { in.close(); finish(id, 0, "too big (over 5 MB)"); return; } }
+                    in.close();
+                }
+                String cs = "UTF-8", ct = c.getContentType();
+                if (ct != null) { java.util.regex.Matcher m = Pattern.compile("charset=([\\w-]+)", Pattern.CASE_INSENSITIVE).matcher(ct); if (m.find()) cs = m.group(1); }
+                String text;
+                try { text = out.toString(cs); } catch (Exception e) { text = out.toString("UTF-8"); }
+                finish(id, code, text);
+            } catch (Exception e) {
+                finish(id, 0, String.valueOf(e.getMessage()));
+            } finally { if (c != null) c.disconnect(); }
+        });
+    }
+
     void destroy() {
         ui.post(() -> { for (Site s : sites.values()) if (s.view != null) { root.removeView(s.view); s.view.destroy(); } sites.clear(); });
         pool.shutdownNow();
