@@ -2686,7 +2686,7 @@
   header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ --mz-logo-h:58px; }
   @media (max-width:360px){ header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ --mz-logo-h:48px; } }
   .mzHeadLock{ display:flex; align-items:center; gap:calc(var(--mz-logo-h) * .25); }
-  .mzHeadLock .mzLogoIcon{ height:var(--mz-logo-h); width:var(--mz-logo-h); flex:none; }
+  .mzHeadLock .mzLogoIcon{ height:var(--mz-logo-h); width:var(--mz-logo-h); flex:none; transform:translateY(calc(var(--mz-logo-h) * -.22)); }
   .mzHeadCol{ display:flex; flex-direction:column; align-items:flex-start; gap:calc(var(--mz-logo-h) * .07); }
   .mzHeadCol .mzLogoWord{ height:calc(var(--mz-logo-h) * .41); width:auto; aspect-ratio:476.9/105.3; }
   /* Durgesh lying on "Moltrix": the picture is as wide as the word and rests on the top of the letters (a little sunk in), with a soft shadow under it */
