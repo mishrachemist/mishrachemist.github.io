@@ -861,7 +861,7 @@ function showSignedIn() {
   // profile photo, time-of-day greeting + name, and role.
   const banner = document.getElementById("quickInsightsBanner");
   const savedPhoto = localStorage.getItem("customProfilePhoto");
-  const headerImgSrc = savedPhoto || (document.getElementById("headerLogoImg") || {}).src || "";
+  const headerImgSrc = savedPhoto || "img/0d420fa9e375.svg";   // no photo of his own yet: a plain avatar
   const escH = t => String(t).replace(/[&<>"']/g, ch => "&#" + ch.charCodeAt(0) + ";");
   const gName = (isViewer() || isUserMode()) ? escH(String(account.name || accountEmail(account).split("@")[0]).toUpperCase()) : "DURGESH MISHRA";
   const gRole = isViewer() ? "👁️ Team · View only" : isUserMode() ? escH(accountEmail(account)) : "Manager, QAD-SMS";
