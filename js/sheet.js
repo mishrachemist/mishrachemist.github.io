@@ -255,7 +255,7 @@
     try { res = await listAll(); } catch (e) { box.innerHTML = `<div class="msEmpty">⚠️ ${esc(e.message || e)}</div>`; return; }
     const { list, offline } = res;
     box.innerHTML = (offline ? `<div class="msOff">⚠️ OneDrive not reachable - showing the sheets on this device</div>` : "") +
-      (list.length ? list.map(x => `<button type="button" class="msItem" data-name="${esc(x.name)}"><span class="msIco">▦</span><span class="msTxt"><b>${esc(x.name)}</b><small>${fmtT(x.t)}${x.size ? " · " + fmtSize(x.size) : ""}${x.where === "device" ? " · not yet in OneDrive" : ""}</small></span></button>`).join("")
+      (list.length ? list.map(x => `<button type="button" class="msItem" data-name="${esc(x.name)}"><img class="msIco" alt="" src="img/50e46126292c.svg"><span class="msTxt"><b>${esc(x.name)}</b><small>${fmtT(x.t)}${x.size ? " · " + fmtSize(x.size) : ""}${x.where === "device" ? " · not yet in OneDrive" : ""}</small></span></button>`).join("")
         : `<div class="msEmpty">No sheets yet</div>`);
   }
   function uniqueName(base) { let n = base, k = 2; const has = s => listCache.some(x => x.name.toLowerCase() === s.toLowerCase()); while (has(n)) n = base + " " + k++; return n; }
