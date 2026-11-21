@@ -2,6 +2,7 @@
 //   python3 -m http.server 8123 &   then   node tests/smoke.mjs
 // Microsoft sign-in is replaced by a stub (no real login). Fails (exit 1) on any page error. Part A: website as a signed-in owner, every menu item clicked, games opened.
 // Part B: the Android app's bridge mocked (fake NSE / Yahoo data): F&O option chain, Screener, Log.
+// Part C: Moltrix Sheet - formulas incl. Google-style ones, saving to a mocked OneDrive, .xlsx out and in.
 import fs from "node:fs";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
@@ -76,7 +77,7 @@ const NATIVE_MOCK = (today) => {
     return { records: { expiryDates: [exp], data, timestamp: "20-Nov-2026 11:30:00", underlyingValue: S } };
   }
   function bars(sym) { const S = spotOf[sym] || 1000, out = []; const now = Math.floor(Date.now() / 1000); for (let i = 300; i >= 0; i--) { const c = S * (0.985 + 0.015 * (300 - i) / 300); out.push({ t: now - i * 300, c, h: c * 1.001, l: c * 0.999, o: c, v: 1000 }); }
-    return { chart: { result: [{ timestamp: out.map(x => x.t), indicators: { quote: [{ open: out.map(x => x.o), high: out.map(x => x.h), low: out.map(x => x.l), close: out.map(x => x.c), volume: out.map(x => x.v) }] } }] } }; }
+    return { chart: { result: [{ meta: { regularMarketPrice: S, chartPreviousClose: S / 1.01, currency: "INR", gmtoffset: 19800 }, timestamp: out.map(x => x.t), indicators: { quote: [{ open: out.map(x => x.o), high: out.map(x => x.h), low: out.map(x => x.l), close: out.map(x => x.c), volume: out.map(x => x.v) }] } }] } }; }
   function bars15(sym) {   // 22 sessions of 15-min candles, rising; today's last candle with big volume
     const out = []; const now = new Date(); const dayMs = 86400000; let price = 1000, k = 0;
     const strong = /STK(1|2|4)\.NS$/.test(sym) ? -1 : 1; let seed = sym.length * 7 + 3; const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280 - 0.5; };
@@ -106,6 +107,7 @@ const NATIVE_MOCK = (today) => {
       if (/allIndices/.test(path)) return reply(id, 200, JSON.stringify({ data: [{ index: "NIFTY 50", last: 25600 }, { index: "INDIA VIX", last: 13.25 }] }));
       reply(id, 404, "");
     },
+    webGet(id, url) { window.__calls.push("web " + url); reply(id, 200, /\.csv/.test(url) ? "a,b\n1,2\n3,4" : "<html><body><table><tr><th>X</th><th>Y</th></tr><tr><td>5</td><td>six</td></tr></table><ul><li>p</li><li>q</li></ul></body></html>"); },
     httpGet(id, url) { if (/interval=15m/.test(url)) { const sym = decodeURIComponent(url.split("/chart/")[1].split("?")[0]); window.__calls.push("y15 " + sym); return reply(id, 200, JSON.stringify(bars15(sym))); } window.__calls.push("yahoo " + url.split("/chart/")[1]); const s = decodeURIComponent(url.split("/chart/")[1].split("?")[0]); const map = { "^NSEI": "NIFTY", "^NSEBANK": "BANKNIFTY", "NIFTY_FIN_SERVICE.NS": "FINNIFTY", "NIFTY_MID_SELECT.NS": "MIDCPNIFTY", "RELIANCE.NS": "RELIANCE" }; reply(id, 200, JSON.stringify(bars(map[s]))); }
   };
 };
@@ -143,6 +145,53 @@ const NATIVE_MOCK = (today) => {
   if (!wp || wp.mt !== 90 || wp.heats !== 3 || wp.days.length !== 7 || wp.days[6].mt !== 90 || (wp.yMt !== 42 && new Date().getDate() !== 1)) fails.push("B: production widget " + JSON.stringify(wp));
   errs.forEach(e => fails.push("B: " + e));
   console.log(`B app: gamma toggle ${gw}, option chain ${chain ? "PCR " + chain.pcr.toFixed(2) + " · max pain " + chain.mp + " · " + chain.sig : "none"}, screener ${sc.n}/${sc.u}, log ${lg}, widget ${wm ? wm.n + " indices" : "none"} / prod ${wp ? wp.mt + " MT " + wp.heats + " heats" : "none"}, ${errs.length} page errors`);
+  await ctx.close();
+}
+// ---------- C: Moltrix Sheet (Univer grid, Google-style functions, saving to a mocked OneDrive, .xlsx) ----------
+{
+  const { p, errs, ctx } = await newPage(NATIVE_MOCK);
+  const store = {};
+  await p.route("https://graph.microsoft.com/**", async r => {
+    const u = decodeURIComponent(r.request().url()), m = r.request().method();
+    if (/Moltrix Sheets:\/children/.test(u)) return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ value: Object.keys(store).map(n => ({ name: n, lastModifiedDateTime: new Date().toISOString(), size: store[n].length })) }) });
+    const fm = /Moltrix Sheets\/([^:?]+):\/content/.exec(u);
+    if (fm && m === "PUT") { store[fm[1]] = r.request().postData(); return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ lastModifiedDateTime: new Date().toISOString() }) }); }
+    if (fm) return store[fm[1]] ? r.fulfill({ status: 200, contentType: "application/json", body: store[fm[1]] }) : r.fulfill({ status: 404, body: "" });
+    return r.fulfill({ status: 404, body: "{}" });
+  });
+  await p.evaluate(() => { account = { username: ALLOWED_EMAILS[0], homeAccountId: "test" }; window.getToken = async () => "tok"; document.querySelector('.navItem[data-section="msheet"]').click(); });
+  const cells = { 0: { 0: { v: 5, t: 2 }, 1: { f: "=SUM(A1,10)" }, 2: { f: '=SPLIT("a,b",",")' } },
+    2: { 0: { v: "Name", t: 1 }, 1: { v: "Dept", t: 1 }, 2: { v: "Pay", t: 1 } }, 3: { 0: { v: "A", t: 1 }, 1: { v: "QA", t: 1 }, 2: { v: 50, t: 2 } },
+    4: { 0: { v: "B", t: 1 }, 1: { v: "SMS", t: 1 }, 2: { v: 70, t: 2 } }, 5: { 0: { v: "C", t: 1 }, 1: { v: "QA", t: 1 }, 2: { v: 60, t: 2 } },
+    7: { 0: { f: '=QUERY(A3:C6,"select B, sum(C) group by B order by sum(C) desc",1)' } }, 11: { 0: { f: '=GOOGLEFINANCE("NSE:RELIANCE")' }, 1: { f: '=GOOGLEFINANCE("NSE:RELIANCE","changepct")' } },
+    12: { 0: { f: '=IMPORTHTML("https://example.com/t","table",1)' } }, 14: { 0: { f: '=XLOOKUP("B",A4:A6,C4:C6)' }, 1: { f: '=TEXTJOIN("-",TRUE,A4:A6)' } } };
+  await p.evaluate(c => mzSheet.open("T1", { app: "Moltrix Sheet", v: 1, name: "T1", wb: { id: "ms-t1", name: "T1", sheetOrder: ["s1"], sheets: { s1: { id: "s1", name: "Sheet1", rowCount: 200, columnCount: 20, cellData: c } }, styles: {} } }), cells);
+  await p.waitForFunction(() => window.mzSheet._test.cur && window.mzSheet._test.cur.api, null, { timeout: 30000 }).catch(() => {});
+  await p.waitForTimeout(5000);
+  const g = a => p.evaluate(a => { const c = mzSheet._test.cur; return c ? c.api.getActiveWorkbook().getActiveSheet().getRange(a).getValue() : "no sheet"; }, a);
+  const got = { B1: await g("B1"), D1: await g("D1"), A8: await g("A8"), B9: await g("B9"), A12: await g("A12"), B12: await g("B12"), B14: await g("B14"), A15: await g("A15"), B15: await g("B15") };
+  const want = { B1: 15, D1: "b", A8: "Dept", B9: 110, A12: 1510, B12: 1, B14: "six", A15: 70, B15: "A-B-C" };
+  for (const k in want) if (!(got[k] === want[k] || (typeof want[k] === "number" && Math.abs(got[k] - want[k]) < 1e-6))) fails.push(`C: ${k} = ${JSON.stringify(got[k])}, expected ${JSON.stringify(want[k])}`);
+  // an edit is saved to OneDrive a few seconds later
+  await p.evaluate(() => mzSheet._test.cur.api.getActiveWorkbook().getActiveSheet().getRange("A1").setValue(7));
+  await p.waitForTimeout(5000);
+  const saved = (() => { try { const j = JSON.parse(store["T1.json"] || "{}"); return j.wb.sheets.s1.cellData[0][0].v; } catch (e) { return null; } })();
+  if (saved !== 7) fails.push("C: edit not saved to OneDrive (" + saved + ")");
+  // IMPORTRANGE from another sheet, .xlsx out and back in
+  const x = await p.evaluate(async () => {
+    const r = await mzSheet._test.readRange({ book: "T1", sheet: "Sheet1", range: "A3:C4" });
+    const T = mzSheet._test, buf = T.toXlsx(T.cur.api.getActiveWorkbook().save()), back = T.fromXlsx(new Uint8Array(buf));
+    const c = back.sheets[back.sheetOrder[0]].cellData;
+    return { r, a1: c[0][0].v, b1f: c[0][1].f, size: buf.byteLength };
+  });
+  if (JSON.stringify(x.r) !== JSON.stringify([["Name", "Dept", "Pay"], ["A", "QA", 50]]) || x.a1 !== 7 || x.b1f !== "=SUM(A1,10)") fails.push("C: importrange / xlsx " + JSON.stringify(x));
+  if (process.env.SHOT) await p.screenshot({ path: process.env.SHOT });
+  await p.evaluate(() => mzSheet.close()); await p.waitForTimeout(1500);
+  if (process.env.SHOT) await p.screenshot({ path: process.env.SHOT.replace(".png", "-list.png") });
+  const listed = await p.evaluate(() => [...document.querySelectorAll("#msList .msItem")].map(b => b.dataset.name));
+  if (!listed.includes("T1")) fails.push("C: sheet list " + JSON.stringify(listed));
+  errs.forEach(e => fails.push("C: " + e));
+  console.log(`C sheet: ${JSON.stringify(got)}, saved A1=${saved}, xlsx ${x.size} bytes, list ${listed.length}, ${errs.length} page errors`);
   await ctx.close();
 }
 await browser.close();

@@ -43,6 +43,7 @@
     try { MoltrixApp[fn](id, ...a); } catch (e) { pend.delete(id); res({ s: 0, t: String(e) }); return; }
     setTimeout(() => { if (pend.has(id)) { pend.delete(id); res({ s: 0, t: "timeout" }); } }, 32000);
   });
+  window.mzNativeCall = call;   // also used by Moltrix Sheet (GOOGLEFINANCE, IMPORT…)
   const json = r => { try { return r && r.s === 200 ? JSON.parse(r.t) : null; } catch (e) { return null; } };
   let nseBase = (() => { try { return localStorage.getItem("fnoNseBase") || FNO_CFG.NSE_BASES[0]; } catch (e) { return FNO_CFG.NSE_BASES[0]; } })();
   async function nse(path) {

@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; connect-src 'self' https://api.open-meteo.com https://graph.microsoft.com https://login.microsoftonline.com https://login.live.com https://*.1drv.com https://*.files.1drv.com https://*.livefilestore.com https://*.sharepoint.com https://script.google.com https://script.googleusercontent.com https://get.geojs.io https://cdn.jsdelivr.net https://tessdata.projectnaptha.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; frame-src 'self' blob: data: https://login.microsoftonline.com https://login.live.com https://script.google.com https://*.googleusercontent.com; media-src 'self' blob: data:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<script>const APP_VERSION = "2026.11.20.17";
+<script>const APP_VERSION = "2026.11.21.1";
 /* the app is in several files (js/…): work that must wait for ALL of them (sign-in, timers) starts through mzAfterLoad */
 /* Error log (☰ → Error Log): page errors and errors that parts of the app report through mzErr(source, message) */
 (function () {
@@ -224,9 +224,10 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js" integrity="sha384-XcdcwHqIPULERb2yDEM4R0XaQKU3YnDsrTmjACBZyfdVVqjh6xQ4/DCMd7XLcA6Y" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
-<link rel="stylesheet" href="css/app-1.css?v=0570c46aad">
+<link rel="stylesheet" href="css/app-1.css?v=778bccafa7">
 
-<link rel="stylesheet" href="css/app-2.css?v=bac718ca43">
+<link rel="stylesheet" href="css/app-2.css?v=965ee814c9">
+<link rel="stylesheet" href="css/sheet.css?v=cd92a5a95f">
 </head>
 
 <body>
@@ -740,6 +741,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
         <button class="navItem" data-section="sopwi"><span class="navPin">☆</span><span class="navIcon">📋</span><span class="navLabel" data-en="SOP / WI" data-hi="एसओपी / डब्ल्यूआई">SOP / WI</span><span class="navShort">SOP/WI</span></button>
         <button class="navItem ownerOnly" data-section="aop"><span class="navPin">☆</span><span class="navIcon">📑</span><span class="navLabel" data-en="AOP" data-hi="AOP">AOP</span><span class="navShort">AOP</span></button>
         <button class="navItem" data-section="element"><span class="navPin">☆</span><span class="navIcon">⚛️</span><span class="navLabel" data-en="Element" data-hi="तत्व">Element</span><span class="navShort">Element</span></button>
+        <button class="navItem" data-section="msheet"><span class="navPin">☆</span><span class="navIcon">▦</span><span class="navLabel" data-en="Moltrix Sheet" data-hi="मोल्ट्रिक्स शीट">Moltrix Sheet</span><span class="navShort">Sheet</span></button>
         <button class="navItem ownerOnly" data-section="marketdash"><span class="navPin">☆</span><span class="navIcon"><img class="mkIco" alt="Nifty 50" src="img/ae8d90f089d3.webp"></span><span class="navLabel" data-en="Market Health" data-hi="मार्केट हेल्थ">Market Health</span><span class="navShort">Market</span></button>
       </nav>
 
@@ -2747,6 +2749,16 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
           </div>
         </div>
 
+        <div class="sectionPanel hidden" id="section-msheet">
+          <div class="card">
+            <h2>▦ Moltrix Sheet</h2>
+            <div class="mzInfoNote" style="font-size:12.5px;line-height:1.5;margin:0 0 10px;">Saved in your OneDrive (app folder → Moltrix Sheets) and on this device, a few seconds after each change. All the usual spreadsheet functions work (SUM, VLOOKUP, XLOOKUP, FILTER, SORT, UNIQUE, REGEXMATCH, LAMBDA …), plus Google-style QUERY, SPLIT, JOIN, FLATTEN, SORTN, COUNTUNIQUE, IMPORTRANGE (another Moltrix Sheet by name, or an Excel file in your OneDrive), and in the Moltrix Android app GOOGLEFINANCE ("NSE:RELIANCE", "INDEXNSE:NIFTY_50"), IMPORTDATA, IMPORTHTML and IMPORTXML. ⟳ in a sheet fetches their data again. In QUERY, the letters A, B, C … count from the first column of the data.</div>
+            <div class="msTools"><button type="button" class="primary" id="msNew">+ New sheet</button><button type="button" class="secondary" id="msImport">Open .xlsx</button></div>
+            <input type="file" id="msFile" accept=".xlsx,.xlsm,.xls,.csv,.ods" hidden>
+            <div id="msList"></div>
+          </div>
+        </div>
+
         <div class="sectionPanel hidden ownerOnly" id="section-marketdash">
           <div class="sidebar subNav" id="marketSubNav">
             <button class="navItem" data-submkt="ind"><span class="navIcon"><img class="mkFlag" alt="India" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 40'%3E%3Crect width='60' height='40' fill='%23fff'/%3E%3Crect width='60' height='13.34' fill='%23FF9933'/%3E%3Crect y='26.66' width='60' height='13.34' fill='%23138808'/%3E %3Ccircle cx='30' cy='20' r='5.6' fill='none' stroke='%23000080' stroke-width='0.9'/%3E%3Cg stroke='%23000080' stroke-width='0.45'%3E%3Cline x1='30' y1='20' x2='35.40' y2='20.00'/%3E%3Cline x1='30' y1='20' x2='35.22' y2='21.40'/%3E%3Cline x1='30' y1='20' x2='34.68' y2='22.70'/%3E%3Cline x1='30' y1='20' x2='33.82' y2='23.82'/%3E%3Cline x1='30' y1='20' x2='32.70' y2='24.68'/%3E%3Cline x1='30' y1='20' x2='31.40' y2='25.22'/%3E%3Cline x1='30' y1='20' x2='30.00' y2='25.40'/%3E%3Cline x1='30' y1='20' x2='28.60' y2='25.22'/%3E%3Cline x1='30' y1='20' x2='27.30' y2='24.68'/%3E%3Cline x1='30' y1='20' x2='26.18' y2='23.82'/%3E%3Cline x1='30' y1='20' x2='25.32' y2='22.70'/%3E%3Cline x1='30' y1='20' x2='24.78' y2='21.40'/%3E%3Cline x1='30' y1='20' x2='24.60' y2='20.00'/%3E%3Cline x1='30' y1='20' x2='24.78' y2='18.60'/%3E%3Cline x1='30' y1='20' x2='25.32' y2='17.30'/%3E%3Cline x1='30' y1='20' x2='26.18' y2='16.18'/%3E%3Cline x1='30' y1='20' x2='27.30' y2='15.32'/%3E%3Cline x1='30' y1='20' x2='28.60' y2='14.78'/%3E%3Cline x1='30' y1='20' x2='30.00' y2='14.60'/%3E%3Cline x1='30' y1='20' x2='31.40' y2='14.78'/%3E%3Cline x1='30' y1='20' x2='32.70' y2='15.32'/%3E%3Cline x1='30' y1='20' x2='33.82' y2='16.18'/%3E%3Cline x1='30' y1='20' x2='34.68' y2='17.30'/%3E%3Cline x1='30' y1='20' x2='35.22' y2='18.60'/%3E%3C/g%3E%3Ccircle cx='30' cy='20' r='1.1' fill='%23000080'/%3E%3C/svg%3E"></span> IND MKT</button>
@@ -2973,7 +2985,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
   </div>
 </div>
 
-<script src="js/app-01.js?v=ed4f488b49"></script>
+<script src="js/app-01.js?v=5a7ff81384"></script>
 <script src="js/app-02.js?v=9c17544f89"></script>
 <script src="js/app-03.js?v=7298ba63a2"></script>
 <script src="js/app-04.js?v=cfce6e12d4"></script>
@@ -3303,6 +3315,8 @@ async function downloadAndroidApk() {
 <script src="js/error-log.js?v=0f7ce5fd2c"></script>
 <script src="js/widgets.js?v=da4d544a69"></script>
 <script src="js/info-notes.js?v=133c976721"></script>
-<script src="js/fno.js?v=96595c976f"></script>
+<script src="js/fno.js?v=d24b01b9ba"></script>
+<script src="js/sheet-fns.js?v=0c5cc0da89"></script>
+<script src="js/sheet.js?v=d69649a4be"></script>
 </body>
 </html>

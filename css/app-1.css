@@ -20,7 +20,7 @@
     --navy:#13294d;
     --navy-2:#1c3a68;
   }
-  body.dark-mode input, body.dark-mode select, body.dark-mode textarea, body.themed input, body.themed select, body.themed textarea{
+  body.dark-mode input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), body.dark-mode select:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), body.dark-mode textarea:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), body.themed input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), body.themed select:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), body.themed textarea:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){
     background:#232f45;
     color:var(--ink);
     border-color:#3a4a68;
@@ -75,7 +75,7 @@
     pointer-events:none;
     background:rgba(0,0,0,0.08);
   }
-  header, main{
+  header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), main{
     position:relative;
     z-index:1;
   }
@@ -91,7 +91,7 @@
     gap:20px;
     align-items:start;
   }
-  .sectionCard select{
+  .sectionCard select:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){
     width:100%;
     padding:10px 12px;
     border:1px solid #d3dae6;
@@ -110,23 +110,23 @@
 
   /* ===== Mobile handy tuning ===== */
   @media (max-width:600px){
-    header{
+    header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){
       padding:14px 16px;
       flex-wrap:wrap;
       gap:8px;
     }
-    header h1{ font-size:16px; }
-    header .tag{ font-size:10.5px; }
+    header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) h1{ font-size:16px; }
+    header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) .tag{ font-size:10.5px; }
     #signInBtn{ padding:8px 14px; font-size:12px; }
     main{ margin:16px auto; padding:0 10px 40px; }
     .card{ padding:16px 14px; border-radius:8px; margin-bottom:14px; }
     .card h2{ font-size:12.5px; }
     /* 16px min prevents iOS Safari from auto-zooming on focus */
-    input[type=text], input[type=date], select, textarea{
+    input[type=text]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), input[type=date]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), select:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), textarea:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){
       font-size:16px !important;
       padding:10px 10px;
     }
-    textarea{ min-height:160px; }
+    textarea:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ min-height:160px; }
     .btnRow{ flex-direction:column; }
     .btnRow button{ width:100%; }
     /* Two half-width buttons side by side, even on phones */
@@ -136,8 +136,8 @@
     .tabBtn{ padding:8px 12px; font-size:12px; flex:1; }
     table.matrixTable{ font-size:11px; }
     table.matrixTable th, table.matrixTable td{ padding:5px 3px; font-size:11px; }
-    table.matrixTable input[type=text]{ padding:6px 4px; font-size:14px; }
-    .sectionCard select{ font-size:14px; padding:8px 10px; }
+    table.matrixTable input[type=text]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ padding:6px 4px; font-size:14px; }
+    .sectionCard select:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ font-size:14px; padding:8px 10px; }
     .pdfModal{
       width:100vw;
       height:100vh;
@@ -163,11 +163,11 @@
     gap:8px;
     margin-bottom:4px;
   }
-  .compactRow label{
+  .compactRow label:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){
     font-size:11px;
     margin-bottom:4px;
   }
-  .compactRow input[type=text]{
+  .compactRow input[type=text]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){
     padding:8px 6px;
     text-align:center;
     margin-bottom:0;
@@ -373,7 +373,7 @@
     font-weight:700;
     color:var(--navy);
   }
-  table.matrixTable input{
+  table.matrixTable input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){
     width:100%;
     padding:6px;
     border:1px solid #d3dae6;
@@ -456,7 +456,7 @@
     background:#3a3220 !important;
     color:var(--gold-soft) !important;
   }
-  header{
+  header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){
     background:linear-gradient(120deg,var(--navy),var(--navy-2));
     padding:14px 24px 14px 52px;
     display:flex;
@@ -534,14 +534,14 @@
       padding:3px 8px;
     }
   }
-  header h1{
+  header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) h1{
     color:var(--navy-text);
     font-size:19px;
     margin:0;
     font-weight:700;
     letter-spacing:.2px;
   }
-  header .tag{
+  header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) .tag{
     color:var(--gold-soft);
     font-size:12px;
     margin-top:2px;
@@ -1589,13 +1589,13 @@
     color:var(--navy);
     margin:0 0 14px;
   }
-  label{
+  label:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){
     display:block;
     font-size:13px;
     color:var(--muted);
     margin-bottom:6px;
   }
-  input[type=text]{
+  input[type=text]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){
     width:100%;
     padding:10px 12px;
     border:1px solid #d3dae6;
@@ -1603,7 +1603,7 @@
     font-size:14px;
     margin-bottom:14px;
   }
-  input[type=date], input[type=month], input[type=number], select{
+  input[type=date]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), input[type=month]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), input[type=number]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), select:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){
     width:50%;
     padding:10px 12px;
     border:1px solid #d3dae6;
@@ -1623,7 +1623,7 @@
     font-size:16px;
     box-sizing:border-box;
   }
-  textarea{
+  textarea:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){
     width:100%;
     min-height:220px;
     padding:12px;
@@ -1846,7 +1846,7 @@
   /* report zoom: pinching inside a report zooms only the report */
   .pdfOverlay{ touch-action:pan-x pan-y; }
   .mirrorBox{ margin-top:14px; padding:12px; border:1px dashed rgba(128,128,128,.6); border-radius:10px; }
-  .mirrorBox select{ width:100% !important; margin:6px 0 0; }
+  .mirrorBox select:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ width:100% !important; margin:6px 0 0; }
   #mirrorChip{ position:fixed; right:10px; bottom:92px; z-index:2147482990; border:none; border-radius:999px; padding:6px 12px; font-weight:700; font-size:12px;
     box-shadow:0 4px 14px rgba(0,0,0,.35); cursor:pointer; background:#c9a227; color:#0b2545; max-width:70vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #mirrorChip.bad{ background:#e5533d; color:#fff; }
@@ -1869,7 +1869,7 @@
   #subwhatsapp-erpupload .erpRow{ padding:8px 0; border-bottom:1px solid rgba(128,128,128,.25); }
   #subwhatsapp-erpupload .erpRowHead{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:4px; }
   #subwhatsapp-erpupload .erpRowHead .num{ font-variant-numeric:tabular-nums; white-space:nowrap; font-size:12.5px; }
-  #subwhatsapp-erpupload .erpRow select{ width:100% !important; font-size:12.5px; padding:6px; margin:2px 0; box-sizing:border-box; }
+  #subwhatsapp-erpupload .erpRow select:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ width:100% !important; font-size:12.5px; padding:6px; margin:2px 0; box-sizing:border-box; }
   #subwhatsapp-erpupload .erpRowFoot{ display:flex; align-items:center; gap:10px; }
   #subwhatsapp-erpupload .erpF{ font-size:11.5px; opacity:.85; margin:-2px 0 4px; font-family:ui-monospace, Consolas, monospace; word-break:break-all; }
   #subwhatsapp-erpupload .erpGuess{ font-size:11.5px; color:#e0a100; font-weight:600; }
@@ -1905,7 +1905,7 @@
   /* "Logo on report" switch shown in every report card whose PDF / JPG carries the logo */
   .logoChip{ display:flex !important; width:fit-content !important; max-width:100%; box-sizing:border-box; align-items:center; gap:8px; margin:12px 0 0 !important; padding:5px 12px 5px 9px; border-radius:999px;
     border:1px solid rgba(128,128,128,.4); font-size:12.5px; font-weight:600; cursor:pointer; color:inherit !important; user-select:none; }
-  .logoChip input{ width:16px !important; height:16px; margin:0 !important; accent-color:var(--gold); cursor:pointer; }
+  .logoChip input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ width:16px !important; height:16px; margin:0 !important; accent-color:var(--gold); cursor:pointer; }
   .logoChip.off{ opacity:.75; }
   .logoChip + .btnRow, .logoChip + button{ margin-top:10px; }
   /* Theme Colour pop-up: always fits the screen - the list scrolls inside, Close stays visible at the bottom */
@@ -2262,7 +2262,7 @@
   .sidebar[data-ico="cards"]:not(.subNav):not(.icoPrev) > .navItem .navSub{ font-size:11px; }
 
   /* ===================== WHITE THEME polish (body.theme-light) ===================== */
-  body.theme-light header{ box-shadow:0 2px 12px rgba(16,35,61,.10); }
+  body.theme-light header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ box-shadow:0 2px 12px rgba(16,35,61,.10); }
   body.theme-light #hamburgerBtn{ color:#0b2545; }
   body.theme-light #hamburgerBtn:hover{ background:rgba(11,37,69,.08); }
   body.theme-light .liveClock{ color:#7a5c0a; background:#fbf5e3; border-color:#e5cf8f; }
@@ -2339,12 +2339,12 @@
     background:linear-gradient(160deg, var(--navy-2), var(--navy)); color:var(--ink);
     box-shadow:0 8px 24px rgba(0,0,0,.30);
   }
-  body.themed:not(.dark-mode) input, body.themed:not(.dark-mode) select, body.themed:not(.dark-mode) textarea{
+  body.themed:not(.dark-mode) input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), body.themed:not(.dark-mode) select:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), body.themed:not(.dark-mode) textarea:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){
     background:rgba(0,0,0,.20); border-color:rgba(var(--navy-text-rgb),.22); color:var(--ink);
   }
-  body.themed:not(.dark-mode) select option{ background:var(--navy); color:var(--ink); }
-  body.themed:not(.dark-mode) input::placeholder, body.themed:not(.dark-mode) textarea::placeholder{ color:rgba(var(--navy-text-rgb),.5); }
-  body.themed:not(.dark-mode) input[type=date], body.themed:not(.dark-mode) input[type=month]{ color-scheme:dark; }
+  body.themed:not(.dark-mode) select:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) option{ background:var(--navy); color:var(--ink); }
+  body.themed:not(.dark-mode) input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *))::placeholder, body.themed:not(.dark-mode) textarea:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *))::placeholder{ color:rgba(var(--navy-text-rgb),.5); }
+  body.themed:not(.dark-mode) input[type=date]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), body.themed:not(.dark-mode) input[type=month]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ color-scheme:dark; }
   body.themed .contentArea button.primary, body.themed [class*="Overlay"] button.primary{ background:var(--gold); color:#0b2545; }
   body.themed .contentArea button.primary:hover{ filter:brightness(1.06); }
   body.themed:not(.dark-mode) .card code{ background:rgba(0,0,0,.2); color:var(--gold-soft); }
@@ -2518,7 +2518,7 @@
     .bottomTabBar{ padding-left:max(0px, calc(50% - 340px)); padding-right:max(0px, calc(50% - 340px)); }
   }
   /* ===== Home effects (festival / weather / furnace sparks) ===== */
-  #homeFx{ position:fixed; inset:0; width:100%; height:100%; z-index:60; pointer-events:none; }   /* above the home grid, below header, bottom bar and popups */
+  #homeFx{ position:fixed; inset:0; width:100%; height:100%; z-index:60; pointer-events:none; }   /* above the home grid, below header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), bottom bar and popups */
   .fxChips{ grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:-2px 0 2px; }
   .fxChips:empty{ display:none; }
   .fxChip{ display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:999px; font-size:12.5px; font-weight:700;
@@ -2541,9 +2541,9 @@
   .fxSettings{ border-top:1px solid rgba(128,128,128,.25); padding-top:10px; margin:0 0 14px; text-align:left; }
   .fxHead{ font-weight:800; font-size:13px; margin-bottom:6px; }
   .fxRow{ display:flex !important; align-items:center; gap:8px; font-size:12.5px; margin:6px 0 !important; cursor:pointer; }
-  .fxRow input[type=checkbox]{ width:18px; height:18px; margin:0; flex:0 0 auto; accent-color:var(--gold); }
+  .fxRow input[type=checkbox]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ width:18px; height:18px; margin:0; flex:0 0 auto; accent-color:var(--gold); }
   .fxRow.fxTarget{ justify-content:space-between; cursor:default; }
-  .fxRow.fxTarget input{ width:110px; padding:6px 8px; font-size:13px; }
+  .fxRow.fxTarget input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ width:110px; padding:6px 8px; font-size:13px; }
   .fxNote{ font-size:11px; opacity:.7; margin-top:2px; }
   /* ===== Home edit (move & resize tiles) ===== */
   #mainSidebar > .navItem.tileWide{
@@ -2648,7 +2648,7 @@
   #kashviClose{ background:none; border:none; color:#fff; font-size:20px; cursor:pointer; padding:4px 8px; }
   #kashviChat{ flex:1; overflow-y:auto; padding:12px; -webkit-overflow-scrolling:touch; }
   .kvInputRow{ display:flex; gap:6px; padding:8px; border-top:1px solid rgba(128,128,128,.25); }
-  .kvInputRow input{ flex:1; margin:0; }
+  .kvInputRow input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ flex:1; margin:0; }
   #kashviSend, #kashviMic{ border:none; border-radius:50%; width:44px; height:44px; cursor:pointer; flex-shrink:0;
     display:flex; align-items:center; justify-content:center; padding:0; }
   #kashviSend{ background:#d97757; color:#fff; }
@@ -2661,7 +2661,7 @@
   #kvVoicePanel.hidden{ display:none; }
   #kvVoicePanel .kvvRow{ display:flex; align-items:center; gap:8px; margin:6px 0; }
   #kvVoicePanel .kvvRow > span{ width:52px; flex-shrink:0; font-weight:600; }
-  #kvVoicePanel select, #kvVoicePanel input[type=range]{ flex:1; min-width:0; margin:0; }
+  #kvVoicePanel select:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), #kvVoicePanel input[type=range]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ flex:1; min-width:0; margin:0; }
   #kvVoicePanel .kvvPresets{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:8px 0; }
   #kvVoicePanel button{ padding:7px 8px; font-size:12px; border-radius:8px; cursor:pointer; }
   #kvVoicePanel .kvvPresets button.on{ outline:2px solid #c9a227; }
@@ -2670,27 +2670,27 @@
 
   /* ===== Moltrix logo (svg symbol #mzLogoSym): its ink follows the theme, the "i" stays flame coloured ===== */
   .mzLogo{ display:block; color:var(--mz-logo-ink, var(--navy-text, #1f3864)); max-width:100%; }
-  header h1.mzLogoH1{ margin:0 0 2px; line-height:0; background:none !important; animation:none !important; filter:none !important; }
-  /* the logo takes the photo's place in the header (the photo file still feeds the home greeting card and the menu) */
-  header #headerLogoImg{ display:none !important; }
-  html body.tex-clean header .mzLogo{ color:var(--cl-head-ink); }
+  header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) h1.mzLogoH1{ margin:0 0 2px; line-height:0; background:none !important; animation:none !important; filter:none !important; }
+  /* the logo takes the photo's place in the header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) (the photo file still feeds the home greeting card and the menu) */
+  header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) #headerLogoImg{ display:none !important; }
+  html body.tex-clean header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) .mzLogo{ color:var(--cl-head-ink); }
   .navDrawerVersion{ display:inline-flex; align-items:center; gap:6px; }
   .navDrawerVersion .mzLogo{ display:inline-block; color:inherit; }
   .signedOutMsg .mzLogo{ color:var(--navy, #1f3864); }
   html body.tex-clean .signedOutMsg .mzLogo{ color:var(--cl-head-ink); }
   body.dark-mode:not(.tex-clean) .signedOutMsg .mzLogo{ color:#e8ecf4; }
-  /* header lockup: icon on the left (logo height), "Moltrix" with the clock under it on the right, both centred on the icon */
-  header{ --mz-logo-h:58px; }
-  @media (max-width:360px){ header{ --mz-logo-h:48px; } }
+  /* header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) lockup: icon on the left (logo height), "Moltrix" with the clock under it on the right, both centred on the icon */
+  header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ --mz-logo-h:58px; }
+  @media (max-width:360px){ header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ --mz-logo-h:48px; } }
   .mzHeadLock{ display:flex; align-items:center; gap:calc(var(--mz-logo-h) * .25); }
   .mzHeadLock .mzLogoIcon{ height:var(--mz-logo-h); width:var(--mz-logo-h); flex:none; }
   .mzHeadCol{ display:flex; flex-direction:column; align-items:flex-start; gap:calc(var(--mz-logo-h) * .07); }
   .mzHeadCol .mzLogoWord{ height:calc(var(--mz-logo-h) * .41); width:auto; aspect-ratio:476.9/105.3; }
-  header .liveClock, html body.tex-clean header .liveClock{ margin:0 !important; padding:0 !important; line-height:1 !important;
+  header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) .liveClock, html body.tex-clean header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) .liveClock{ margin:0 !important; padding:0 !important; line-height:1 !important;
     font-family:"Inter","Poppins",system-ui,sans-serif !important; font-weight:800 !important; font-variant-numeric:tabular-nums; font-size:calc(var(--mz-logo-h) * .25) !important; letter-spacing:1.5px !important; }
 
   /* ===== Molten-steel title ===== */
-  header h1.molten{
+  header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) h1.molten{
     background:linear-gradient(100deg, var(--navy-text) 0%, var(--navy-text) 34%, #ffe9a8 42%, #ffb02e 46%, #ff5e1a 50%, #ffcf5a 55%, var(--navy-text) 64%, var(--navy-text) 100%);
     background-size:320% 100%; background-position:100% 0;
     -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent;
@@ -2744,7 +2744,7 @@
   svg.sunArc text{ fill:currentColor; stroke:none; font:700 7.5px Poppins, system-ui, sans-serif; }
 
   @media (prefers-reduced-motion: reduce){
-    header h1.molten, .prodRing.done{ animation:none; }
+    header:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)) h1.molten, .prodRing.done{ animation:none; }
     .sectionPanel:not(.hidden), .sub-sectionPanel:not(.hidden), .sidebar.subNav:not(.hidden), #mainSidebar:not(.hidden),
     #mainSidebar:not(.hidden) > .navItem, .sidebar.subNav:not(.hidden) > .navItem, .tapRipple{ animation:none !important; }
   }
@@ -2756,19 +2756,19 @@
   .isoAskStep{ font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--gold); }
   .isoAskIntro{ font-size:13px; line-height:1.45; margin-bottom:8px; }
   .isoAskHint{ font-size:11.5px; opacity:.75; }
-  .isoAskCard textarea{ min-height:56px; }
+  .isoAskCard textarea:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ min-height:56px; }
   .isoAskCard.card{ padding:16px 16px 0; }
   .isoAskBtns{ flex-wrap:wrap; position:sticky; bottom:0; margin:12px -16px 0; padding:10px 16px 14px; background:inherit; border-top:1px solid rgba(128,128,128,.25); }
   .isoVenTable td, .isoVenTable th{ font-size:12px; padding:6px; text-align:left; }
-  .isoVenTable select{ min-width:56px; padding:4px; }
-  .isoCalTable input{ min-width:118px; padding:5px 6px !important; font-size:13px !important; margin:0; }
+  .isoVenTable select:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ min-width:56px; padding:4px; }
+  .isoCalTable input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ min-width:118px; padding:5px 6px !important; font-size:13px !important; margin:0; }
   body.themed .isoAskCard h3, body.dark-mode .isoAskCard h3{ color:var(--gold-soft, #e8c766); }
 
   /* ===== Sponge iron sticky note ===== */
   .snHead, .snRow{ display:grid; grid-template-columns:1.3fr .8fr 1.6fr 34px 34px; gap:6px; align-items:center; }
-  .snRow input.snRowC, .snPick input, .snSw input{ -webkit-appearance:none; appearance:none; width:34px !important; height:34px; padding:0 !important; border:1px solid rgba(128,128,128,.45); border-radius:8px; background:transparent; cursor:pointer; margin:0 !important; }
-  .snRow input.snRowC::-webkit-color-swatch-wrapper, .snPick input::-webkit-color-swatch-wrapper, .snSw input::-webkit-color-swatch-wrapper{ padding:3px; }
-  .snRow input.snRowC::-webkit-color-swatch, .snPick input::-webkit-color-swatch, .snSw input::-webkit-color-swatch{ border:0; border-radius:5px; }
+  .snRow input.snRowC:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), .snPick input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), .snSw input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ -webkit-appearance:none; appearance:none; width:34px !important; height:34px; padding:0 !important; border:1px solid rgba(128,128,128,.45); border-radius:8px; background:transparent; cursor:pointer; margin:0 !important; }
+  .snRow input.snRowC:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *))::-webkit-color-swatch-wrapper, .snPick input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *))::-webkit-color-swatch-wrapper, .snSw input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *))::-webkit-color-swatch-wrapper{ padding:3px; }
+  .snRow input.snRowC:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *))::-webkit-color-swatch, .snPick input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *))::-webkit-color-swatch, .snSw input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *))::-webkit-color-swatch{ border:0; border-radius:5px; }
   .snColors{ margin-top:14px; padding:12px; border-radius:12px; border:1px solid rgba(201,162,39,.35); background:rgba(201,162,39,.06); }
   .snLbl{ font-weight:700; font-size:14px; margin-bottom:8px; } .snLbl2{ font-size:12px; font-weight:700; opacity:.75; margin:10px 0 6px; }
   .snStyle{ display:flex; gap:8px; } .snStyle button{ flex:1; padding:8px 6px !important; font-size:13px !important; border-radius:10px !important; border:1px solid rgba(128,128,128,.4) !important; background:transparent !important; color:inherit !important; margin:0 !important; }
@@ -2777,16 +2777,16 @@
   .snSw button{ width:34px !important; height:34px; border-radius:50% !important; padding:0 !important; margin:0 !important; border:2px solid rgba(255,255,255,.35) !important; cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.3); }
   .snSw button.on{ border:3px solid var(--gold) !important; transform:scale(1.12); }
   .snPick{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:10px; }
-  .snPick label{ display:flex !important; flex-direction:column; align-items:center; gap:4px; font-size:11.5px; margin:0 !important; }
+  .snPick label:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ display:flex !important; flex-direction:column; align-items:center; gap:4px; font-size:11.5px; margin:0 !important; }
   .snHead{ font-size:11.5px; font-weight:700; opacity:.7; margin:12px 0 2px; letter-spacing:.02em; }
   .snRow{ margin-bottom:6px; }
-  .snRow input{ margin:0 !important; min-width:0; width:100%; box-sizing:border-box; }
-  .snRow input[type=text]{ padding:9px 7px !important; font-size:14px !important; }
+  .snRow input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ margin:0 !important; min-width:0; width:100%; box-sizing:border-box; }
+  .snRow input[type=text]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ padding:9px 7px !important; font-size:14px !important; }
   .snHead, .snRow{ grid-template-columns:1.25fr .75fr 1.7fr 34px 30px !important; gap:5px !important; }
   .snDel{ width:30px !important; }
   .snDel{ width:34px; height:34px; border-radius:8px; border:1px solid rgba(128,128,128,.4); background:transparent; color:inherit; cursor:pointer; padding:0; }
   .snSignRow{ display:flex !important; align-items:center; gap:8px; margin-top:12px !important; font-size:13px; cursor:pointer; }
-  .snSignRow input{ width:18px; height:18px; margin:0; accent-color:var(--gold); }
+  .snSignRow input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ width:18px; height:18px; margin:0; accent-color:var(--gold); }
   .snPreview{ display:block; width:100%; max-width:420px; margin:14px auto 4px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,.25); }
 
   /* ===== Solution preparation ===== */
@@ -2794,7 +2794,7 @@
   .scChips{ display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 4px; }
   .scChip{ padding:5px 10px !important; font-size:12px !important; border-radius:999px !important; border:1px solid rgba(201,162,39,.6) !important; background:rgba(201,162,39,.12) !important; color:inherit !important; cursor:pointer; width:auto !important; margin:0 !important; }
   .scGrid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:0 12px; }
-  .scGrid select, .scGrid input, #scForm, #scPurity{ width:100% !important; box-sizing:border-box; }
+  .scGrid select:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), .scGrid input:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), #scForm, #scPurity{ width:100% !important; box-sizing:border-box; }
   .scHint{ font-size:12px; opacity:.75; margin-top:4px; line-height:1.4; }
   .sdsList{ display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:8px; }
   .sdsItem{ text-align:left; display:flex; flex-direction:column; gap:3px; padding:10px 12px; border-radius:10px; border:1px solid rgba(127,127,127,.3); background:var(--card, rgba(255,255,255,.05)); color:inherit; cursor:pointer; font:inherit; }
@@ -2831,7 +2831,7 @@
   .scWarn{ margin-top:10px; font-size:12.5px; padding:8px 10px; border-radius:8px; background:rgba(229,83,61,.12); border:1px solid rgba(229,83,61,.4); }
   /* ===== easier to use on a phone (all tiles) ===== */
   @media (max-width:600px){
-    .card > select, .card > input[type=date], .card > input[type=month], .card > input[type=number]{ width:100%; }
+    .card > select:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), .card > input[type=date]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), .card > input[type=month]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)), .card > input[type=number]:where(:not(#msGrid *, [class*=univer-], [class*=univer-] *)){ width:100%; }
     .card h2{ font-size:14px; }
   }
   /* long help text: two lines, the rest behind "More" */

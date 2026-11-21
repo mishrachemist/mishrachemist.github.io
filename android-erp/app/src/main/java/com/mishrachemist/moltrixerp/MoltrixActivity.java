@@ -373,7 +373,7 @@ public class MoltrixActivity extends FragmentActivity {
 
     /** window.MoltrixApp - what the Moltrix page may ask this app to do */
     final class Bridge {
-        @JavascriptInterface public String version() { return "4"; }
+        @JavascriptInterface public String version() { return "5"; }
         @JavascriptInterface public void widgetSet(String kind, String json) { Widgets.set(getApplicationContext(), kind, json); }
         @JavascriptInterface public String takeOpen() { String w = widgetOpen; widgetOpen = null; return w == null ? "" : w; }
         /** expiry-day gamma watch in the background (GammaService); cfg = {syms, base, from, jump, win, minPrem} */
@@ -391,6 +391,7 @@ public class MoltrixActivity extends FragmentActivity {
         /** F&O screen: NSE / BSE data through the exchange's own page; Yahoo candles; answer = mkTake(id) after window.mzMkDone(id) */
         @JavascriptInterface public void mkGet(String id, String page, String path) { market.site(id, page, path); }
         @JavascriptInterface public void httpGet(String id, String url) { market.yahoo(id, url); }
+        @JavascriptInterface public void webGet(String id, String url) { market.web(id, url); }
         @JavascriptInterface public String mkTake(String id) { return market.take(id); }
         @JavascriptInterface public void saveFile(String name, String mime, String b64) {
             try { MoltrixActivity.this.saveFile(name, mime, Base64.decode(b64, Base64.DEFAULT)); }

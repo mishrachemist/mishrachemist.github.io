@@ -1,0 +1,28 @@
+/* ===== Moltrix Sheet ===== */
+.msTools{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 12px}
+.msTools button{flex:1;min-width:130px;margin:0}
+.msItem{display:flex;align-items:center;gap:12px;width:100%;text-align:left;margin:0 0 8px;padding:11px 12px;border-radius:12px;border:1px solid rgba(127,127,127,.25);background:var(--card-bg,#fff);color:inherit;cursor:pointer}
+.msItem:active{transform:scale(.99)}
+.msIco{flex:0 0 34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:20px;background:#0f7b3f;color:#fff}
+.msTxt{min-width:0;display:flex;flex-direction:column}
+.msTxt b{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msTxt small{font-size:12px;opacity:.7;margin-top:2px}
+.msEmpty{padding:18px 6px;text-align:center;opacity:.7;font-size:13.5px}
+.msOff{font-size:12.5px;margin:0 0 8px;color:#b45309}
+.msOverlay{position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;background:#fff;color:#1f2937;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+.msBar{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:6px 8px;background:#0B2545;color:#fff;border-bottom:2px solid #F1D27A}
+.msBar button{margin:0;background:transparent;border:0;color:#fff;font-size:20px;min-width:38px;height:38px;border-radius:10px;padding:0 6px;cursor:pointer;box-shadow:none}
+.msBar button:active{background:rgba(255,255,255,.12)}
+.msBar .msTitle{flex:1;min-width:0;text-align:left;font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msState{font-size:11.5px;color:#A9B6CC;white-space:nowrap}
+#msGrid{flex:1;min-height:0;position:relative}
+.msLoading{padding:40px 16px;text-align:center;color:#6b7280;font-size:14px}
+.msDlgOv{position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.msDlg{background:var(--card-bg,#fffaf2);color:inherit;width:100%;max-width:360px;border-radius:16px;padding:16px;box-shadow:0 12px 34px rgba(0,0,0,.35)}
+.msDlgT{font-weight:800;font-size:16.5px;margin-bottom:12px;word-break:break-word}
+.msDlgM{font-size:14px;margin-bottom:12px}
+.msDlg input{margin:0 0 12px}
+.msDlgB{display:flex;flex-wrap:wrap;gap:8px}
+.msDlgB button{flex:1 1 40%;margin:0}
+.msDlgB button.danger{background:#dc2626;color:#fff;border-color:#dc2626}
+.msToast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:100003;background:#111827;color:#fff;padding:10px 16px;border-radius:12px;font-size:13.5px;max-width:86vw;box-shadow:0 6px 18px rgba(0,0,0,.3)}
