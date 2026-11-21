@@ -3,7 +3,7 @@
 .msTools button{flex:1;min-width:130px;margin:0}
 .msItem{display:flex;align-items:center;gap:12px;width:100%;text-align:left;margin:0 0 8px;padding:11px 12px;border-radius:12px;border:1px solid rgba(127,127,127,.25);background:var(--card-bg,#fff);color:inherit;cursor:pointer}
 .msItem:active{transform:scale(.99)}
-.msIco{flex:0 0 36px;width:36px;height:36px;display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))}
+.msIco{flex:0 0 40px;width:40px;height:40px;display:block}
 .msHeadIco{width:1.5em;height:1.5em;vertical-align:-.4em;margin-right:4px}
 .msTxt{min-width:0;display:flex;flex-direction:column}
 .msTxt b{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
