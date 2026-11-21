@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; connect-src 'self' https://api.open-meteo.com https://graph.microsoft.com https://login.microsoftonline.com https://login.live.com https://*.1drv.com https://*.files.1drv.com https://*.livefilestore.com https://*.sharepoint.com https://script.google.com https://script.googleusercontent.com https://get.geojs.io https://cdn.jsdelivr.net https://tessdata.projectnaptha.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; frame-src 'self' blob: data: https://login.microsoftonline.com https://login.live.com https://script.google.com https://*.googleusercontent.com; media-src 'self' blob: data:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<script>const APP_VERSION = "2026.11.21.6";
+<script>const APP_VERSION = "2026.11.21.7";
 /* the app is in several files (js/…): work that must wait for ALL of them (sign-in, timers) starts through mzAfterLoad */
 /* Error log (☰ → Error Log): page errors and errors that parts of the app report through mzErr(source, message) */
 (function () {
@@ -224,7 +224,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js" integrity="sha384-XcdcwHqIPULERb2yDEM4R0XaQKU3YnDsrTmjACBZyfdVVqjh6xQ4/DCMd7XLcA6Y" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
-<link rel="stylesheet" href="css/app-1.css?v=778bccafa7">
+<link rel="stylesheet" href="css/app-1.css?v=8092d17c57">
 
 <link rel="stylesheet" href="css/app-2.css?v=965ee814c9">
 <link rel="stylesheet" href="css/sheet.css?v=fab259b750">
@@ -584,12 +584,12 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
     <div class="settingsDivider"></div>
     <button id="signOutBtn" class="hidden">🚪 Sign Out</button>
   </div>
-  <div style="display:flex;align-items:center;gap:12px;">
+  <div class="mzHeadRow" style="display:flex;align-items:center;gap:12px;">
     <img src="img/5cc65070350e.png" alt="Durgesh Mishra" id="headerLogoImg" style="width:68px;height:68px;border-radius:10px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.3);object-fit:cover;">
     <div class="mzHeadLock">
       <svg class="mzLogo mzLogoIcon" viewBox="0 0 200 200" aria-hidden="true"><use href="#mzLogoIconSym"></use></svg>
       <div class="mzHeadCol">
-        <h1 class="molten mzLogoH1"><svg class="mzLogo mzLogoWord" viewBox="0 0 476.9 105.3" role="img" aria-label="Moltrix"><use href="#mzLogoWordSym"></use></svg></h1>
+        <h1 class="molten mzLogoH1"><svg class="mzLogo mzLogoWord" viewBox="0 0 476.9 105.3" role="img" aria-label="Moltrix"><use href="#mzLogoWordSym"></use></svg><span class="mzSleepShadow" aria-hidden="true"></span><img class="mzSleeper" src="img/bd3c05a7cf09.webp" alt="" aria-hidden="true"></h1>
         <div id="liveClock" class="liveClock">--:--:--</div>
       </div>
     </div>
