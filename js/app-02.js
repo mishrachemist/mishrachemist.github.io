@@ -705,17 +705,6 @@ function getGreetingIconSVG(greetingText) {
   </svg>`;
 }
 
-/* ===================== QR CODE SHARE ===================== */
-document.getElementById("qrShareBtn").addEventListener("click", () => {
-  const url = window.location.href;
-  document.getElementById("qrUrlText").textContent = url;
-  document.getElementById("qrCanvas").src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
-  document.getElementById("qrOverlay").classList.remove("hidden");
-});
-document.getElementById("qrCloseBtn").addEventListener("click", () => {
-  document.getElementById("qrOverlay").classList.add("hidden");
-});
-
 /* ===================== COMMAND PALETTE (Ctrl+K quick search) ===================== */
 function getCmdPaletteItems() {
   return Array.from(document.querySelectorAll("#mainSidebar > .navItem")).map(btn => ({
@@ -1194,7 +1183,7 @@ function vmIsBlockedBtn(el) {
   if (!el || !el.closest) return false;
   const b = el.closest("button, a");
   if (!b) return false;
-  if (["pdfDownloadBtn", "pdfShareBtn", "qrShareBtn", "bottomTabFetch"].includes(b.id)) return true;
+  if (["pdfDownloadBtn", "pdfShareBtn", "bottomTabFetch"].includes(b.id)) return true;
   if (b.tagName === "A" && b.hasAttribute("download")) return true;
   if (b.closest("#pdfPreviewOverlay, #stickyJpgOverlay") && !/close/i.test(b.id + " " + b.textContent)) return true;
   const txt = (b.dataset.enText || "") + " " + (b.textContent || "") + " " + (b.title || "");

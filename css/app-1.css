@@ -708,6 +708,11 @@
   .navDrawerItem:hover{
     background:rgba(201,162,39,.1);
   }
+  /* ⚙️ Settings group in the drawer */
+  #navSettingsItem::after{ content:"▸"; margin-left:auto; font-size:13px; opacity:.7; transition:transform .2s; }   /* not a span: the EN / हिं switch translates the last span */
+  #navSettingsItem.open::after{ transform:rotate(90deg); }
+  .navDrawerSub[hidden]{ display:none; }
+  .navDrawerSub .navDrawerItem{ padding-left:44px; font-size:14px; }
   .navDrawerItem.active{
     background:rgba(201,162,39,.16);
     color:var(--navy);
@@ -1135,23 +1140,6 @@
   .milestoneTitle{ font-size:22px; font-weight:800; color:var(--navy); margin-bottom:8px; }
   body.themed .milestoneTitle, body.dark-mode .milestoneTitle{ color:var(--gold); }   /* was navy-on-navy (invisible) */
   .milestoneSub{ font-size:13px; color:var(--muted); margin-bottom:18px; }
-
-  .qrOverlay{
-    position:fixed; top:0; left:0; right:0; bottom:0;
-    background:rgba(11,37,69,.7);
-    display:flex; align-items:center; justify-content:center;
-    z-index:9999;
-  }
-  .qrOverlay.hidden{ display:none; }
-  .qrCard{
-    background:var(--card);
-    border-radius:20px;
-    padding:28px;
-    text-align:center;
-    box-shadow:0 20px 60px rgba(0,0,0,.4);
-  }
-  .qrCard h3{ color:var(--navy); margin:0 0 16px; }
-  .qrUrlText{ font-size:12px; color:var(--muted); word-break:break-all; margin:12px 0 18px; max-width:260px; }
 
   .cmdPaletteOverlay{
     position:fixed; top:0; left:0; right:0; bottom:0;
