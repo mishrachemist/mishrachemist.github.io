@@ -61,7 +61,7 @@
     const d = document.createElement("div");
     d.className = "mzBkOv";
     d.style.cssText = "position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;";
-    d.innerHTML = `<div style="background:var(--card-bg,#fffaf2);color:inherit;width:100%;max-width:380px;max-height:88vh;overflow:auto;border-radius:16px;padding:18px 18px 16px;box-shadow:0 12px 34px rgba(0,0,0,.35);">
+    d.innerHTML = `<div style="background:var(--card,#fffaf2);color:var(--ink,#16233d);width:100%;max-width:380px;max-height:88vh;overflow:auto;border-radius:16px;padding:18px 18px 16px;box-shadow:0 12px 34px rgba(0,0,0,.35);">
       <div style="font-weight:800;font-size:17px;margin-bottom:12px;">${title}</div>${inner}</div>`;
     document.body.appendChild(d);
     return d;
