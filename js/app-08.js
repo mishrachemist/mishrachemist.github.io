@@ -917,7 +917,23 @@ async function erpEntryFetch(dateVal) {
   const d = erpEntryBuild(prod.values, heats, consRow, dateVal);
   if (!d.heats) throw new Error(`No heats entered for ${dateVal}.`);
   d.consAvailable = (consRow || []).some(v => typeof v === "number" && v > 0);
+  if (!d.consAvailable) d.rmPh = await erpPrevRm(dateVal, token);
   return d;
+}
+// RM Report still empty on dateVal (consumption comes last in the day): the latest of the 7 days before with consumption ->
+// its items that have an ERP code, biggest first. Production + RM then enters 0.001 MT of the first one with SMS1 stock.
+async function erpPrevRm(dateVal, token) {
+  for (let k = 1; k <= 7; k++) {
+    const dt = new Date(dateVal + "T00:00:00Z"); dt.setUTCDate(dt.getUTCDate() - k);
+    const iso = dt.toISOString().slice(0, 10);
+    let row = null;
+    try { const { results } = await getWorkbooksForRange(token, iso, iso); if (results.length) row = await getConsumptionRowForDate(results[0].wb, iso, token); } catch (e) {}
+    if (!row || !row.some(v => erpNum(v) > 0)) continue;
+    const items = HEAT_CONSUMPTION_ITEMS.map((it, i) => ({ code: ERP_RM_CODES[it.key] || null, label: it.label, qty: erpNum(row[i]) }))
+      .filter(x => x.code && x.qty > 0).sort((a, b) => b.qty - a.qty);
+    if (items.length) return { from: iso.split("-").reverse().join("-"), items: items.map(x => ({ code: x.code, label: x.label })) };
+  }
+  return null;
 }
 
 async function loadErpEntrySheet() {
@@ -1028,7 +1044,8 @@ function erpPayload(d, mode) {
     v.lines.forEach(l => { if (!l.sms2Code) bad.push(`heat ${v.heat}: no ERP code for ${l.size} ${l.len} Mtr`); });
     return { heat: v.heat, remark: `Heat ${v.heat}`, date: dmy, mt: v.erpMt,
       lines: v.lines.map(l => ({ code: l.sms2Code, batch: l.batch, ref: l.ref, pcs: l.pcs, cf: l.cf, mt: l.mt, len: l.len })),
-      rm: v.rm.map(x => ({ code: x.code, label: x.label, qty: x.qty })) };
+      rm: v.rm.map(x => ({ code: x.code, label: x.label, qty: x.qty })),
+      ...(mode === "full" && !v.rm.length && d.rmPh ? { rmPh: d.rmPh.items, rmPhFrom: d.rmPh.from } : {}) };
   });
   return { bad, payload: { v: 1, mode, date: dmy, heats } };
 }

@@ -7,10 +7,12 @@
       consumption, and saves it (Unapproved). Every value is read back and checked
       before saving; a heat with any problem is NOT saved and is reported.
    Modes:  full – billets + ONE RM line of 0.001 MT, of the first RM item with SMS1 stock (the ERP refuses a
-                  Production Entry without an RM line); the rest of the consumption goes in with cons mode
+                  Production Entry without an RM line); the rest of the consumption goes in with cons mode.
+                  RM Report still empty for the date: the previous day's biggest item with stock (heat.rmPh).
            prod – billets only (only works if the ERP admin makes RM consumption optional)
            cons – open the heat's saved voucher and add the RM lines that are missing
-                  (also the quantity still lacking for items entered as 0.001 MT placeholder).
+                  (also the quantity still lacking for items entered as 0.001 MT placeholder; a 0.001 MT line
+                  of an item not used on that date is removed).
            qc   – Production QC (series 2G, HEAT WISE ANALYSIS): one entry per heat on the heat's
                   first billet line, the BIS Doc Final row (C Mn P S Si N S+P CE, Bend, Camber,
                   Length, Width, Freedom From Defects, Grade if asked), QC Time = heat date
@@ -21,7 +23,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.15.1";
+  const VERSION = "2026.11.22.1";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -700,14 +702,19 @@
     // ONE RM line only, 0.001 MT, of the first RM item that has SMS1 stock - the ERP needs one RM line to save; the rest of
     // the heat's consumption goes in later with "Add RM to saved vouchers" (Consumption mode). Quicker on the phone.
     let one = null; const skip = new Set(RUN_SKIP);   // items the ERP refused on Save earlier in this run are not tried again
-    const leftOver = () => (h.rm || []).map(l => {
+    // RM Report still empty for this date (22-Nov-2026): the 0.001 MT line is of the previous day's biggest item that has
+    // SMS1 stock (Moltrix sends them biggest first in rmPh); Add RM later removes it if that item was not used on this date
+    const ph = !(h.rm || []).length;
+    const pool = ph ? (h.rmPh || []).filter(x => x.code).map(x => ({ code: x.code, label: x.label, qty: ONE_RM_MAX })) : h.rm;
+    const leftOver = () => ph ? [`all RM consumption of ${h.date} - the RM Report had none yet; add it with Add RM (it also removes the 0.001 MT line if that item was not used)`] : (h.rm || []).map(l => {
       if (!l.code) return `${l.label} ${l.qty.toFixed(3)} MT (no ERP item code)`;
       const left = r3(l.qty - (one && one.code === l.code ? one.qty : 0));
       return left > 0.0005 ? `${l.label} ${left.toFixed(3)} MT` : "";
     }).filter(Boolean);
     if (mode === "full") {
-      if (!(h.rm || []).length) throw new Error(`Moltrix sent no RM consumption for heat ${h.heat} - the RM Report has no consumption for ${h.date}; fill it in the RM Report, send again from Moltrix (the ERP needs at least one RM line)`);
-      one = await oneRm(h.rm, log, skip);
+      if (!pool.length) throw new Error(`the RM Report has no consumption for ${h.date} or the 7 days before, so there is no item for the 0.001 MT RM line the ERP needs - fill the RM Report and send again from Moltrix`);
+      if (ph) log(`   RM Report has no consumption for ${h.date} yet - 0.001 MT of the biggest item of ${h.rmPhFrom || "the previous day"} that has SMS1 stock`, "h");
+      one = await oneRm(pool, log, skip);
       await checkRm({ [one.code]: one.qty });
     }
     await checkProd(h.lines);
@@ -723,11 +730,11 @@
       catch (e) {
         const m = /available stock for item code\s+([A-Z0-9]+)[^]*?Available Stock:\s*(-?[\d.]+)/i.exec(e.message);
         if (mode !== "full" || !m || !one || m[1] !== one.code || t >= 4) throw e;
-        const l = h.rm.find(x => x.code === one.code);
+        const l = pool.find(x => x.code === one.code);
         log(`   RM ${l ? l.label : one.code}: the ERP says its division stock is ${m[2]} MT - trying the next RM item`, "err");
         skip.add(one.code); RUN_SKIP.add(one.code);
         const old = one.code;
-        one = await oneRm(h.rm, log, skip);                       // a new line first (the ERP needs one), then the refused one goes
+        one = await oneRm(pool, log, skip);                       // a new line first (the ERP needs one), then the refused one goes
         const rf = grid("R.M. Consumed For Material");
         for (const tr of realRows(rf).filter(x => cell(x, "ITEM_CODE").value.trim() === old).reverse()) await deleteRow(rf, tr);
         await checkRm({ [one.code]: one.qty });
@@ -788,9 +795,22 @@
     const before = rmRowsNow().filter(x => x.code);
     const have = rmTotals(before);
     const r = await fillRm(h.rm, log, have, false);
-    if (!r.ok.length) { await backToListing(); return { vr, missing: r.missing, nothing: true }; }
+    // 0.001 MT lines of items NOT in this date's consumption are the placeholder put in when the RM Report was still empty
+    // (22-Nov-2026): removed, as long as another RM line stays (the ERP needs one)
+    const used = new Set((h.rm || []).map(l => l.code).filter(Boolean)), removed = {};
+    const extra = () => realRows(grid("R.M. Consumed For Material")).filter(t => { const c = cell(t, "ITEM_CODE").value.trim();
+      return c && !used.has(c) && near(+cell(t, "QTYISSUED").value || 0, PLACEHOLDER_MT, 0.0005); });
+    if (used.size && extra().length && realRows(grid("R.M. Consumed For Material")).filter(t => cell(t, "ITEM_CODE").value.trim()).length > extra().length) {
+      for (const t of extra().reverse()) {
+        const c = cell(t, "ITEM_CODE").value.trim(), q = +cell(t, "QTYISSUED").value || 0;
+        await deleteRow(grid("R.M. Consumed For Material"), t); removed[c] = r3((removed[c] || 0) + q);
+        log(`   RM ${c} ${q.toFixed(3)} MT removed - placeholder line, not in the consumption of ${h.date}`, "ok");
+      }
+    }
+    if (!r.ok.length && !Object.keys(removed).length) { await backToListing(); return { vr, missing: r.missing, nothing: true }; }
     const expect = { ...have };
     Object.keys(r.added).forEach(c => { expect[c] = r3((expect[c] || 0) + r.added[c]); });
+    Object.keys(removed).forEach(c => { expect[c] = r3((expect[c] || 0) - removed[c]); if (expect[c] <= 0.0005) delete expect[c]; });
     await checkRm(expect);
     log("   all RM lines re-checked ✓", "ok");
     const v2 = await save(/^Update$/);
