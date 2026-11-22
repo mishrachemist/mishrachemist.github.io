@@ -23,7 +23,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.22.1";
+  const VERSION = "2026.11.22.2";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -468,15 +468,25 @@
     if (cell(tr, "ITEM_CODE").value.trim() !== l.code) { await cellLov(tr, "ITEM_NAME", "Item Code", l.code); await waitFor(() => cell(tr, "ITEM_CODE").value.trim() === l.code, 3000).catch(() => {}); }
     if (cell(tr, "ITEM_CODE").value.trim() !== l.code) throw new Error(`item ${l.code} not set (the line shows ${cell(tr, "ITEM_CODE").value.trim() || "nothing"})`);
     const pre = realRows(rf).filter(t => t !== tr && cell(t, "ITEM_CODE").value.trim() === l.code).reduce((s, t) => s + (+cell(t, "QTYISSUED").value || 0), 0);   // already in the voucher
-    click(cell(tr, "GODOWN_NAME").closest("td").querySelector("ion-icon[name=search]"));
+    // 22-Nov-2026 phone: after an item with no stock, the next item's picker did not open on the first tap (timed out twice) -
+    // if it doesn't show, the row is made active again and the godown search tapped again (3 taps in all)
+    const tapGodown = () => click(cell(tr, "GODOWN_NAME").closest("td").querySelector("ion-icon[name=search]"));
+    tapGodown();
     let sf, closing = false;   // an ERP alert instead of the picker (e.g. negative / no stock) = skip this item, like short stock
-    try {
-      sf = await waitFor(() => {
-        const a = alertBox(); if (a && a.kind === "ok") { if (!closing) { closing = true; closeAlert(a).finally(() => { closing = false; }); } return null; }   // an old "saved successfully" - close it, keep waiting
-        if (a) { const e = new Error("ERP said: " + a.text.slice(0, 150)); e.erpAlert = a; throw e; }
-        return [...document.querySelectorAll("[id^=WETE]")].find(e => vis(e) && /Stock Details/.test(txt(e.querySelector("h2") || e)));
-      }, 15000, "stock picker");
-    } catch (e) { if (e.erpAlert) { await closeAlert(e.erpAlert); return { short: true, avail: 0, reason: e.message.replace(/^ERP said: /, "") }; } throw e; }
+    for (let t = 0; !sf; t++) {
+      try {
+        sf = await waitFor(() => {
+          const a = alertBox(); if (a && a.kind === "ok") { if (!closing) { closing = true; closeAlert(a).finally(() => { closing = false; }); } return null; }   // an old "saved successfully" - close it, keep waiting
+          if (a) { const e = new Error("ERP said: " + a.text.slice(0, 150)); e.erpAlert = a; throw e; }
+          return [...document.querySelectorAll("[id^=WETE]")].find(e => vis(e) && /Stock Details/.test(txt(e.querySelector("h2") || e)));
+        }, t ? 20000 : 12000, "stock picker");
+      } catch (e) {
+        if (e.erpAlert) { await closeAlert(e.erpAlert); return { short: true, avail: 0, reason: e.message.replace(/^ERP said: /, "") }; }
+        if (t >= 2 || !/^Timed out waiting for stock picker/.test(e.message)) throw e;
+        if (lov()) await closeLov();
+        await activate(tr); await sleep(800); tapGodown();
+      }
+    }
     let d = sf; while (d && !(btn(/^Ok$/, d) && btn(/^Show$/, d))) d = d.parentElement;
     const back = async () => { const b = btn(/^Back$/, d); if (b) click(b); await waitFor(() => !vis(sf), 8000).catch(() => {}); await sleep(400); };
     click(btn(/^Show$/, d));
