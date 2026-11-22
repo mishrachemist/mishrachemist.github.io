@@ -14,7 +14,7 @@
     const d = document.createElement("div");
     d.id = "mzErrBox";
     d.style.cssText = "position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:14px;";
-    d.innerHTML = `<div style="background:var(--card-bg,#fffaf2);color:inherit;width:100%;max-width:560px;max-height:86vh;display:flex;flex-direction:column;border-radius:16px;padding:16px;box-shadow:0 12px 34px rgba(0,0,0,.35);">
+    d.innerHTML = `<div style="background:var(--card,#fffaf2);color:var(--ink,#16233d);width:100%;max-width:560px;max-height:86vh;display:flex;flex-direction:column;border-radius:16px;padding:16px;box-shadow:0 12px 34px rgba(0,0,0,.35);">
       <div style="font-weight:800;font-size:17px;margin-bottom:4px;">🐞 Error Log <small style="font-weight:600;opacity:.7">${esc(typeof APP_VERSION !== "undefined" ? APP_VERSION : "")}</small></div>
       ${gw ? `<div style="font-size:12px;opacity:.8;margin-bottom:6px;">⚡ Gamma watch: ${esc(gw)}</div>` : ""}
       <div style="flex:1;min-height:60px;overflow:auto;font:12px/1.45 ui-monospace,monospace;border:1px solid rgba(128,128,128,.3);border-radius:10px;padding:8px;margin:6px 0 10px;user-select:text;-webkit-user-select:text;">
