@@ -137,6 +137,9 @@
     });
   });
 
+  // ⚙️ Settings: opens / closes its group (Backup & Restore, Error Log, Lock Log) inside the drawer
+  { const sb = document.getElementById("navSettingsItem"), sub = document.getElementById("navSettingsSub");
+    if (sb && sub) sb.addEventListener("click", () => { const open = sub.hidden; sub.hidden = !open; sb.setAttribute("aria-expanded", String(open)); sb.classList.toggle("open", open); }); }
   document.querySelectorAll("#navDrawerList [data-drawer-action]").forEach(btn => {
     btn.addEventListener("click", () => {
       const action = btn.dataset.drawerAction;
@@ -161,7 +164,6 @@
       home: "backToMenuBtn",
       search: "cmdPaletteBtn",
       filelocation: "fileLocationMenuBtn",
-      qr: "qrShareBtn",
       lang: "langToggle",
       dark: "darkModeToggle",
       refresh: "refreshPageBtn"

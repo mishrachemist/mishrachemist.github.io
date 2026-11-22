@@ -224,7 +224,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js" integrity="sha384-XcdcwHqIPULERb2yDEM4R0XaQKU3YnDsrTmjACBZyfdVVqjh6xQ4/DCMd7XLcA6Y" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
-<link rel="stylesheet" href="css/app-1.css?v=1071ad4077">
+<link rel="stylesheet" href="css/app-1.css?v=6b049b6c3a">
 
 <link rel="stylesheet" href="css/app-2.css?v=ed52732d47">
 <link rel="stylesheet" href="css/sheet.css?v=5674a841f3">
@@ -575,7 +575,6 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
     <div class="settingsPanelHead">Menu</div>
     <button id="cmdPaletteBtn" title="Quick search (Ctrl+K)">🔍 Search</button>
     <button id="fileLocationMenuBtn" title="Get Started">🚀 Get Started</button>
-    <button id="qrShareBtn" title="Share via QR code">📱 Share via QR</button>
     <button id="langToggle" title="Switch language / भाषा बदलें">🌐 EN / हिं</button>
     <button id="darkModeToggle" title="Toggle dark mode">🌙 Dark Mode</button>
     <button id="refreshPageBtn" title="Refresh the page">🔄 Refresh</button>
@@ -624,17 +623,19 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
   <div class="navDrawerList" id="navDrawerList">
     <button class="navDrawerItem" data-drawer-action="filelocation"><span class="navDrawerIcon">🚀</span><span>Get Started</span></button>
     <button class="navDrawerItem" data-drawer-action="switchacct"><span class="navDrawerIcon">🔄</span><span>Switch Account</span></button>
-    <button class="navDrawerItem" data-drawer-action="qr"><span class="navDrawerIcon">📱</span><span>Share via QR</span></button>
     <button class="navDrawerItem" data-drawer-action="apk" id="navApkItem"><span class="navDrawerIcon">🤖</span><span>Download Android App</span></button>
     <button class="navDrawerItem" data-drawer-action="lang"><span class="navDrawerIcon">🌐</span><span>EN / हिं</span></button>
     <button class="navDrawerItem" data-drawer-action="dark"><span class="navDrawerIcon">🌙</span><span>Dark Mode</span></button>
     <button class="navDrawerItem" data-drawer-action="theme"><span class="navDrawerIcon">🎨</span><span>Theme Colour</span></button>
     <button class="navDrawerItem" data-drawer-action="games"><span class="navDrawerIcon">🎮</span><span>Games</span></button>
     <button class="navDrawerItem" data-drawer-action="iconstyle"><span class="navDrawerIcon">🧩</span><span>Icon Style</span></button>
-    <button class="navDrawerItem" data-drawer-action="backup"><span class="navDrawerIcon">💾</span><span>Backup &amp; Restore</span></button>
     <button class="navDrawerItem" data-drawer-action="fplock" id="navFpLockItem" style="display:none"><span class="navDrawerIcon">🔒</span><span>Fingerprint Lock: OFF</span></button>
-    <button class="navDrawerItem" data-drawer-action="errlog"><span class="navDrawerIcon">🐞</span><span>Error Log</span></button>
-    <button class="navDrawerItem" data-drawer-action="locklog" id="navLockLogItem" style="display:none"><span class="navDrawerIcon">🧾</span><span>Lock Log</span></button>
+    <button class="navDrawerItem" id="navSettingsItem" aria-expanded="false" aria-controls="navSettingsSub"><span class="navDrawerIcon">⚙️</span><span>Settings</span></button>
+    <div class="navDrawerSub" id="navSettingsSub" hidden>
+      <button class="navDrawerItem" data-drawer-action="backup"><span class="navDrawerIcon">💾</span><span>Backup &amp; Restore</span></button>
+      <button class="navDrawerItem" data-drawer-action="errlog"><span class="navDrawerIcon">🐞</span><span>Error Log</span></button>
+      <button class="navDrawerItem" data-drawer-action="locklog" id="navLockLogItem" style="display:none"><span class="navDrawerIcon">🧾</span><span>Lock Log</span></button>
+    </div>
   </div>
   <div class="navDrawerFooter">
     <span class="navDrawerVersion"><svg class="mzLogo mzLogoSmall" viewBox="0 0 747.1 220.0" style="margin-top:20px;height:26px;width:auto;aspect-ratio:747.1/220.0" role="img" aria-label="Moltrix"><use href="#mzLogoSym"></use></svg> <span id="navDrawerVer" class="navDrawerVer"></span></span>
@@ -2956,15 +2957,6 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
   </div>
 </div>
 
-<div id="qrOverlay" class="qrOverlay hidden">
-  <div class="qrCard">
-    <h3>Share this app</h3>
-    <img id="qrCanvas" alt="QR Code" width="220" height="220">
-    <p id="qrUrlText" class="qrUrlText"></p>
-    <button class="primary" id="qrCloseBtn">Close</button>
-  </div>
-</div>
-
 <div id="cmdPaletteOverlay" class="cmdPaletteOverlay hidden">
   <div class="cmdPaletteBox">
     <div class="cmdInputRow">
@@ -2985,8 +2977,8 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
   </div>
 </div>
 
-<script src="js/app-01.js?v=5a7ff81384"></script>
-<script src="js/app-02.js?v=9c17544f89"></script>
+<script src="js/app-01.js?v=abd5596c10"></script>
+<script src="js/app-02.js?v=ed4283d5da"></script>
 <script src="js/app-03.js?v=12319e49dc"></script>
 <script src="js/app-04.js?v=aaf34e3136"></script>
 <script src="js/app-05.js?v=9d369ae25e"></script>
@@ -3009,7 +3001,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
   <button class="bottomTabItem" data-tab-action="more"><span class="bottomTabIcon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg></span><span>More</span></button>
 </nav>
 
-<script src="js/nav-drawer.js?v=5b79932894"></script>
+<script src="js/nav-drawer.js?v=ae0d7c34f2"></script>
 
 
 <script src="js/home-effects.js?v=808f96f4b3"></script>
