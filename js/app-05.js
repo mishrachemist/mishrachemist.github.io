@@ -639,7 +639,7 @@ function waRetrySave(list) { localStorage.setItem("waInboxRetry", JSON.stringify
 // Rule: whichever copy (this device / OneDrive) was changed last wins.
 const WA_STATE_FILE_URL = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/wa_inbox_state.json:/content";
 const WA_SYNC_KEYS = ["waInboxUrl", "waInboxToken", "waInboxLastRow", "waLastHeat", "waInboxRetry",
-  "rhfPartyApplied2", "waInboxLastNote", "waInboxLastAt", "waInboxLastDevice", "waSlots"];
+  "rhfPartyApplied2", "waInboxLastNote", "waInboxLastAt", "waInboxLastDevice", "waSlots", "waCloudOff"];
 function waSyncEnabled() { return !!account && accountRole(account) === "owner" && ALLOWED_EMAILS.length > 0 && accountEmail(account) === ALLOWED_EMAILS[0]; }
 function waStateTouch() { try { localStorage.setItem("waStateTs", String(Date.now())); } catch (e) {} }
 function waDeviceLabel() {
@@ -1087,7 +1087,19 @@ function waNextSlotTime(now) {
   waSlotList().forEach(v => { const d = new Date(now); d.setHours(v[0], v[1], 0, 0); let t = d.getTime(); if (t <= now) t += 86400000; if (t < best) best = t; });
   return best;
 }
+// ☁️ Cloud auto sync ON/OFF (24-Nov-2026): "waCloudOff" = "1" travels to OneDrive with the WhatsApp state
+// (wa_inbox_state.json); the cloud sync (GitHub workflow) reads it and does not fetch while it is OFF
+function waCloudOn() { try { return localStorage.getItem("waCloudOff") !== "1"; } catch (e) { return true; } }
+function waCloudShowInfo() {
+  const cb = document.getElementById("waCloudToggle"), el = document.getElementById("waCloudInfo");
+  if (cb) { cb.checked = waCloudOn(); cb.disabled = !waSyncEnabled(); }
+  if (!el) return;
+  if (!waSyncEnabled()) { el.textContent = "Only for the main owner account."; return; }
+  el.textContent = waCloudOn() ? "ON - WhatsApp messages go to Excel even when the phone and PC are off."
+    : "OFF - only 📥 Fetch WhatsApp in the app saves the messages.";
+}
 function waSlotShowInfo() {
+  waCloudShowInfo();
   const cb = document.getElementById("waSlotToggle"), inp = document.getElementById("waSlotTimes"),
         el = document.getElementById("waSlotInfo"), link = document.getElementById("waSlotLink");
   if (cb) cb.checked = waSlotOn();
@@ -1097,7 +1109,7 @@ function waSlotShowInfo() {
   if (!waSlotOn()) { el.textContent = "Scheduled sync is off on this device."; return; }
   const nx = new Date(waNextSlotTime());
   el.textContent = "Next scheduled sync: " + nx.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
-    (nx.toDateString() === new Date().toDateString() ? " today" : " tomorrow") + " (cloud)";
+    (nx.toDateString() === new Date().toDateString() ? " today" : " tomorrow") + (waCloudOn() ? " (cloud)" : "");
 }
 
 function waAutoReason(now, forced) {   // "" = go ahead, otherwise the reason it is not running now
@@ -1131,6 +1143,10 @@ mzAfterLoad(() => setInterval(waAutoTick, 60000));
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") setTimeout(waAutoTick, 3000); });   // back on screen: catch up
 mzAfterLoad(() => setTimeout(waAutoTick, 20000));
 document.addEventListener("change", e => {
+  if (e.target && e.target.id === "waCloudToggle") {
+    try { if (e.target.checked) localStorage.removeItem("waCloudOff"); else localStorage.setItem("waCloudOff", "1"); } catch (x) {}
+    waStateTouch(); waCloudPush(); waAutoShowInfo();
+  }
   if (e.target && e.target.id === "waSlotToggle") { try { localStorage.setItem("waSlotOn", e.target.checked ? "1" : "0"); } catch (x) {} waAutoShowInfo(); }
 });
 (function () {
