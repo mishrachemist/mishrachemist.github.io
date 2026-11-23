@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>Moltrix · background screener</title>
+<!-- Opened only by the Moltrix Android app's background Screener (ScrService, every 15 min on weekdays).
+     Runs the same screener code as F&O → Screener (js/fno.js) and reports back to the app. -->
+</head>
+<body>
+<script>
+(function () {
+  function done(r) { try { MoltrixApp.scrDone(JSON.stringify(r || {})); } catch (e) {} }
+  if (!window.MoltrixApp || typeof MoltrixApp.scrDone !== "function") return;   // only inside the app
+  var s = document.createElement("script");
+  s.src = "js/fno.js?t=" + Date.now();   // always the newest rules (no ?v=: the app's offline copy is not used)
+  s.onload = function () {
+    Promise.resolve().then(function () { return window.mzFno.bgScan(); })
+      .then(done, function (e) { done({ err: String((e && e.message) || e) }); });
+  };
+  s.onerror = function () { done({ err: "screener code did not load" }); };
+  document.body.appendChild(s);
+})();
+</script>
+</body>
+</html>

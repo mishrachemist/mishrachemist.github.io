@@ -1,6 +1,7 @@
 package com.mishrachemist.moltrixerp;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -43,8 +44,8 @@ final class MarketFetch {
     private static final Pattern YAHOO = Pattern.compile("^https://query[12]\\.finance\\.yahoo\\.com/[^\\s\"'<>]*$");
     private static final long TIMEOUT_MS = 25_000, PAGE_MAX_AGE_MS = 10 * 60_000;
 
-    private final MoltrixActivity act;
-    private final FrameLayout root;
+    private final Context ctx;
+    private final FrameLayout root;   // null in a background service (the hidden pages are not put on any screen)
     private final Done done;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -58,7 +59,7 @@ final class MarketFetch {
         Site(String page) { this.page = page; }
     }
 
-    MarketFetch(MoltrixActivity act, FrameLayout root, Done done) { this.act = act; this.root = root; this.done = done; }
+    MarketFetch(Context ctx, FrameLayout root, Done done) { this.ctx = ctx; this.root = root; this.done = done; }
 
     String take(String id) { String r = results.remove(id); return r == null ? "" : r; }
 
@@ -88,7 +89,7 @@ final class MarketFetch {
     private void open(Site s) {
         s.ready = false;
         if (s.view == null) {
-            WebView v = new WebView(act);
+            WebView v = new WebView(ctx);
             WebSettings st = v.getSettings();
             st.setJavaScriptEnabled(true);
             st.setDomStorageEnabled(true);
@@ -113,7 +114,7 @@ final class MarketFetch {
                 }
             });
             v.setVisibility(View.INVISIBLE);
-            root.addView(v, 0, new FrameLayout.LayoutParams(4, 4));   // kept under the app's page, never seen
+            if (root != null) root.addView(v, 0, new FrameLayout.LayoutParams(4, 4));   // kept under the app's page, never seen
             s.view = v;
         }
         s.view.loadUrl(s.page);
@@ -195,7 +196,7 @@ final class MarketFetch {
     }
 
     void destroy() {
-        ui.post(() -> { for (Site s : sites.values()) if (s.view != null) { root.removeView(s.view); s.view.destroy(); } sites.clear(); });
+        ui.post(() -> { for (Site s : sites.values()) if (s.view != null) { if (root != null) root.removeView(s.view); s.view.destroy(); } sites.clear(); });
         pool.shutdownNow();
     }
 }

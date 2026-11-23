@@ -207,5 +207,7 @@ body.erpPhone .irqPhoneOnlyBtn{ display:inline-flex; }
 .fnoRoot .lRow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:12.5px}
 .fnoRoot .lRow b{color:#f1d27a}.fnoRoot .lRow i{margin-left:auto;font-style:normal;font-weight:800;font-size:11px;padding:2px 8px;border-radius:999px}
 .fnoRoot .gwRow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:8px}
-.fnoRoot #gwTgl{height:34px;font-size:12.5px!important}
-.fnoRoot #gwTgl.on{background:#16a34a!important;color:#fff!important;border-color:#16a34a!important}
+.fnoRoot #gwTgl,.fnoRoot #scrBgTgl{height:34px;font-size:12.5px!important}
+.fnoRoot #gwTgl.on,.fnoRoot #scrBgTgl.on{background:#16a34a!important;color:#fff!important;border-color:#16a34a!important}
+.fnoRoot .scrBgRow{margin:0 0 8px}
+.fnoRoot .scrBgRow:empty{display:none}
