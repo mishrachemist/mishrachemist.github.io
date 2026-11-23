@@ -588,8 +588,10 @@
     const row = d.ch.rows[d.a.atmI], p = ltp(row.ce);
     return { exp: d.exp, k: row.k, p, oi: oi(row.ce), sl: p ? tick(p * (1 - FNO_CFG.SL_PCT / 100)) : null, t1: p ? tick(p * (1 + FNO_CFG.T1_PCT / 100)) : null, t2: p ? tick(p * (1 + FNO_CFG.T2_PCT / 100)) : null };
   }
-  // a phone notification for every NEW Screener BUY (once per stock per day)
+  // a phone notification for every NEW Screener BUY scored 10/10 (once per stock per day); every BUY still goes in the Log
+  const NOTIFY_SCORE = 10;
   function scrNotify(buys) {
+    buys = buys.filter(x => x.a && x.a.score >= NOTIFY_SCORE);
     if (!buys.length || !(window.MoltrixApp && MoltrixApp.notify)) return;
     let seen = {}; try { seen = JSON.parse(localStorage.getItem("fnoScrNotified") || "{}"); } catch (e) {}
     const day = istDate(); if (seen.day !== day) seen = { day, syms: [] };
@@ -708,7 +710,7 @@
     return `Step 1 (NSE list of all F&O stocks): up today, above today's open, in the upper 40 % of today's range; the best ${c.PREFILTER_MAX} go on. ` +
       `Step 2 (Yahoo 15-min candles, 1 month): the 10 checks of the V5 PRO Intraday dashboard - VWAP, EMA 9/21, Supertrend 10,3 (these 3 are a must), RSI ${c.RSI[0]}–${c.RSI[1]}, MACD histogram positive and rising, above the opening-range high, above pivot, last candle volume ≥ ${c.RVOL_MIN}× the same time on earlier days (green candle), above the daily EMA 20, Nifty UP. ` +
       `BUY = ≥ ${c.SIGNAL_SCORE}/10 with the 3 musts (RSI not above ${c.RSI_MAX}), ${c.WINDOW[0]}–${c.WINDOW[1]}; WATCH = 4–5. Entry = last candle high + 0.05 %, SL = ${c.ATR_MULT} × ATR(14), T1 / T2 = 1R / 2R. ` +
-      `CE = ATM call of the nearest expiry (the next one when it expires today or tomorrow), SL −${FNO_CFG.SL_PCT} %, T1 +${FNO_CFG.T1_PCT} %, T2 +${FNO_CFG.T2_PCT} %. Scan again every ${c.RESCAN_MIN} min while this tab is open; with 🔔 Background scan ON the app also scans every ${c.RESCAN_MIN} min ${c.WINDOW[0]}–${c.WINDOW[1]} on weekdays with the app closed (skipped when this tab scanned in the last 10 min) and adds the BUYs to the Log; a phone notification for every new BUY (once per stock per day). Delay of Yahoo data: NOT FOUND. A checklist, not a prediction; not investment advice.`;
+      `CE = ATM call of the nearest expiry (the next one when it expires today or tomorrow), SL −${FNO_CFG.SL_PCT} %, T1 +${FNO_CFG.T1_PCT} %, T2 +${FNO_CFG.T2_PCT} %. Scan again every ${c.RESCAN_MIN} min while this tab is open; with 🔔 Background scan ON the app also scans every ${c.RESCAN_MIN} min ${c.WINDOW[0]}–${c.WINDOW[1]} on weekdays with the app closed (skipped when this tab scanned in the last 10 min) and adds the BUYs to the Log; a phone notification only for a new BUY scored 10/10 (once per stock per day); every BUY goes in the Log. Delay of Yahoo data: NOT FOUND. A checklist, not a prediction; not investment advice.`;
   }
 
   window.mzFno = {
