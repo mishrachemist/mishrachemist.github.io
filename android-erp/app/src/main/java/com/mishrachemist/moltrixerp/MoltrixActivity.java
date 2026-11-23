@@ -152,6 +152,7 @@ public class MoltrixActivity extends FragmentActivity {
         if (web.getUrl() == null) web.loadUrl(startUrl(getIntent()));
         if (prefs(this).getBoolean("notify", false)) NotifyWorker.schedule(this);
         if (GammaAlarm.on(this)) GammaAlarm.schedule(this);   // keep the gamma watch's alarm booked
+        if (ScrAlarm.on(this)) ScrAlarm.schedule(this);       // and the background Screener's
         if (lockOn()) cover.post(this::askFingerprint);
     }
 
@@ -387,6 +388,15 @@ public class MoltrixActivity extends FragmentActivity {
                 GammaAlarm.schedule(c);
                 if (GammaService.inWindowNow() && !GammaService.running) runOnUiThread(() -> { try { GammaService.start(c); } catch (Exception ignored) { } });
             } else { GammaAlarm.cancel(c); GammaService.stop(c); prefs(c).edit().putString("gwStatus", "").apply(); }
+        }
+        /** background Screener (ScrService every 15 min, 09:30-14:45 on weekdays) */
+        @JavascriptInterface public boolean scrBgOn() { return ScrAlarm.on(MoltrixActivity.this); }
+        @JavascriptInterface public String scrBgStatus() { return prefs(MoltrixActivity.this).getString("scrStatus", ""); }
+        @JavascriptInterface public void scrBg(boolean on) {
+            Context c = MoltrixActivity.this;
+            prefs(c).edit().putBoolean("scrBgOn", on).apply();
+            if (on) { runOnUiThread(MoltrixActivity.this::askNotifyPermission); ScrAlarm.schedule(c); }
+            else { ScrAlarm.cancel(c); ScrService.stop(c); prefs(c).edit().putString("scrStatus", "").apply(); }
         }
         /** F&O screen: NSE / BSE data through the exchange's own page; Yahoo candles; answer = mkTake(id) after window.mzMkDone(id) */
         @JavascriptInterface public void mkGet(String id, String page, String path) { market.site(id, page, path); }

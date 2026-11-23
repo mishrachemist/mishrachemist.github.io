@@ -261,6 +261,7 @@
       if (e.target.closest("#logClr")) { if (confirm("Clear the whole signal log on this device?")) { logSave([]); renderLog(); } return; }
       if (e.target.closest("#scrGo")) { scan(); return; }
       if (e.target.closest("#gwTgl")) { gwToggle(); return; }
+      if (e.target.closest("#scrBgTgl")) { scrBgToggle(); return; }
       const row = e.target.closest("[data-scrsym]");
       if (row) { state.sel = row.dataset.scrsym; state.tab = "chain"; renderAll(); refresh(false); window.scrollTo({ top: 0, behavior: "instant" }); return; }
       const chip = e.target.closest("[data-fsym]"); if (chip) { state.sel = chip.dataset.fsym; renderAll(); refresh(false); return; }
@@ -417,7 +418,9 @@
       if (!bars) continue;
       open.filter(e => e.sym === sym).forEach(e => { const r = evalStock(e, bars); Object.assign(e, r, { final: dayOver(e.day) && !/^(PENDING|ACTIVE)/.test(r.status) }); });
     }
-    logSave(L);
+    // save into the log as it is NOW: the app and the background scan (same phone storage) may add signals while candles load
+    const upd = new Map(open.map(e => [e.key, e])), L2 = logLoad();
+    logSave(L2.map(e => upd.get(e.key) || e));
   }
   function logWatchOptions(sym, ch) {
     const L = logLoad(); let changed = false;
@@ -611,6 +614,7 @@
     if (scr.busy || !native()) { renderScr(); return; }
     clearTimeout(scr.timer);
     scr.busy = true; scr.err = ""; scr.done = 0; scr.total = 0; renderScr();
+    try { localStorage.setItem("fnoScanAt", String(Date.now())); } catch (e) {}
     try {
       const all = await foList(); scr.universe = all.length;
       const cands = prefilter(all); scr.total = cands.length; renderScr();
@@ -627,13 +631,36 @@
       scr.list = out; scr.at = Date.now(); renderScr();
       scrNotify(out.filter(x => x.a && x.a.signal === "BUY" && x.a.entry));
       out.filter(x => x.a && x.a.signal === "BUY" && x.a.entry).forEach(x => logAdd({ kind: "stock", sym: x.q.symbol, t: x.a.t, entry: x.a.entry, sl: x.a.sl, t1: x.a.t1, t2: x.a.t2, score: x.a.score }));
-      logEvalStocks().catch(() => {});
+      scr.evalP = logEvalStocks().catch(() => {});
+      if (scr.bg) return;   // background scan: no CE suggestions (only shown on the screen)
       for (const r of out.filter(x => x.a && /^BUY/.test(x.a.signal)).slice(0, SCR_CFG.CE_TOP)) {
         try { r.ce = await ceFor(r.q.symbol); } catch (e) { r.ce = { err: e.message }; }
         renderScr();
       }
     } catch (e) { scr.err = e.message || String(e); mzErrAdd("Screener", scr.err); }
-    finally { scr.busy = false; renderScr(); scheduleScr(); widgetPush(); }
+    finally { scr.busy = false; renderScr(); scheduleScr(); if (!scr.bg) widgetPush(); }
+  }
+  // background Screener (Android app: ScrAlarm + ScrService open scr-bg.html every 15 min, 09:30-14:45 on weekdays)
+  const scrBgOk = () => !!(window.MoltrixApp && typeof MoltrixApp.scrBg === "function");
+  function scrBgHtml() {
+    if (!scrBgOk()) return "";
+    let on = false, st = ""; try { on = MoltrixApp.scrBgOn(); st = MoltrixApp.scrBgStatus() || ""; } catch (e) {}
+    return `<button type="button" id="scrBgTgl" class="scrGo ${on ? "on" : ""}">🔔 Background scan: ${on ? "ON" : "OFF"}</button>${on && st ? `<small>${esc(st)}</small>` : ""}`;
+  }
+  function scrBgToggle() {
+    let on = false; try { on = MoltrixApp.scrBgOn(); } catch (e) {}
+    try { MoltrixApp.scrBg(!on); } catch (e) {}
+    setTimeout(renderScr, 300);
+  }
+  async function bgScan() {
+    const hm = istHM();
+    if (!marketOpen() || hm < SCR_CFG.WINDOW[0] || hm > SCR_CFG.WINDOW[1]) return { skip: "outside " + SCR_CFG.WINDOW.join("–") };
+    let last = 0; try { last = +localStorage.getItem("fnoScanAt") || 0; } catch (e) {}
+    if (Date.now() - last < 10 * 60000) return { skip: "scanned in the app at " + istHM(new Date(last)) };
+    scr.bg = true;
+    await scan();
+    if (scr.evalP) await scr.evalP;
+    return { checked: scr.total, buy: scr.list.filter(x => x.a && x.a.signal === "BUY" && x.a.entry).length, err: scr.err };
   }
   function scheduleScr() {
     clearTimeout(scr.timer);
@@ -650,10 +677,11 @@
     if (!v.dataset.built) {
       v.dataset.built = "1";
       v.innerHTML = `<div class="fBar"><button type="button" id="scrGo" class="scrGo">🔎 Scan now</button><span class="fStatus scrStat"><span id="scrStat"></span><span class="mzInfoNote fRules" data-info-for=".scrStat">${esc(scrRules())}</span></span></div>
-        <div class="scrProgW"><i id="scrProg"></i></div><div id="scrList"></div>`;
+        <div class="gwRow scrBgRow" id="scrBgRow"></div><div class="scrProgW"><i id="scrProg"></i></div><div id="scrList"></div>`;
       if (window.mzInfoAttach) window.mzInfoAttach(v);
     }
     const go = $("scrGo"); go.disabled = scr.busy;
+    { const b = $("scrBgRow"); if (b) b.innerHTML = scrBgHtml(); }
     $("scrProg").parentNode.classList.toggle("hidden", !scr.busy);
     renderScrProgress();
     const buys = scr.list.filter(x => x.a && /^BUY/.test(x.a.signal)), watch = scr.list.filter(x => x.a && x.a.signal === "WATCH");
@@ -680,7 +708,7 @@
     return `Step 1 (NSE list of all F&O stocks): up today, above today's open, in the upper 40 % of today's range; the best ${c.PREFILTER_MAX} go on. ` +
       `Step 2 (Yahoo 15-min candles, 1 month): the 10 checks of the V5 PRO Intraday dashboard - VWAP, EMA 9/21, Supertrend 10,3 (these 3 are a must), RSI ${c.RSI[0]}–${c.RSI[1]}, MACD histogram positive and rising, above the opening-range high, above pivot, last candle volume ≥ ${c.RVOL_MIN}× the same time on earlier days (green candle), above the daily EMA 20, Nifty UP. ` +
       `BUY = ≥ ${c.SIGNAL_SCORE}/10 with the 3 musts (RSI not above ${c.RSI_MAX}), ${c.WINDOW[0]}–${c.WINDOW[1]}; WATCH = 4–5. Entry = last candle high + 0.05 %, SL = ${c.ATR_MULT} × ATR(14), T1 / T2 = 1R / 2R. ` +
-      `CE = ATM call of the nearest expiry (the next one when it expires today or tomorrow), SL −${FNO_CFG.SL_PCT} %, T1 +${FNO_CFG.T1_PCT} %, T2 +${FNO_CFG.T2_PCT} %. Scan again every ${c.RESCAN_MIN} min while this tab is open; a phone notification for every new BUY (once per stock per day). Delay of Yahoo data: NOT FOUND. A checklist, not a prediction; not investment advice.`;
+      `CE = ATM call of the nearest expiry (the next one when it expires today or tomorrow), SL −${FNO_CFG.SL_PCT} %, T1 +${FNO_CFG.T1_PCT} %, T2 +${FNO_CFG.T2_PCT} %. Scan again every ${c.RESCAN_MIN} min while this tab is open; with 🔔 Background scan ON the app also scans every ${c.RESCAN_MIN} min ${c.WINDOW[0]}–${c.WINDOW[1]} on weekdays with the app closed (skipped when this tab scanned in the last 10 min) and adds the BUYs to the Log; a phone notification for every new BUY (once per stock per day). Delay of Yahoo data: NOT FOUND. A checklist, not a prediction; not investment advice.`;
   }
 
   window.mzFno = {
@@ -690,6 +718,7 @@
       else if (state.tab === "log") logUpdate(); else refresh(!Object.keys(state.data).length); },
     hide() { state.open = false; clearTimeout(state.timer); clearTimeout(scr.timer); const r = $("fnoRoot"); if (r) r.classList.add("hidden"); },
     refresh() { if (state.tab === "scr") scan(); else refresh(true); },
+    bgScan,
     _test: { scrNotify, logLoad, logSave, logEvalStock: evalStock, scr, intraScan: (bars, nb) => intra(bars, nb), niftyBias, prefilter, parseChain, analyse, signal, sellSetup, trendOf, gamma, expISO, dte, FNO_CFG, state }
   };
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && state.open && state.tab === "chain") refresh(false); });
