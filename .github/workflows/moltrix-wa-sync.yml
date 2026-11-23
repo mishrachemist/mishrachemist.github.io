@@ -148,6 +148,8 @@ jobs:
           if (sr.status === 404) fail("wa_inbox_state.json not found in this account's OneDrive - sign in (Moltrix Microsoft login) with the main account that the app uses.");
           if (!sr.ok) fail("Could not read the WhatsApp state from OneDrive (" + sr.status + ").");
           const keys = ((await sr.json().catch(() => ({}))) || {}).keys || {};
+          // ☁️ Cloud auto sync switched OFF in the app (WhatsApp → ☁️ Cloud auto sync) - no fetch, also not a forced one
+          if (keys.waCloudOff === "1") { out("⏸️ Cloud auto sync is OFF in the Moltrix app - nothing fetched."); process.exit(0); }
           if (!keys.waInboxUrl || !keys.waInboxToken) fail("WhatsApp Inbox URL / TOKEN are not saved in the app (⚙️ Inbox Settings).");
           const parse = txt => { if (/^\s*(every\s*hour|hourly)\s*$/i.test(String(txt || ""))) return Array.from({ length: 24 }, (_, h) => [h, 0]); const o = []; for (const p of String(txt || "").split(/[,;\s]+/).filter(Boolean)) { const m = /^(\d{1,2})(?:[:.](\d{2}))?$/.exec(p); if (!m || +m[1] > 23 || +(m[2] || 0) > 59) return null; o.push([+m[1], +(m[2] || 0)]); } return o; };
           const key = x => (parse(x) || []).map(v => v[0] * 60 + v[1]).sort((p, q) => p - q).join(",");
