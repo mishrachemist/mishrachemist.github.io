@@ -1719,8 +1719,8 @@
   .hidden{display:none !important;}
   /* ===== View-only (team) accounts ===== */
   body.userMode .ownerOnly, body.userMode #askFab, body.userMode #askFabBubble, body.userMode #kashviPanel{ display:none !important; }
-  body.userMode.mktAllowed .navItem[data-section="marketdash"]{ display:flex !important; }   /* Market for chosen granted users */
-  body.userMode.mktAllowed #section-marketdash:not(.hidden){ display:block !important; }
+  body.mktAllowed .navItem[data-section="marketdash"]{ display:flex !important; }   /* Market for every account allowed to sign in */
+  body.mktAllowed #section-marketdash:not(.hidden){ display:block !important; }
   body.viewerMode .ownerOnly,
   body.viewerMode .vmBlocked,
   body.viewerMode #mainSidebar > .navItem[data-section="whatsapp"],

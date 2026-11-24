@@ -364,7 +364,7 @@ const NAV_SUB = { dashboard: "Production overview", stock: "Billet & RM stock", 
   whatsapp: "WhatsApp / paste entry", heatwiseconsumption: "Consumption per heat", partyreports: "Party test certificates",
   nextday: "Next day blocks", reports: "PDF reports", edgecrack: "Edge crack QC", iso9001: "NCR, calibration, vendors",
   inwardqc: "Quarter reports", smartsummary: "Smart summary", whatif: "What-if simulator", askdata: "Ask your data",
-  indstd: "Indian Standards", sopwi: "SOP / work instructions", element: "Solutions, periodic table, safety", marketdash: "Swing market health (admin)", aop: "Annual operating plan" };
+  indstd: "Indian Standards", sopwi: "SOP / work instructions", element: "Solutions, periodic table, safety", marketdash: "Market: swing health, F&O, gold / silver", aop: "Annual operating plan" };
 const ICON_STYLES = [
   { id: "classic", name: "Classic", note: "Glossy navy tiles with colour emoji (the current look)" },
   { id: "flat", name: "1. Flat gold line icons", note: "Clean and professional, all icons one set" },
