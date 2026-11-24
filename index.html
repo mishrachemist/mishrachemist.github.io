@@ -2791,6 +2791,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
             <div class="mdBtns">
               <button type="button" id="mdReload" title="Reload" aria-label="Reload"><span>⟳</span></button>
               <button type="button" id="mdWideBtn" title="Wide view" aria-label="Wide view" aria-pressed="false"><span>↔</span></button>
+              <button type="button" id="mdFsBtn" title="Full screen" aria-label="Full screen" aria-pressed="false"><span>⛶</span></button>
               <button type="button" id="mdSetupBtn" title="Dashboard link" aria-label="Dashboard link">⚙️</button>
             </div>
           </div>
@@ -2804,7 +2805,8 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
           <input type="range" id="mdPan" class="mdPan hidden" min="0" max="1000" value="0" aria-label="Move sideways">
           <div class="mdWrap">
             <div id="mdLoading" class="mdLoading hidden"><div class="mdBars"><i></i><i></i><i></i><i></i><i></i></div><div>Loading market data…</div></div>
-            <iframe id="mdFrame" title="Market Health Dashboard" referrerpolicy="no-referrer" allow="clipboard-write"></iframe>
+            <iframe id="mdFrame" title="Market Health Dashboard" referrerpolicy="no-referrer" allow="clipboard-write; fullscreen" allowfullscreen></iframe>
+            <button type="button" id="mdFsExit" class="mdFsExit hidden" title="Exit full screen" aria-label="Exit full screen">✕</button>
           </div>
           </div>
         </div>
@@ -3075,6 +3077,12 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
   /* ↔ Wide view: the dashboard opens at PC width (wider columns, thinner rows); the box scrolls sideways */
   #section-marketdash .mdWrap.mdWideOn{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:thin}
   #section-marketdash .mdWrap.mdWideOn #mdFrame{width:1000px;max-width:none}
+  #section-marketdash .mdWrap.mdFs{position:fixed;inset:0;z-index:99990;width:100vw;height:100vh;height:100dvh;margin:0;border-radius:0;border:0;background:#0b1220;animation:none}
+  #section-marketdash .mdWrap.mdFs #mdFrame{height:100vh!important;height:100dvh!important;min-height:0}
+  body.mdFsBody{overflow:hidden}
+  #section-marketdash .mdFsExit{position:absolute;top:10px;right:10px;z-index:3;width:38px!important;height:38px;margin:0!important;padding:0!important;border-radius:50%!important;border:1px solid rgba(201,162,39,.8)!important;background:rgba(11,37,69,.82)!important;color:#fff!important;font-size:16px;line-height:1;cursor:pointer;opacity:.8}
+  #section-marketdash .mdFsExit.hidden{display:none}
+  #section-marketdash .mdBtns button#mdFsBtn[aria-pressed="true"]{background:#c9a227!important;color:#0b2545!important}
   #section-marketdash .mdWrap.mdWideOn::-webkit-scrollbar{height:8px}
   #section-marketdash .mdWrap.mdWideOn::-webkit-scrollbar-thumb{background:rgba(201,162,39,.75);border-radius:4px}
   .xlTabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:14px;background:rgba(0,0,0,.05);padding:4px;border-radius:12px}
@@ -3151,7 +3159,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
   #bxPanel .bxNews small{ display:block; color:var(--muted); font-size:11px; }
   #bxPanel .bxFoot{ font-size:11.5px; color:var(--muted); margin:10px 2px 18px; line-height:1.5; }
 </style>
-<script src="js/market-health.js?v=ae4ccbea48"></script>
+<script src="js/market-health.js?v=90613b070b"></script>
 <script src="js/gold-silver.js?v=eab1197c9a"></script>
 <script src="js/phone-back.js?v=7c0eecf992"></script>
 <script>
