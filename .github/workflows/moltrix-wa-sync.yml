@@ -1,4 +1,5 @@
-# Moltrix - WhatsApp -> Excel sync in the cloud (runs even when the phone and the PC are off).
+# Moltrix - WhatsApp Inbox -> Excel sync in the cloud (runs even when the app is closed and the PC is off; the
+# phone must be on, because MacroDroid on it puts each WhatsApp message into the Inbox Google Sheet).
 # Started every hour by a time trigger in the WA Inbox Google Apps Script (workflow_dispatch), because GitHub skips
 # most scheduled runs; the hourly cron below is only a spare. Each start first checks the shared OneDrive state
 # (wa_inbox_state.json); the real Fetch runs only when a fixed time (default: every hour) has passed and no

@@ -1095,7 +1095,7 @@ function waCloudShowInfo() {
   if (cb) { cb.checked = waCloudOn(); cb.disabled = !waSyncEnabled(); }
   if (!el) return;
   if (!waSyncEnabled()) { el.textContent = "Only for the main owner account."; return; }
-  el.textContent = waCloudOn() ? "ON - WhatsApp messages go to Excel even when the phone and PC are off."
+  el.textContent = waCloudOn() ? "ON - messages in the WhatsApp Inbox go to Excel even when the app is closed and the PC is off. The phone must be on: MacroDroid puts the messages in the Inbox."
     : "OFF - only 📥 Fetch WhatsApp in the app saves the messages.";
 }
 function waSlotShowInfo() {
