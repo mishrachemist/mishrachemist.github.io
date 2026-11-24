@@ -1100,25 +1100,10 @@ function accountRole(acc) {
 const ACCESS_URL = "https://script.google.com/macros/s/AKfycbwme6XZoDPZAMSd3cg44CI6AnPDTx3hes0EPL3rcyHIaZPtUlpl6TSPb0LCkGjunW94/exec";   // the SMS Access Apps Script web-app URL (…/exec)
 function accessUrl() { try { return ACCESS_URL || localStorage.getItem("accessUrl") || ""; } catch (e) { return ACCESS_URL; } }
 function isUserMode() { try { return !!account && accountRole(account) === "user"; } catch (e) { return false; } }
-// Granted (non-owner) accounts that may also open the Market tile. Only SHA-256 hashes of their sign-in e-mails are kept here.
-// (babbu - both his sign-in e-mail and the outlook_… ID Microsoft uses for him)
-const MKT_USER_HASHES = ["93a333a4cc6f96390e4736c11b080032d30b1de45f7a94a64ffef9d70323553b", "1d8a54be2896dbde83f4b3e62df8c3174a037ea0187a54717b394c5f22efba9c"];
-let _mktOk = false;
-function canMarket() { try { return !!account && (accountRole(account) === "owner" || _mktOk); } catch (e) { return false; } }
-async function refreshMarketAccess() {
-  _mktOk = false;
-  try {
-    if (account && crypto.subtle) {
-      const c = account.idTokenClaims || {};
-      const ids = [...new Set([account.username, c.preferred_username, c.email, c.upn].filter(Boolean).map(v => String(v).trim().toLowerCase()))];
-      for (const id of ids) {
-        const h = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(id)))).map(b => b.toString(16).padStart(2, "0")).join("");
-        if (MKT_USER_HASHES.includes(h)) { _mktOk = true; break; }
-      }
-    }
-  } catch (e) {}
-  document.body.classList.toggle("mktAllowed", canMarket());
-}
+// Market tile: every account allowed to sign in to the app (owner, granted users, view-only team) - 24-Nov-2026
+// (until then only the owner and a short list of granted e-mails)
+function canMarket() { try { return !!account && ["owner", "user", "viewer"].includes(accountRole(account)); } catch (e) { return false; } }
+async function refreshMarketAccess() { document.body.classList.toggle("mktAllowed", canMarket()); }
 let _authTok = null;
 async function authToken(a) {   // a Microsoft token for "User.Read" ONLY (just enough for the server to ask "who is this?")
   if (_authTok && _authTok.id === a.homeAccountId && _authTok.exp - Date.now() > 300000) return _authTok.t;
