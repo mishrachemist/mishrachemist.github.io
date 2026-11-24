@@ -234,7 +234,7 @@ const CHANGELOG_ITEMS = [   // only the first one is shown ("What's new"); the n
   "🗂️ Get Started → Excel Formats: set the file name, sheet names and columns where WhatsApp entries go (heat billets + chemistry, consumption, RHF transfer) - for another company's Excel format",
   "🔑 Fixed the occasional \"interaction_in_progress\" sign-in error, and the page no longer shrinks to a desktop-like view (page scrolling works again)",
   "🔔 WhatsApp cloud sync now runs every hour, and can send a notification to this phone when it saves something (Production Update → 🔔 Notify this device)",
-  "☁️ WhatsApp sync now runs from the cloud at 04:00 and 12:00 (phone and PC can be off); the MacroDroid auto-open macro is no longer needed",
+  "☁️ WhatsApp sync now runs from the cloud at 04:00 and 12:00 (app closed and PC off is fine; the phone stays on for MacroDroid); the MacroDroid auto-open macro is no longer needed",
   "📐 Every WI now has a diagram: the other 48 WIs got a main-steps flowchart with a schematic of the set-up (titration, ignition and weighing, drying, sieving, magnetic separation, OES / ICP / ion chromatograph, pyknometer, viscometer, Nessler cylinders)",
   "🧪 New WI: DM/QA/WI/22 FeO in Slag & Sponge Iron - lab method (0.2 g, Na2CO3 + HCl 1:1 + HF + H3PO4, dichromate; FeO = BR × 0.718 / W); later WIs moved one number up (coal now from WI/23)",
   "📐 Apparatus diagrams added to 16 WIs (carbon / sulphur combustion trains, sulphur evolution, Fe(M) flasks, silver reductor, FeO in slag, VM crucible, Lunge nitrometer, tin flask, ion-exchange column) - in the app and in the print / PDF",
