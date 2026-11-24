@@ -29,7 +29,7 @@
   let loaded = false, loadedUrl = "";
   // F&O: its own screen (js/fno.js, data from NSE through the Android app) instead of a dashboard link
   const fnoMode = on => {
-    ["mdWideBtn", "mdSetupBtn", "mdPan"].forEach(id => { const el = $(id); if (el) el.classList.toggle("fnoHide", on); });
+    ["mdWideBtn", "mdFsBtn", "mdSetupBtn", "mdPan"].forEach(id => { const el = $(id); if (el) el.classList.toggle("fnoHide", on); });
     const w = document.querySelector("#section-marketdash .mdWrap"); if (w) w.classList.toggle("hidden", on);
     if (on) { $("mdEmpty").classList.add("hidden"); $("mdSetup").classList.add("hidden"); $("mdLoading").classList.add("hidden"); $("mdSub").textContent = "Option chain · NSE"; if (window.mzFno) window.mzFno.show(); }
     else if (window.mzFno) window.mzFno.hide();
@@ -73,6 +73,7 @@
   document.querySelectorAll("#marketSubNav .navItem").forEach(b => b.addEventListener("click", () => openMarket(b.dataset.submkt)));
   $("backToMarketMenuBtn").addEventListener("click", () => {
     if (window.mzFno) window.mzFno.hide();
+    { const w = document.querySelector("#section-marketdash .mdWrap"); if (w && w.classList.contains("mdFs")) document.getElementById("mdFsExit").click(); }
     $("marketSubContent").classList.add("hidden");
     $("marketSubNav").classList.remove("hidden");
     const mb = $("mainBackBar"); if (mb) mb.classList.remove("hidden");
@@ -96,6 +97,32 @@
     pan.addEventListener("input", () => { w.scrollLeft = room() * pan.value / 1000; });
     w.addEventListener("scroll", () => { const r = room(); pan.value = r ? Math.round(w.scrollLeft / r * 1000) : 0; }, { passive: true });
   }
+  // ⛶ Full screen: the dashboard fills the whole screen (browser full screen where allowed, otherwise it covers the page).
+  // The dashboards' own ⛶ button asks for the same thing with a message {v5: "fs"}.
+  let fsSrc = null;
+  const fsWrap = () => document.querySelector("#section-marketdash .mdWrap");
+  const fsIsOn = () => { const w = fsWrap(); return !!(w && w.classList.contains("mdFs")); };
+  const fsTell = () => { try { if (fsSrc) fsSrc.postMessage({ v5fs: fsIsOn() }, "*"); } catch (e) {} };
+  const fsSet = on => {
+    const w = fsWrap(); if (!w) return;
+    w.classList.toggle("mdFs", on); document.body.classList.toggle("mdFsBody", on);
+    $("mdFsExit").classList.toggle("hidden", !on); $("mdFsBtn").setAttribute("aria-pressed", on ? "true" : "false");
+    const fe = document.fullscreenElement || document.webkitFullscreenElement;
+    if (on && !fe) { try { const r = (w.requestFullscreen || w.webkitRequestFullscreen || function () {}).call(w, { navigationUI: "hide" }); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+    if (!on && fe) { try { const r = (document.exitFullscreen || document.webkitExitFullscreen).call(document); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+    fsTell();
+  };
+  $("mdFsBtn").addEventListener("click", () => fsSet(!fsIsOn()));
+  $("mdFsExit").addEventListener("click", () => fsSet(false));
+  const fsChange = () => { if (!(document.fullscreenElement || document.webkitFullscreenElement) && fsIsOn()) fsSet(false); };
+  document.addEventListener("fullscreenchange", fsChange); document.addEventListener("webkitfullscreenchange", fsChange);
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && fsIsOn()) fsSet(false); });
+  window.addEventListener("message", e => {
+    if (!/(^https:\/\/[\w.-]+\.googleusercontent\.com$)|(^https:\/\/script\.google\.com$)/.test(e.origin || "")) return;
+    const d = e.data; if (!d || d.v5 !== "fs") return;
+    fsSrc = e.source;
+    if (d.want === "state") fsTell(); else fsSet(typeof d.on === "boolean" ? d.on : !fsIsOn());
+  });
   $("mdSetupBtn").addEventListener("click", () => { $("mdUrlIn").value = getUrl(); $("mdSetup").classList.toggle("hidden"); });
   $("mdSave").addEventListener("click", () => {
     const u = clean($("mdUrlIn").value);
