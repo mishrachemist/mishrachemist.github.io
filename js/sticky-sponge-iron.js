@@ -170,6 +170,9 @@
   // draw whenever the page is opened (date refreshed to today)
   const tile = document.querySelector('#whatsappSubNav .navItem[data-subwhatsapp="spongenote"]');
   if (tile) tile.addEventListener("click", () => { $("snDate").value = todayVal(); render(); });
-  render();
+  // the picture is drawn only when its page is first shown (it used to be drawn on every app start)
+  { const img = $("snPreview");
+    if (img && "IntersectionObserver" in window) { const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); render(); } }); io.observe(img); }
+    else render(); }
   window.spongeNoteRender = render;
 })();
