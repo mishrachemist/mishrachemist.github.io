@@ -1,6 +1,7 @@
-/* ===================== MARKET HEALTH (Dashboard, owner only) =====================
-   The Apps Script web-app link (with its private key) is kept only in this device's
-   localStorage - never in this public website code. */
+/* ===================== MARKET HEALTH (Dashboard) =====================
+   The Apps Script web-app links (with their private key) are never in this public website code. The owner's device
+   keeps them in localStorage and (26-Nov-2026) shares them through the private access server, which hands them only to
+   accounts that may sign in ("whoami" → dash); every Market account then opens the dashboards without pasting a link. */
 (function () {
   // two dashboards: India (Dashboard 2) and USA - each with its own link saved on this device
   const MKT = {
@@ -13,7 +14,24 @@
   const lsKey = () => MKT[cur].ls;
   const $ = id => document.getElementById(id);
   const isOwner = () => { try { return !!account && accountRole(account) === "owner"; } catch (e) { return false; } };
-  const getUrl = () => { try { return localStorage.getItem(lsKey()) || ""; } catch (e) { return ""; } };
+  const shared = () => { try { return JSON.parse(localStorage.getItem("mktDashShared") || "{}") || {}; } catch (e) { return {}; } };
+  const ownUrl = () => { try { return localStorage.getItem(lsKey()) || ""; } catch (e) { return ""; } };
+  const getUrl = () => ownUrl() || shared()[cur] || "";
+  // owner: send this device's links to the access server (only when they differ from what it already has)
+  async function share(have) {
+    if (!isOwner() || typeof authCall !== "function" || typeof accessUrl !== "function" || !accessUrl()) return;
+    let key = ""; try { key = localStorage.getItem("accessKey") || ""; } catch (e) {}
+    if (!key) return;
+    const mine = {}; ["ind", "us", "intra"].forEach(k => { try { const u = localStorage.getItem(MKT[k].ls) || ""; if (u && valid(u)) mine[k] = u; } catch (e) {} });
+    const now = have || shared();
+    if (["ind", "us", "intra"].every(k => (mine[k] || "") === (now[k] || ""))) return;
+    try {
+      const j = await authCall({ action: "dash", key, dash: JSON.stringify(mine) });
+      if (j && j.ok) { try { localStorage.setItem("mktDashShared", JSON.stringify(mine)); } catch (e) {} }
+      else if (window.mzErr) mzErr("Market", "sharing the dashboard links: " + ((j && j.error) || "no answer") + (j && j.error === "unknown action" ? " - paste the new access script" : ""));
+    } catch (e) { if (window.mzErr) mzErr("Market", "sharing the dashboard links: " + (e.message || e)); }
+  }
+  window.mzMktShare = have => share(have && typeof have === "object" ? have : null);
   // Cleans a pasted link: removes spaces/line breaks, the "/u/0/" account part and "<>" around the key.
   const clean = u => String(u || "").replace(/\s+/g, "").replace(/[<>"']/g, "").replace(/\/macros\/u\/\d+\/s\//, "/macros/s/");
   const why = u => {
@@ -40,7 +58,10 @@
     const u = getUrl(), f = $("mdFrame");
     if (!(typeof canMarket === "function" ? canMarket() : isOwner())) { f.removeAttribute("src"); $("mdEmpty").textContent = "Owner only."; $("mdEmpty").classList.remove("hidden"); return; }
     if (!u) { f.classList.add("hidden"); f.removeAttribute("src"); loaded = false; loadedUrl = ""; $("mdLoading").classList.add("hidden"); $("mdReload").classList.remove("spin");
-      $("mdSub").textContent = "No link yet"; $("mdEmpty").textContent = "No link saved on this device yet — tap ⚙️ and paste the " + (cur === "us" ? "USA" : cur === "intra" ? "Intraday" : cur === "fno" ? "F&O" : "India") + " dashboard link."; $("mdEmpty").classList.remove("hidden"); return; }
+      $("mdSub").textContent = "No link yet";
+      $("mdEmpty").textContent = isOwner() ? "No link saved on this device yet — tap ⚙️ and paste the " + (cur === "us" ? "USA" : cur === "intra" ? "Intraday" : "India") + " dashboard link."
+        : "This dashboard is not shared yet.";
+      $("mdEmpty").classList.remove("hidden"); return; }
     $("mdEmpty").classList.add("hidden"); f.classList.remove("hidden");
     if (force || !loaded || loadedUrl !== u) {
       $("mdLoading").classList.remove("hidden"); f.classList.add("mdHide"); $("mdReload").classList.add("spin");
@@ -123,16 +144,18 @@
     fsSrc = e.source;
     if (d.want === "state") fsTell(); else fsSet(typeof d.on === "boolean" ? d.on : !fsIsOn());
   });
-  $("mdSetupBtn").addEventListener("click", () => { $("mdUrlIn").value = getUrl(); $("mdSetup").classList.toggle("hidden"); });
+  $("mdSetupBtn").addEventListener("click", () => { $("mdUrlIn").value = ownUrl(); $("mdSetup").classList.toggle("hidden"); });
   $("mdSave").addEventListener("click", () => {
     const u = clean($("mdUrlIn").value);
     const w = why(u);
     if (w) { $("mdMsg").textContent = "⚠️ " + w; return; }
     try { localStorage.setItem(lsKey(), u); } catch (e) {}
     $("mdMsg").textContent = "✅ Saved"; $("mdSetup").classList.add("hidden"); loaded = false; load(true);
+    share();   // owner: everyone with the Market tile gets the new link
   });
   $("mdClear").addEventListener("click", () => {
     try { localStorage.removeItem(lsKey()); } catch (e) {}
     $("mdUrlIn").value = ""; $("mdFrame").removeAttribute("src"); loaded = false; $("mdMsg").textContent = "Removed from this device"; load(false);
+    share();   // owner: stop sharing it too
   });
 })();

@@ -97,6 +97,7 @@ function doPost(e) {
       const r = { ok: true, role: role };
       if (role === "owner") r.cfg = { owners: lc_(OWNERS), viewers: lc_(VIEWERS), revoke: lc_(REVOKE) };
       else { const mine = list_().filter(function (x) { return x.email === me.email; })[0]; r.hide = (mine && mine.hide) || []; }   // tiles the owner hid for this account
+      if (role !== "none") r.dash = dash_();      // Market dashboard links the owner shares with every account that may sign in
       return out_(r);
     }
     if (action === "log") {
@@ -129,6 +130,16 @@ function doPost(e) {
         if (!it) throw new Error("not in the access list: " + email);
         it.hide = h;
         save_(L);
+      } else if (action === "dash") {           // the owner's Market dashboard links (India / USA / Intraday), shared with every account
+        let d = {}; try { d = JSON.parse(String(p.dash || "{}")); } catch (x) { throw new Error("bad links"); }
+        const ok = {};
+        ["ind", "us", "intra"].forEach(function (k) {
+          const u = String(d[k] || "");
+          if (!u) return;
+          if (!/^https:\\/\\/script\\.google\\.com\\/macros\\/s\\/[A-Za-z0-9_-]{30,}\\/exec(\\?[A-Za-z0-9_=&.%-]*)?$/.test(u) || u.length > 400) throw new Error("not a dashboard link: " + k);
+          ok[k] = u;
+        });
+        PropertiesService.getScriptProperties().setProperty("dash", JSON.stringify(ok));
       } else if (action !== "list") {
         throw new Error("unknown action");
       }
@@ -203,6 +214,7 @@ function safe_(v) { const s = String(v == null ? "" : v).replace(/[\\r\\n\\t]+/g
 function lc_(a) { return a.map(function (x) { return String(x).trim().toLowerCase(); }); }
 function sha_(s) { return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, s).map(function (b) { return ("0" + (b & 255).toString(16)).slice(-2); }).join(""); }
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+function dash_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty("dash") || "{}"); } catch (e) { return {}; } }
 function list_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty("access") || "[]"); } catch (e) { return []; } }
 function save_(L) { PropertiesService.getScriptProperties().setProperty("access", JSON.stringify(L)); }
 `;

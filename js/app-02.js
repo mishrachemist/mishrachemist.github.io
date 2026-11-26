@@ -1163,10 +1163,12 @@ async function accessWho(acc) {   // "owner" | "viewer" | "user" | "none"; throw
     else localStorage.setItem("roleCache:" + em, JSON.stringify({ r: role, t: Date.now() }));
     if (role === "user" || role === "viewer") localStorage.setItem("tileHide:" + em, JSON.stringify(Array.isArray(j.hide) ? j.hide : []));
     else localStorage.removeItem("tileHide:" + em);
+    // Market dashboard links the owner shared (26-Nov-2026) - kept on this device, used when it has no link of its own
+    if (j.dash && typeof j.dash === "object") localStorage.setItem("mktDashShared", JSON.stringify(j.dash)); else if (role === "none") localStorage.removeItem("mktDashShared");
   } catch (e) {}
   delete _roleMem[em];
   setTimeout(tileHideApply, 0);
-  if (role === "owner") applyOwnerCfg(j.cfg);
+  if (role === "owner") { applyOwnerCfg(j.cfg); setTimeout(() => { if (window.mzMktShare) window.mzMktShare(j.dash); }, 0); }
   return role;
 }
 async function accessCheck(email) { return (await accessWho(account)) !== "none"; }   // true / false; throws when the server can't be reached
