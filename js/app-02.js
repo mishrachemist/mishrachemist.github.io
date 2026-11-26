@@ -322,37 +322,38 @@ function getGreeting() {
 // purely visual flair, positioned as a compact inline icon.
 /* ===================== DAY / FESTIVAL STICKER ===================== */
 // Real day-of-week stickers (Monday..Sunday) supplied by the user, embedded
-// directly as images rather than redrawn in SVG. Index 0=Sunday..6=Saturday
+// directly as images rather than redrawn in SVG. 26-Nov-2026: the 190 px originals were upscaled 3x
+// (EDSR super-resolution) to 570 px, so they stay sharp on a 1080p phone (shown up to 170 CSS px). Index 0=Sunday..6=Saturday
 // to match Date.getDay().
 const DAY_STICKER_IMAGES = [
-  "img/8ab6d1f1ca31.png", // sunday
-  "img/89e5e2f7a4b1.png", // monday
-  "img/fbf608ecaf18.png", // tuesday
-  "img/f7c0a7f0e0f5.png", // wednesday
-  "img/260e011a63fd.png", // thursday
-  "img/f9d2325f5dc0.png", // friday
-  "img/f86a6e3cc813.png", // saturday
+  "img/a6414f9f7197.webp", // sunday
+  "img/65425dbfa09c.webp", // monday
+  "img/ed628f177016.webp", // tuesday
+  "img/b1b3600c8976.webp", // wednesday
+  "img/5ed7ec0b1d28.webp", // thursday
+  "img/9378a7777771.webp", // friday
+  "img/785eeb3c28f4.webp", // saturday
 ];
 
 const FESTIVALS_2026 = [
-  { date: "2026-01-01", name: "HAPPY NEW YEAR", image: "img/d5ecb75b9c74.png" },
-  { date: "2026-01-14", name: "MAKAR SANKRANTI", image: "img/4cbfe507d9ff.png" },
-  { date: "2026-01-26", name: "HAPPY REPUBLIC DAY", image: "img/b3714f48d0c1.png" },
-  { date: "2026-03-04", name: "HAPPY HOLI", image: "img/156f1b8fe643.png" },
-  { date: "2026-03-30", name: "EID MUBARAK", image: "img/f18f33a29170.png" },
-  { date: "2026-04-14", name: "HAPPY BAISAKHI", image: "img/1c5f10babf40.png" },
-  { date: "2026-05-27", name: "EID AL-ADHA", image: "img/c6febc9e1fca.png" },
-  { date: "2026-07-29", name: "GURU PURNIMA", image: "img/1616009d2614.png" },
-  { date: "2026-08-15", name: "HAPPY INDEPENDENCE DAY", image: "img/52b75ecfaeac.png" },
-  { date: "2026-08-28", name: "RAKSHA BANDHAN", image: "img/474e97d093ff.png" },
-  { date: "2026-09-04", name: "HAPPY JANMASHTAMI", image: "img/6cbb9959f254.png" },
-  { date: "2026-09-14", name: "GANESH CHATURTHI", image: "img/d792bff140f3.png" },
-  { date: "2026-10-11", name: "NAVRATRI", image: "img/4822724289f9.png" },
-  { date: "2026-10-20", name: "HAPPY DUSSEHRA", image: "img/af5b56791c36.png" },
-  { date: "2026-11-06", name: "HAPPY DHANTERAS", image: "img/fac6ba674ae5.png" },
-  { date: "2026-11-08", name: "HAPPY DIWALI", image: "img/9665e23a63ad.png" },
-  { date: "2026-11-10", name: "HAPPY BHAI DOOJ", image: "img/e45176b0383b.png" },
-  { date: "2026-12-25", name: "MERRY CHRISTMAS", image: "img/07935c24878a.png" }
+  { date: "2026-01-01", name: "HAPPY NEW YEAR", image: "img/8a54684334a7.webp" },
+  { date: "2026-01-14", name: "MAKAR SANKRANTI", image: "img/834f0f1c385c.webp" },
+  { date: "2026-01-26", name: "HAPPY REPUBLIC DAY", image: "img/4bc0710b8818.webp" },
+  { date: "2026-03-04", name: "HAPPY HOLI", image: "img/8cdbe2337634.webp" },
+  { date: "2026-03-30", name: "EID MUBARAK", image: "img/3dc106e5a3d0.webp" },
+  { date: "2026-04-14", name: "HAPPY BAISAKHI", image: "img/711f2e694a88.webp" },
+  { date: "2026-05-27", name: "EID AL-ADHA", image: "img/0256d35dd83e.webp" },
+  { date: "2026-07-29", name: "GURU PURNIMA", image: "img/d3b5498da15c.webp" },
+  { date: "2026-08-15", name: "HAPPY INDEPENDENCE DAY", image: "img/257fbfe2116f.webp" },
+  { date: "2026-08-28", name: "RAKSHA BANDHAN", image: "img/e68cd1661c8f.webp" },
+  { date: "2026-09-04", name: "HAPPY JANMASHTAMI", image: "img/cbba1facf8c7.webp" },
+  { date: "2026-09-14", name: "GANESH CHATURTHI", image: "img/eba3ab89cea3.webp" },
+  { date: "2026-10-11", name: "NAVRATRI", image: "img/6ce30da907ea.webp" },
+  { date: "2026-10-20", name: "HAPPY DUSSEHRA", image: "img/b272b6794d11.webp" },
+  { date: "2026-11-06", name: "HAPPY DHANTERAS", image: "img/3f930d2cf610.webp" },
+  { date: "2026-11-08", name: "HAPPY DIWALI", image: "img/b6eb691b3dc9.webp" },
+  { date: "2026-11-10", name: "HAPPY BHAI DOOJ", image: "img/0f6a482e5501.webp" },
+  { date: "2026-12-25", name: "MERRY CHRISTMAS", image: "img/469a85eda117.webp" }
 ];
 
 // Builds a festival sticker (an emoji-in-a-blob) in the same painted-brush-
