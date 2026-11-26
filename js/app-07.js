@@ -237,7 +237,8 @@ async function answerAnyQuery(question) {
   // re-apply the saved spot instead of re-clamping the current (possibly hidden = 0,0) position
   window.addEventListener("resize", restore);
   // when the sticker shows again (Kashvi closed, back on Home) put it back on its saved spot; also places the bubble
-  new MutationObserver(restore).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  let restoreQ = 0;   // at most once per frame (body classes change many times while the app starts)
+  new MutationObserver(() => { if (!restoreQ) restoreQ = requestAnimationFrame(() => { restoreQ = 0; restore(); }); }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
   restore();
   setTimeout(restore, 600);
 })();
@@ -266,7 +267,13 @@ async function answerAnyQuery(question) {
     if (!hide && !bubbleTimerStarted) { bubbleTimerStarted = true; setTimeout(() => bubble.classList.add("gone"), 6000); }
     if (!account && document.body.classList.contains("kashviOpen") && typeof closeKashvi === "function") closeKashvi();
   };
-  new MutationObserver(sync).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class", "style", "hidden"] });
+  // at most once per frame: the page changes many classes / styles while it starts (this used to run hundreds of times then)
+  let syncQ = 0;
+  const syncSoon = () => { if (!syncQ) syncQ = requestAnimationFrame(() => { syncQ = 0; sync(); }); };
+  // only changes that can show / hide Home or the PDF preview matter (not the clock, animations, tiles …)
+  const WATCH = new Set(["mainSidebar", "contentArea", "pdfPreviewOverlay", "appSection", "loginSection", "mainLayout"]);
+  new MutationObserver(ms => { if (ms.some(m => m.target === document.body || WATCH.has(m.target.id) || (m.target.contains && m.target.contains(document.getElementById("mainSidebar"))))) syncSoon(); })
+    .observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class", "style", "hidden"] });
   sync();
 })();
 
