@@ -76,14 +76,18 @@
   };
 
   /* ---- App access list (owner) ---- */
-  const SCRIPT_CODE = (key, owner) => `// Moltrix (SMS Reports) - secure access server.   KEEP THIS PRIVATE: Apps Script only, never GitHub.
-// Paste over ALL the old code of your script. Then: 1) Run the function  authorize  once and accept the permissions.
-// 2) Deploy > Manage deployments > pencil > Version: New version > Deploy   (the /exec link stays the same).
-// ADMIN_KEY: Project Settings > Script Properties > ADMIN_KEY wins; the key below is only used until you add it there.
-const ADMIN_KEY = PropertiesService.getScriptProperties().getProperty("ADMIN_KEY") || "${key}";      // the long code you already use (app: Script setup / key)
-const OWNERS = ["${String(owner || "").replace(/[^a-z0-9@._+-]/gi, "")}"];         // every e-mail YOU sign in with (exact sign-in e-mail). MAIN account FIRST.
-const VIEWERS = [];                           // optional: team e-mails that may only look at reports
-const REVOKE = [];                            // optional: old team e-mails whose OneDrive sharing you want to remove
+  // 26-Nov-2026: the same layout as the owner's live script - the key is NOT written in the code (only in Script
+  // Properties), and every owner / viewer / revoke e-mail this device knows is filled in, so pasting it never drops an owner
+  const emList = a => "[" + [...new Set((a || []).map(x => String(x || "").trim().toLowerCase().replace(/[^a-z0-9@._+-]/g, "")).filter(x => x.includes("@")))].map(x => JSON.stringify(x)).join(",") + "]";
+  const SCRIPT_CODE = (owners, viewers, revoke) => `// SMS Reports - secure access server.   KEEP THIS FILE PRIVATE: Apps Script only, never GitHub.
+// Paste this over ALL the old code of your Apps Script, then:
+//   1) Run the function  authorize  once (Run button) and accept the permissions.
+//   2) Deploy > Manage deployments > pencil > Version: New version > Deploy   (the /exec link stays the same).
+// ADMIN_KEY: kept ONLY in Project Settings > Script Properties (name: ADMIN_KEY) - not written in this code.
+const ADMIN_KEY = PropertiesService.getScriptProperties().getProperty("ADMIN_KEY") || "";
+const OWNERS = ${emList(owners)};   // every e-mail YOU sign in with (exact sign-in e-mail). MAIN account FIRST. Add your other accounts here too.
+const VIEWERS = ${emList(viewers)};                           // optional: team e-mails that may only look at reports
+const REVOKE = ${emList(revoke)};                            // optional: old team e-mails whose OneDrive sharing you want to remove
 
 function doGet() { return out_({ ok: false, error: "please update the app" }); }
 
@@ -97,7 +101,7 @@ function doPost(e) {
       const r = { ok: true, role: role };
       if (role === "owner") r.cfg = { owners: lc_(OWNERS), viewers: lc_(VIEWERS), revoke: lc_(REVOKE) };
       else { const mine = list_().filter(function (x) { return x.email === me.email; })[0]; r.hide = (mine && mine.hide) || []; }   // tiles the owner hid for this account
-      if (role !== "none") r.dash = dash_();      // Market dashboard links the owner shares with every account that may sign in
+      if (role !== "none" && (r.hide || []).indexOf("marketdash") < 0) r.dash = dash_();   // Market dashboard links - not to an account whose Market tile is hidden
       return out_(r);
     }
     if (action === "log") {
@@ -122,7 +126,7 @@ function doPost(e) {
       } else if (action === "remove") {
         L = L.filter(function (x) { return x.email !== email; });
         save_(L);
-      } else if (action === "hide") {           // ⚙️ which tiles this account may NOT see
+      } else if (action === "hide") {           // App Access -> gear: which tiles this account may NOT see
         let h = []; try { h = JSON.parse(String(p.hide || "[]")); } catch (x) { throw new Error("bad tile list"); }
         if (!Array.isArray(h) || h.length > 80) throw new Error("bad tile list");
         h = h.map(String).filter(function (t) { return /^[a-z0-9]{1,30}$/.test(t); });
@@ -177,7 +181,7 @@ function role_(email) {
 }
 
 function key_(k) {
-  if (!ADMIN_KEY || ADMIN_KEY.indexOf("PASTE") === 0) throw new Error("set ADMIN_KEY in the script first");
+  if (!ADMIN_KEY) throw new Error("add the script property ADMIN_KEY first (Project Settings > Script Properties)");
   const c = CacheService.getScriptCache();
   const bad = parseInt(c.get("badkey") || "0", 10);
   if (bad >= 8) throw new Error("too many wrong keys - try again in 15 minutes");
@@ -238,16 +242,17 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
       : ((j && j.error) || "no answer from the access script"));
     return j.list || [];
   }
+  const T_ = s => (typeof uiT === "function" ? uiT(s) : s);
   let lastList = [];
   function draw(L) {
     lastList = L;
     const tilesN = accessTiles().length;
     listEl.innerHTML = L.length ? L.map(x => { const h = (x.hide || []).filter(t => accessTiles().some(a => a.id === t)).length;
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(128,128,128,.25);">
-      <span style="flex:1;font-size:13.5px;word-break:break-all;">✅ ${esc(x.email)}<br><small style="opacity:.6;">since ${esc(String(x.added || "").slice(0, 10).split("-").reverse().join("-"))} · ${h ? `${tilesN - h} of ${tilesN} tiles` : "all tiles"}</small></span>
-      <button class="secondary accessTiles" data-e="${esc(x.email)}" type="button" title="Tiles this account can open" style="width:auto;margin:0;padding:6px 10px;font-size:15px;">⚙️</button>
-      <button class="secondary accessRevoke" data-e="${esc(x.email)}" type="button" style="width:auto;margin:0;padding:6px 10px;font-size:12.5px;">🚫 Remove</button></div>`; }).join("")
-      : '<div style="font-size:12.5px;opacity:.7;">No one else has access.</div>';
+      <span style="flex:1;font-size:13.5px;word-break:break-all;">✅ ${esc(x.email)}<br><small style="opacity:.6;">${T_("since")} ${esc(String(x.added || "").slice(0, 10).split("-").reverse().join("-"))} · ${h ? `${tilesN - h} ${T_("of")} ${tilesN} ${T_("tiles")}` : T_("all tiles")}</small></span>
+      <button class="secondary accessTiles" data-e="${esc(x.email)}" type="button" title="${T_("Tiles this account can open")}" style="width:auto;margin:0;padding:6px 10px;font-size:15px;">⚙️</button>
+      <button class="secondary accessRevoke" data-e="${esc(x.email)}" type="button" style="width:auto;margin:0;padding:6px 10px;font-size:12.5px;">${T_("🚫 Remove")}</button></div>`; }).join("")
+      : '<div style="font-size:12.5px;opacity:.7;">' + T_("No one else has access.") + '</div>';
   }
   // ⚙️ per account: tick the tiles / functions it may open (26-Nov-2026)
   function tilesDialog(em) {
@@ -258,14 +263,14 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
     box.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:14px;";
     box.innerHTML = `<div style="background:var(--card,#fffaf2);color:var(--ink,#16233d);border-radius:14px;padding:16px;max-width:460px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.35);">
       <div style="font-weight:700;font-size:15px;">⚙️ ${esc(em)}</div>
-      <div style="display:flex;gap:8px;margin:10px 0 6px;"><button type="button" class="secondary" id="accTilesAll" style="width:auto;margin:0;padding:5px 10px;font-size:12.5px;">✅ All</button>
-        <button type="button" class="secondary" id="accTilesNone" style="width:auto;margin:0;padding:5px 10px;font-size:12.5px;">⬜ None</button></div>
+      <div style="display:flex;gap:8px;margin:10px 0 6px;"><button type="button" class="secondary" id="accTilesAll" style="width:auto;margin:0;padding:5px 10px;font-size:12.5px;">${T_("✅ All")}</button>
+        <button type="button" class="secondary" id="accTilesNone" style="width:auto;margin:0;padding:5px 10px;font-size:12.5px;">${T_("⬜ None")}</button></div>
       <div id="accTilesList" style="overflow:auto;flex:1;border-top:1px solid rgba(128,128,128,.25);">${accessTiles().map(t => `
         <label style="display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid rgba(128,128,128,.18);font-size:14px;cursor:pointer;">
-          <input type="checkbox" data-t="${esc(t.id)}" ${hide.has(t.id) ? "" : "checked"} style="width:auto;margin:0;transform:scale(1.15);"> <span>${esc(t.label)}</span></label>`).join("")}</div>
+          <input type="checkbox" data-t="${esc(t.id)}" ${hide.has(t.id) ? "" : "checked"} style="width:auto;margin:0;transform:scale(1.15);"> <span>${esc(T_(t.label))}</span></label>`).join("")}</div>
       <div id="accTilesMsg" style="font-size:12.5px;min-height:18px;margin-top:8px;"></div>
-      <div style="display:flex;gap:8px;margin-top:6px;"><button type="button" class="primary" id="accTilesSave" style="flex:1;margin:0;">💾 Save</button>
-        <button type="button" class="secondary" id="accTilesClose" style="flex:1;margin:0;">Close</button></div></div>`;
+      <div style="display:flex;gap:8px;margin-top:6px;"><button type="button" class="primary" id="accTilesSave" style="flex:1;margin:0;">${T_("💾 Save")}</button>
+        <button type="button" class="secondary" id="accTilesClose" style="flex:1;margin:0;">${T_("Close")}</button></div></div>`;
     document.body.appendChild(box);
     const boxes = () => [...box.querySelectorAll("input[data-t]")];
     box.addEventListener("click", async e => {
@@ -274,16 +279,18 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
       if (e.target.id === "accTilesNone") boxes().forEach(c => { c.checked = false; });
       if (e.target.id === "accTilesSave") {
         const h = boxes().filter(c => !c.checked).map(c => c.dataset.t), msg = box.querySelector("#accTilesMsg");
-        e.target.disabled = true; msg.textContent = "Saving...";
-        try { draw(await call("hide", em, { hide: JSON.stringify(h) })); msg.textContent = "✅ Saved - it applies the next time " + em + " opens the app."; }
+        e.target.disabled = true; msg.textContent = T_("Saving...");
+        try { draw(await call("hide", em, { hide: JSON.stringify(h) })); msg.textContent = uiLang() === "hi" ? T_("✅ Saved - it applies the next time this account opens the app.") + " (" + em + ")" : "✅ Saved - it applies the next time " + em + " opens the app."; }
         catch (x) { msg.textContent = "⚠️ " + x.message; } finally { e.target.disabled = false; }
       }
     });
   }
   async function refresh() { if (!accessUrl()) { listEl.innerHTML = ""; return; } try { draw(await call("list")); st.textContent = ""; } catch (e) { st.textContent = "⚠️ " + e.message; } }
   $("accessCopyCode").addEventListener("click", async () => {
-    const code = SCRIPT_CODE(getKey(), accountEmail(account));
-    try { await navigator.clipboard.writeText(code); st.textContent = "✅ Script code copied - paste it over the code of your Apps Script, run authorize once, then Deploy → New version."; }
+    const me = accountEmail(account), owners = [me].concat(ALLOWED_EMAILS.filter(x => x !== me));
+    const code = SCRIPT_CODE(owners, VIEWER_EMAILS, TEAM_REVOKE_EMAILS);
+    try { await navigator.clipboard.writeText(code); st.textContent = "✅ Script code copied (owners: " + owners.join(", ") + ") - paste it over the code of your Apps Script, then Deploy → New version. " +
+      "The key stays in Project Settings → Script Properties → ADMIN_KEY" + (getKey() ? " (the key saved on this device: " + getKey() + ")" : "") + "."; }
     catch (e) {
       const ta = document.createElement("textarea"); ta.value = code; ta.style.cssText = "width:100%;height:160px;font-size:11px;";
       st.textContent = "Copy this code:"; st.after(ta); ta.select();
@@ -297,7 +304,7 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
   });
   $("accessSaveKey").addEventListener("click", async () => {
     const k = $("accessKeyInput").value.trim();
-    if (!/^[0-9a-f]{20,}$/i.test(k)) { st.textContent = "⚠️ The key is the long code after ADMIN_KEY = in the script."; return; }
+    if (!/^[0-9a-f]{20,}$/i.test(k)) { st.textContent = "⚠️ The key is the long code saved in the script's Project Settings → Script Properties → ADMIN_KEY."; return; }
     try { localStorage.setItem("accessKey", k); } catch (e) {}
     st.textContent = "Checking..."; await refresh(); if (!/⚠️/.test(st.textContent)) st.textContent = "✅ Key saved.";
   });

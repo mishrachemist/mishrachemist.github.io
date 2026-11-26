@@ -1164,7 +1164,8 @@ async function accessWho(acc) {   // "owner" | "viewer" | "user" | "none"; throw
     if (role === "user" || role === "viewer") localStorage.setItem("tileHide:" + em, JSON.stringify(Array.isArray(j.hide) ? j.hide : []));
     else localStorage.removeItem("tileHide:" + em);
     // Market dashboard links the owner shared (26-Nov-2026) - kept on this device, used when it has no link of its own
-    if (j.dash && typeof j.dash === "object") localStorage.setItem("mktDashShared", JSON.stringify(j.dash)); else if (role === "none") localStorage.removeItem("mktDashShared");
+    // (none sent = this account's Market tile is hidden, or nothing shared: forget what this device had)
+    if (j.dash && typeof j.dash === "object") localStorage.setItem("mktDashShared", JSON.stringify(j.dash)); else if (role !== "owner") localStorage.removeItem("mktDashShared");
   } catch (e) {}
   delete _roleMem[em];
   setTimeout(tileHideApply, 0);

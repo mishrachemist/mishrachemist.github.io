@@ -166,12 +166,11 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Baloo+2:wght@600;700;800&family=Kalam:wght@700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@5.16.0/lib/msal-browser.min.js" integrity="sha384-mSonlgo4vl4zj262I63GBxmML5MIIf43qPe2z9Q+Q7ha6s9DMw7BCQvvNmGfy37I" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js" integrity="sha384-fCAW/rDWORTbQXSiB7mOg0QtQ5c+r0f544y6XoKjuVva0nMBlCpNUjiFeG5iMdS3" crossorigin="anonymous"></script>
+<script src="js/lazy-libs.js?v=ecf80c6f41"></script>
 <script>
 /* ===== Every PDF table (and the JPGs / sticky notes made from those PDFs): a value of 0 is printed blank,
    and a heat number whose row has no real value in it is printed blank too. ===== */
-(function zeroBlankTables() {
+window.mzZeroBlank = function zeroBlankTables() {   // run by js/lazy-libs.js once the PDF library has loaded
   const J = window.jspdf && window.jspdf.jsPDF, api = J && J.API;
   if (!api || typeof api.autoTable !== "function" || api.autoTable._zeroBlank) return;
   const orig = api.autoTable;
@@ -220,10 +219,8 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
   };
   wrapped._zeroBlank = true;
   api.autoTable = wrapped;
-})();
+};
 </script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js" integrity="sha384-XcdcwHqIPULERb2yDEM4R0XaQKU3YnDsrTmjACBZyfdVVqjh6xQ4/DCMd7XLcA6Y" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="css/app-1.css?v=a914b8ace6">
 
 <link rel="stylesheet" href="css/app-2.css?v=7ef588552e">
@@ -1911,11 +1908,11 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
               <button class="secondary" id="waInboxSettingsBtn">⚙️ Inbox Settings</button>
             </div>
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:10px;cursor:pointer;">
-              <input type="checkbox" id="waCloudToggle" checked style="width:auto;margin:0;"> ☁️ Cloud auto sync
+              <input type="checkbox" id="waCloudToggle" checked style="width:auto;margin:0;"> <span data-i18n>☁️ Cloud auto sync</span>
             </label>
             <div id="waCloudInfo" style="font-size:12px;opacity:.75;margin-top:2px;"></div>
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:10px;cursor:pointer;">
-              <input type="checkbox" id="waSlotToggle" checked style="width:auto;margin:0;"> 🕗 Scheduled sync at fixed times
+              <input type="checkbox" id="waSlotToggle" checked style="width:auto;margin:0;"> <span data-i18n>🕗 Scheduled sync at fixed times</span>
             </label>
             <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
               <input type="text" id="waSlotTimes" placeholder="every hour" style="flex:1;margin:0;">
@@ -2983,11 +2980,11 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
   </div>
 </div>
 
-<script src="js/app-01.js?v=b4465b3419"></script>
-<script src="js/app-02.js?v=ada9779193"></script>
+<script src="js/app-01.js?v=828176d851"></script>
+<script src="js/app-02.js?v=d13d0ae5c5"></script>
 <script src="js/app-03.js?v=02ebada266"></script>
 <script src="js/app-04.js?v=aaf34e3136"></script>
-<script src="js/app-05.js?v=8d731a6936"></script>
+<script src="js/app-05.js?v=494cd05504"></script>
 <script src="js/app-06.js?v=455f01999f"></script>
 <script src="js/app-07.js?v=07e11d08b9"></script>
 <script src="js/app-08.js?v=6571f24dd7"></script>
@@ -3037,7 +3034,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
   window.addEventListener("load", () => setTimeout(() => { if (window.requestIdleCallback) requestIdleCallback(() => loadAll(), { timeout: 3000 }); else loadAll(); }, 1200));
 })();
 </script>
-<script src="js/formats-access.js?v=0df817293d"></script>
+<script src="js/formats-access.js?v=37eaed29a8"></script>
 <script src="js/rm-daily-report.js?v=e9e14c2713"></script>
 
 <style>
@@ -3159,7 +3156,7 @@ window.mzAfterLoad = function (f) { if (document.readyState === "loading") docum
   #bxPanel .bxNews small{ display:block; color:var(--muted); font-size:11px; }
   #bxPanel .bxFoot{ font-size:11.5px; color:var(--muted); margin:10px 2px 18px; line-height:1.5; }
 </style>
-<script src="js/market-health.js?v=6ae5826efc"></script>
+<script src="js/market-health.js?v=b3af551b61"></script>
 <script src="js/gold-silver.js?v=eab1197c9a"></script>
 <script src="js/phone-back.js?v=7c0eecf992"></script>
 <script>
@@ -3319,9 +3316,9 @@ async function downloadAndroidApk() {
 <script src="js/error-log.js?v=52373c776e"></script>
 <script src="js/widgets.js?v=da4d544a69"></script>
 <script src="js/info-notes.js?v=133c976721"></script>
-<script src="js/fno.js?v=83bb4f31ea"></script>
+<script src="js/fno.js?v=95e3e99707"></script>
 <script src="js/sheet-fns.js?v=640bfbf43e"></script>
-<script src="js/sheet.js?v=8a73a73283"></script>
+<script src="js/sheet.js?v=884118dc18"></script>
 <script src="js/view-restore.js?v=ea39178432"></script>
 </body>
 </html>
