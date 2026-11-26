@@ -626,6 +626,8 @@ document.getElementById("refreshPageBtn").addEventListener("click", () => {
   location.reload();
 });
 document.getElementById("refreshCornerBtn").addEventListener("click", (e) => {
+  // 26-Nov-2026: refresh in place (js/view-restore.js) - the open page reads its figures again, no reload / sign-in wait
+  if (typeof window.mzSoftRefresh === "function") { window.mzSoftRefresh(); return; }
   e.currentTarget.classList.add("busy");   // spin like the Fetch button while the page reloads
   location.reload();
 });
