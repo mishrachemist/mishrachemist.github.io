@@ -5,7 +5,8 @@
    (PIVOTBY, FORECAST.ETS…, STOCKHISTORY, WEBSERVICE, DETECTLANGUAGE, TRIMRANGE, INFO, JIS, PHONETIC) are in js/sheet-fns.js.
    Saved in the user's own OneDrive app folder ("Moltrix Sheets/<name>.json") and on this device (IndexedDB),
    so a sheet opens offline too; changes are saved a few seconds after each edit.
-   .xlsx: open into a Moltrix Sheet / download as .xlsx (values, formulas, number formats, merges, column widths). ===== */
+   .xlsx: open into a Moltrix Sheet (values, formulas, number formats, merges, column widths, row heights, borders, fill
+   colours, fonts, alignment) / download as .xlsx (values, formulas, number formats, merges, column widths). ===== */
 (function moltrixSheet() {
   const VER = "univer-1.6.0", BASE = "vendor/" + VER + "/";
   const FOLDER = "Moltrix Sheets";
@@ -171,11 +172,113 @@
     Object.keys(S.ASYNC).forEach(n => { try { F.registerAsyncFunction(n, (...a) => cached(n, a, () => S.ASYNC[n](fetcher, ...a)), S.HELP[n] || n); } catch (e) { err("fn " + n, e); } });
   }
 
+  // ---------- .xlsx cell formatting (26-Nov-2026): SheetJS (community) does not read borders, fill colours, fonts or
+  // alignment, so they are read here straight from the file (styles.xml + theme + each sheet's cell "s" index) ----------
+  const XL_IDX = ["000000","FFFFFF","FF0000","00FF00","0000FF","FFFF00","FF00FF","00FFFF","000000","FFFFFF","FF0000","00FF00","0000FF","FFFF00","FF00FF","00FFFF",
+    "800000","008000","000080","808000","800080","008080","C0C0C0","808080","9999FF","993366","FFFFCC","CCFFFF","660066","FF8080","0066CC","CCCCFF",
+    "000080","FF00FF","FFFF00","00FFFF","800080","800000","008080","0000FF","00CCFF","CCFFFF","CCFFCC","FFFF99","99CCFF","FF99CC","CC99FF","FFCC99",
+    "3366FF","33CCCC","99CC00","FFCC00","FF9900","FF6600","666699","969696","003366","339966","003300","333300","993300","993366","333399","333333"];
+  const XL_BORDER = { thin: 1, hair: 2, dotted: 3, dashed: 4, dashDot: 5, dashDotDot: 6, double: 7, medium: 8, mediumDashed: 9, mediumDashDot: 10, mediumDashDotDot: 11, slantDashDot: 12, thick: 13 };
+  const XL_H = { left: 1, center: 2, centerContinuous: 2, right: 3, justify: 4, distributed: 4, fill: 1 }, XL_V = { top: 1, center: 2, bottom: 3, justify: 2, distributed: 2 };
+  function xlTint(hex, tint) {
+    if (!tint) return hex;
+    let r = parseInt(hex.slice(0, 2), 16) / 255, g = parseInt(hex.slice(2, 4), 16) / 255, b = parseInt(hex.slice(4, 6), 16) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b); let h = 0, sat = 0, l = (mx + mn) / 2;
+    if (mx !== mn) { const d = mx - mn; sat = l > .5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h /= 6; }
+    l = tint < 0 ? l * (1 + tint) : l * (1 - tint) + tint;
+    const f = (p, q, t) => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < .5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+    if (!sat) r = g = b = l; else { const q = l < .5 ? l * (1 + sat) : l + sat - l * sat, pp = 2 * l - q; r = f(pp, q, h + 1 / 3); g = f(pp, q, h); b = f(pp, q, h - 1 / 3); }
+    return [r, g, b].map(v => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, "0")).join("").toUpperCase();
+  }
+  function xlsxStyles(buf) {   // → { "<sheet name>": { "r,c": xfIndex }, xf: [univer style …] }  (null when it can't be read)
+    const X = window.XLSX; if (!X || !X.CFB) return null;
+    const zip = X.CFB.read(buf instanceof Uint8Array ? buf : new Uint8Array(buf), { type: "array" });
+    const get = p => { const f = X.CFB.find(zip, p) || X.CFB.find(zip, "/" + p); if (!f || !f.content) return null; return new TextDecoder().decode(f.content instanceof Uint8Array ? f.content : new Uint8Array(f.content)); };
+    const xml = t => t ? new DOMParser().parseFromString(t, "application/xml") : null;
+    const kids = (el, n) => el ? [...el.children].filter(k => k.localName === n) : [];
+    const kid = (el, n) => kids(el, n)[0] || null;
+    const all = (el, n) => el ? [...el.getElementsByTagName("*")].filter(k => k.localName === n) : [];
+    const st = xml(get("xl/styles.xml")); if (!st) return null;
+    // theme colours: Excel's index 0 = lt1, 1 = dk1, 2 = lt2, 3 = dk2, then accent1-6, hlink, folHlink
+    const th = xml(get("xl/theme/theme1.xml")), theme = [];
+    const cs = th ? all(th, "clrScheme")[0] : null;
+    if (cs) { const c = [...cs.children].map(k => { const x = k.firstElementChild; return x ? (x.getAttribute("val") && x.localName === "srgbClr" ? x.getAttribute("val") : x.getAttribute("lastClr") || "000000") : "000000"; });
+      theme.push(c[1], c[0], c[3], c[2], ...c.slice(4)); }
+    const col = el => {
+      if (!el || el.getAttribute("auto") === "1") return null;
+      let hex = null;
+      if (el.getAttribute("rgb")) hex = el.getAttribute("rgb").slice(-6);
+      else if (el.getAttribute("theme") != null) hex = theme[+el.getAttribute("theme")] || null;
+      else if (el.getAttribute("indexed") != null) { const i = +el.getAttribute("indexed"); hex = i === 64 ? "000000" : i === 65 ? "FFFFFF" : XL_IDX[i] || null; }
+      if (!hex) return null;
+      return "#" + xlTint(hex.toUpperCase(), parseFloat(el.getAttribute("tint") || "0"));
+    };
+    const on = el => !!el && !/^(0|false)$/i.test(el.getAttribute("val") || "1");
+    const fonts = kids(kid(st.documentElement, "fonts"), "font").map((f, i) => {
+      const o = {};
+      if (on(kid(f, "b"))) o.bl = 1;
+      if (on(kid(f, "i"))) o.it = 1;
+      if (kid(f, "u") && kid(f, "u").getAttribute("val") !== "none") o.ul = { s: 1 };
+      if (on(kid(f, "strike"))) o.st = { s: 1 };
+      const sz = kid(f, "sz"); if (sz && i > 0) o.fs = +sz.getAttribute("val") || 11;
+      const nm = kid(f, "name"); if (nm && i > 0) o.ff = nm.getAttribute("val");
+      const c = col(kid(f, "color")); if (c && c !== "#000000") o.cl = { rgb: c };
+      return o;
+    });
+    const fills = kids(kid(st.documentElement, "fills"), "fill").map(f => {
+      const pf = kid(f, "patternFill"); if (!pf) return null;
+      const t = pf.getAttribute("patternType") || (kid(pf, "fgColor") ? "solid" : "none");
+      if (t === "none" || t === "gray125") return null;
+      const c = col(kid(pf, "fgColor")) || col(kid(pf, "bgColor"));
+      return c ? { rgb: c } : null;
+    });
+    const borders = kids(kid(st.documentElement, "borders"), "border").map(b => {
+      const o = {};
+      [["left", "l"], ["right", "r"], ["top", "t"], ["bottom", "b"]].forEach(([n, k]) => {
+        const e = kid(b, n), s = e && XL_BORDER[e.getAttribute("style")];
+        if (s) o[k] = { s, cl: { rgb: col(kid(e, "color")) || "#000000" } };
+      });
+      return Object.keys(o).length ? o : null;
+    });
+    const xf = kids(kid(st.documentElement, "cellXfs"), "xf").map(x => {
+      const o = Object.assign({}, fonts[+x.getAttribute("fontId") || 0] || {});
+      const fl = fills[+x.getAttribute("fillId") || 0]; if (fl) o.bg = fl;
+      const bd = borders[+x.getAttribute("borderId") || 0]; if (bd) o.bd = bd;
+      const al = kid(x, "alignment");
+      if (al) {
+        if (XL_H[al.getAttribute("horizontal")]) o.ht = XL_H[al.getAttribute("horizontal")];
+        if (XL_V[al.getAttribute("vertical")]) o.vt = XL_V[al.getAttribute("vertical")];
+        if (/^(1|true)$/i.test(al.getAttribute("wrapText") || "")) o.tb = 3;
+      }
+      return Object.keys(o).length ? o : null;
+    });
+    // which file is which sheet
+    const wbx = xml(get("xl/workbook.xml")), rel = xml(get("xl/_rels/workbook.xml.rels")), target = {};
+    all(rel, "Relationship").forEach(r => { target[r.getAttribute("Id")] = r.getAttribute("Target"); });
+    const out = { xf };
+    all(wbx, "sheet").forEach(sh => {
+      const rid = sh.getAttribute("r:id") || [...sh.attributes].find(a => a.localName === "id")?.value;
+      let t = target[rid]; if (!t) return;
+      t = t.startsWith("/") ? t.slice(1) : "xl/" + t.replace(/^\.\//, "");
+      const txt = get(t); if (!txt) return;
+      const m = {}, re = /<(?:\w+:)?c\b([^>]*)>/g; let g;
+      while ((g = re.exec(txt))) {
+        const a = g[1], s = / s="(\d+)"/.exec(a), r = / r="([A-Z]+)(\d+)"/.exec(a);
+        if (!s || !r || s[1] === "0" || !xf[+s[1]]) continue;
+        let c = 0; for (const ch of r[1]) c = c * 26 + ch.charCodeAt(0) - 64;
+        m[(+r[2] - 1) + "," + (c - 1)] = +s[1];
+      }
+      out[sh.getAttribute("name")] = m;
+    });
+    return out;
+  }
+
   // ---------- .xlsx in / out (SheetJS is already in the app) ----------
   function fromXlsx(buf) {
     const X = window.XLSX; if (!X) throw new Error("Excel reader not loaded");
     const wb = X.read(buf, { type: "array", cellFormula: true, cellNF: true, cellStyles: true });
-    const sheets = {}, order = [];
+    const sheets = {}, order = [], styles = {}, npIdx = {};
+    let XS = null; try { XS = xlsxStyles(buf); } catch (e) { err("xlsx formatting", e); }
     wb.SheetNames.forEach((sn, i) => {
       const ws = wb.Sheets[sn], id = "s" + (i + 1); order.push(id);
       const rg = ws["!ref"] ? X.utils.decode_range(ws["!ref"]) : { s: { r: 0, c: 0 }, e: { r: 0, c: 0 } };
@@ -193,12 +296,22 @@
         if (o.v === undefined && !o.f) continue;
         (cellData[r] = cellData[r] || {})[c] = o;
       }
+      // borders / colours / fonts / alignment (also on empty cells), kept once per Excel style in "styles"
+      const SM = XS && XS[sn];
+      if (SM) Object.keys(SM).forEach(k => {
+        const [r, c] = k.split(",").map(Number), base = XS.xf[SM[k]], cell = (cellData[r] = cellData[r] || {})[c] || (cellData[r][c] = {});
+        const np = cell.s && cell.s.n ? cell.s.n.pattern : "";
+        if (np && !(np in npIdx)) npIdx[np] = Object.keys(npIdx).length;
+        const id = "x" + SM[k] + (np ? "n" + npIdx[np] : "");
+        if (!styles[id]) styles[id] = np ? Object.assign({}, base, { n: { pattern: np } }) : base;
+        cell.s = id;
+      });
       const columnData = {}; (ws["!cols"] || []).forEach((cw, ci) => { if (cw && (cw.wpx || cw.wch)) columnData[ci] = { w: Math.round(cw.wpx || cw.wch * 7 + 5) }; });
       const rowData = {}; (ws["!rows"] || []).forEach((rh, ri) => { if (rh && rh.hpx) rowData[ri] = { h: Math.round(rh.hpx) }; });
       const mergeData = (ws["!merges"] || []).map(m => ({ startRow: m.s.r, endRow: m.e.r, startColumn: m.s.c, endColumn: m.e.c }));
       sheets[id] = { id, name: sn.slice(0, 31), cellData, columnData, rowData, mergeData, rowCount: Math.max(1000, rg.e.r + 50), columnCount: Math.max(26, rg.e.c + 6) };
     });
-    return { id: "ms-" + Date.now().toString(36), name: "Book", sheetOrder: order, sheets, styles: {} };
+    return { id: "ms-" + Date.now().toString(36), name: "Book", sheetOrder: order, sheets, styles };
   }
   function toXlsx(snap) {
     const X = window.XLSX; if (!X) throw new Error("Excel writer not loaded");
