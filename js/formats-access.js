@@ -101,7 +101,7 @@ function doPost(e) {
       const r = { ok: true, role: role };
       if (role === "owner") r.cfg = { owners: lc_(OWNERS), viewers: lc_(VIEWERS), revoke: lc_(REVOKE) };
       else { const mine = list_().filter(function (x) { return x.email === me.email; })[0]; r.hide = (mine && mine.hide) || []; }   // tiles the owner hid for this account
-      if (role !== "none" && (r.hide || []).indexOf("marketdash") < 0) r.dash = dash_();   // Market dashboard links - not to an account whose Market tile is hidden
+      if (role !== "none" && (r.hide || []).indexOf("marketdash") < 0) r.dash = role === "owner" ? dash_() : mine_(dash_(), me.email);   // Market dashboard links - not to an account whose Market tile is hidden
       return out_(r);
     }
     if (action === "log") {
@@ -219,6 +219,19 @@ function lc_(a) { return a.map(function (x) { return String(x).trim().toLowerCas
 function sha_(s) { return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, s).map(function (b) { return ("0" + (b & 255).toString(16)).slice(-2); }).join(""); }
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 function dash_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty("dash") || "{}"); } catch (e) { return {}; } }
+// every account gets its own dashboard key, made from the shared view key + its e-mail, so the dashboard knows who it is
+// and keeps that account's own watchlists
+function mine_(d, email) {
+  const em = String(email || "").trim().toLowerCase(), o = {};
+  Object.keys(d || {}).forEach(function (k) {
+    o[k] = String(d[k]).replace(/([?&]key=)([0-9a-f]{40})(?=[&#]|$)/, function (m, a, v) {
+      const h = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, v + "|" + em, Utilities.Charset.UTF_8)
+        .map(function (b) { return ("0" + (b & 255).toString(16)).slice(-2); }).join("").slice(0, 40);
+      return a + h + "_" + Utilities.base64EncodeWebSafe(em).replace(/=+$/, "");
+    });
+  });
+  return o;
+}
 function list_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty("access") || "[]"); } catch (e) { return []; } }
 function save_(L) { PropertiesService.getScriptProperties().setProperty("access", JSON.stringify(L)); }
 `;
