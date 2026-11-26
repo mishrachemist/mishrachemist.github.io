@@ -827,6 +827,7 @@ function showSignedIn() {
   applyViewerMode(isViewer());
   document.body.classList.toggle("userMode", isUserMode());
   refreshMarketAccess();
+  tileHideApply();   // tiles the owner hid for this granted / team account
   companyLoadLocal();   // company details for the reports (Get Started > Company details)
   if (!isViewer()) setTimeout(() => { companyLoadCloud(); erpConfigLoad(); waFmtLoad(); }, 1500);
   if (isUserMode()) {

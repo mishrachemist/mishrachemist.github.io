@@ -96,6 +96,7 @@ function doPost(e) {
     if (action === "whoami") {
       const r = { ok: true, role: role };
       if (role === "owner") r.cfg = { owners: lc_(OWNERS), viewers: lc_(VIEWERS), revoke: lc_(REVOKE) };
+      else { const mine = list_().filter(function (x) { return x.email === me.email; })[0]; r.hide = (mine && mine.hide) || []; }   // tiles the owner hid for this account
       return out_(r);
     }
     if (action === "log") {
@@ -119,6 +120,14 @@ function doPost(e) {
         save_(L);
       } else if (action === "remove") {
         L = L.filter(function (x) { return x.email !== email; });
+        save_(L);
+      } else if (action === "hide") {           // ⚙️ which tiles this account may NOT see
+        let h = []; try { h = JSON.parse(String(p.hide || "[]")); } catch (x) { throw new Error("bad tile list"); }
+        if (!Array.isArray(h) || h.length > 80) throw new Error("bad tile list");
+        h = h.map(String).filter(function (t) { return /^[a-z0-9]{1,30}$/.test(t); });
+        const it = L.filter(function (x) { return x.email === email; })[0];
+        if (!it) throw new Error("not in the access list: " + email);
+        it.hide = h;
         save_(L);
       } else if (action !== "list") {
         throw new Error("unknown action");
@@ -209,17 +218,55 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
     $("accessSetupWrap").open = !accessUrl();
   };
   showSetup();
-  async function call(action, email) {
+  async function call(action, email, extra) {
     if (!accessUrl()) throw new Error("First do the one-time setup above (script URL).");
-    const j = await authCall({ action: action, key: getKey(), email: email || "" });
-    if (!j || !j.ok) throw new Error(j && j.error === "wrong key" ? "The key does not match the script (⚙️ Script setup / key → 🔑 Key)." : ((j && j.error) || "no answer from the access script"));
+    const j = await authCall(Object.assign({ action: action, key: getKey(), email: email || "" }, extra || {}));
+    if (!j || !j.ok) throw new Error(j && j.error === "wrong key" ? "The key does not match the script (⚙️ Script setup / key → 🔑 Key)."
+      : j && j.error === "unknown action" ? "Update the access script first: 📋 Copy script code → paste it over the old code → Deploy → New version."
+      : ((j && j.error) || "no answer from the access script"));
     return j.list || [];
   }
+  let lastList = [];
   function draw(L) {
-    listEl.innerHTML = L.length ? L.map(x => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(128,128,128,.25);">
-      <span style="flex:1;font-size:13.5px;word-break:break-all;">✅ ${esc(x.email)}<br><small style="opacity:.6;">since ${esc(String(x.added || "").slice(0, 10).split("-").reverse().join("-"))}</small></span>
-      <button class="secondary accessRevoke" data-e="${esc(x.email)}" type="button" style="width:auto;margin:0;padding:6px 10px;font-size:12.5px;">🚫 Remove</button></div>`).join("")
+    lastList = L;
+    const tilesN = accessTiles().length;
+    listEl.innerHTML = L.length ? L.map(x => { const h = (x.hide || []).filter(t => accessTiles().some(a => a.id === t)).length;
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(128,128,128,.25);">
+      <span style="flex:1;font-size:13.5px;word-break:break-all;">✅ ${esc(x.email)}<br><small style="opacity:.6;">since ${esc(String(x.added || "").slice(0, 10).split("-").reverse().join("-"))} · ${h ? `${tilesN - h} of ${tilesN} tiles` : "all tiles"}</small></span>
+      <button class="secondary accessTiles" data-e="${esc(x.email)}" type="button" title="Tiles this account can open" style="width:auto;margin:0;padding:6px 10px;font-size:15px;">⚙️</button>
+      <button class="secondary accessRevoke" data-e="${esc(x.email)}" type="button" style="width:auto;margin:0;padding:6px 10px;font-size:12.5px;">🚫 Remove</button></div>`; }).join("")
       : '<div style="font-size:12.5px;opacity:.7;">No one else has access.</div>';
+  }
+  // ⚙️ per account: tick the tiles / functions it may open (26-Nov-2026)
+  function tilesDialog(em) {
+    const it = lastList.find(x => x.email === em) || {}, hide = new Set(it.hide || []);
+    document.getElementById("accTilesBox")?.remove();
+    const box = document.createElement("div");
+    box.id = "accTilesBox";
+    box.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:14px;";
+    box.innerHTML = `<div style="background:var(--card,#fffaf2);color:var(--ink,#16233d);border-radius:14px;padding:16px;max-width:460px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.35);">
+      <div style="font-weight:700;font-size:15px;">⚙️ ${esc(em)}</div>
+      <div style="display:flex;gap:8px;margin:10px 0 6px;"><button type="button" class="secondary" id="accTilesAll" style="width:auto;margin:0;padding:5px 10px;font-size:12.5px;">✅ All</button>
+        <button type="button" class="secondary" id="accTilesNone" style="width:auto;margin:0;padding:5px 10px;font-size:12.5px;">⬜ None</button></div>
+      <div id="accTilesList" style="overflow:auto;flex:1;border-top:1px solid rgba(128,128,128,.25);">${accessTiles().map(t => `
+        <label style="display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid rgba(128,128,128,.18);font-size:14px;cursor:pointer;">
+          <input type="checkbox" data-t="${esc(t.id)}" ${hide.has(t.id) ? "" : "checked"} style="width:auto;margin:0;transform:scale(1.15);"> <span>${esc(t.label)}</span></label>`).join("")}</div>
+      <div id="accTilesMsg" style="font-size:12.5px;min-height:18px;margin-top:8px;"></div>
+      <div style="display:flex;gap:8px;margin-top:6px;"><button type="button" class="primary" id="accTilesSave" style="flex:1;margin:0;">💾 Save</button>
+        <button type="button" class="secondary" id="accTilesClose" style="flex:1;margin:0;">Close</button></div></div>`;
+    document.body.appendChild(box);
+    const boxes = () => [...box.querySelectorAll("input[data-t]")];
+    box.addEventListener("click", async e => {
+      if (e.target === box || e.target.id === "accTilesClose") { box.remove(); return; }
+      if (e.target.id === "accTilesAll") boxes().forEach(c => { c.checked = true; });
+      if (e.target.id === "accTilesNone") boxes().forEach(c => { c.checked = false; });
+      if (e.target.id === "accTilesSave") {
+        const h = boxes().filter(c => !c.checked).map(c => c.dataset.t), msg = box.querySelector("#accTilesMsg");
+        e.target.disabled = true; msg.textContent = "Saving...";
+        try { draw(await call("hide", em, { hide: JSON.stringify(h) })); msg.textContent = "✅ Saved - it applies the next time " + em + " opens the app."; }
+        catch (x) { msg.textContent = "⚠️ " + x.message; } finally { e.target.disabled = false; }
+      }
+    });
   }
   async function refresh() { if (!accessUrl()) { listEl.innerHTML = ""; return; } try { draw(await call("list")); st.textContent = ""; } catch (e) { st.textContent = "⚠️ " + e.message; } }
   $("accessCopyCode").addEventListener("click", async () => {
@@ -251,6 +298,7 @@ function save_(L) { PropertiesService.getScriptProperties().setProperty("access"
     catch (e) { st.textContent = "⚠️ " + e.message; } finally { b.disabled = false; }
   });
   listEl.addEventListener("click", async e => {
+    const tb = e.target.closest(".accessTiles"); if (tb) { tilesDialog(tb.dataset.e); return; }
     const b = e.target.closest(".accessRevoke"); if (!b) return;
     const em = b.dataset.e;
     if (!confirm(`Remove access for ${em}?\nThey are signed out the next time the app opens or checks.`)) return;
