@@ -27,7 +27,12 @@ async function newPage(init) {
     if (m && !LOCAL_NM) return route.continue();
     return route.abort();   // Microsoft sign-in, Graph, fonts, weather ... not needed for the test
   });
-  if (init) await ctx.addInitScript(init, "20-Nov-2026");
+  if (init) {
+    // the mocked NSE data is dated 20-Nov-2026 (expiries 20/24/25-Nov): keep the page's clock on that day, 11:30 IST,
+    // otherwise every expiry is in the past once the real date has moved on and the option chain is never built
+    await ctx.clock.setFixedTime(new Date("2026-11-20T06:00:00Z"));
+    await ctx.addInitScript(init, "20-Nov-2026");
+  }
   const p = await ctx.newPage();
   const errs = []; p.on("pageerror", e => errs.push(String(e).slice(0, 300)));
   p.on("dialog", d => d.dismiss());
