@@ -1121,6 +1121,38 @@ async function authCall(params, acc) {   // POST (so nothing sensitive ever sits
   const r = await fetch(url, { method: "POST", body: new URLSearchParams(Object.assign({}, params, { token })), cache: "no-store", credentials: "omit" });
   return await r.json();
 }
+/* ---- ⚙️ Tiles per granted account (26-Nov-2026): the owner un-ticks tiles in Get Started → App Access → ⚙️; the access
+   server keeps the list (entry.hide) and hands it to that account in "whoami"; the app then hides those tiles. ---- */
+function accessTiles() {
+  const EXTRA_TILES = [{ id: "fetch", label: "📥 Fetch WhatsApp (bottom button)" }];   // every tile a granted account could open: the menu's tiles minus owner-only ones (Market is open to all)
+  const seen = new Set(), out = [];
+  document.querySelectorAll(".navItem[data-section]").forEach(b => {
+    const id = b.dataset.section;
+    if (seen.has(id) || !/^[a-z0-9]{1,30}$/.test(id) || (b.classList.contains("ownerOnly") && id !== "marketdash")) return;
+    seen.add(id);
+    const lab = b.querySelector(".navLabel"), ic = b.querySelector(".navIcon");
+    // picture icons (ERP, calendar, Sheet, Nifty) get an emoji here
+    const icon = ({ erpprod: "🏭", nextday: "📅", msheet: "📗", marketdash: "📈" })[id] || (ic && !ic.querySelector("img,.liveCal") ? ic.textContent.trim() : "");
+    const name = String((lab && (lab.dataset.en || lab.textContent)) || id).replace(/\s+/g, " ").trim();
+    out.push({ id, label: (icon ? icon + " " : "") + name });
+  });
+  return out.concat(EXTRA_TILES);
+}
+function tileHideApply() {
+  let hide = [];
+  try {
+    const r = account ? accountRole(account) : "";
+    if (r === "user" || r === "viewer") hide = JSON.parse(localStorage.getItem("tileHide:" + accountEmail(account)) || "[]");
+  } catch (e) {}
+  hide = (Array.isArray(hide) ? hide : []).filter(t => /^[a-z0-9]{1,30}$/.test(t));
+  let st = document.getElementById("tileHideStyle");
+  if (!hide.length) { if (st) st.remove(); return; }
+  if (!st) { st = document.createElement("style"); st.id = "tileHideStyle"; document.head.appendChild(st); }
+  st.textContent = hide.map(t => t === "fetch" ? "#bottomTabFetch,#waFetchBtn{display:none!important}"
+    : `.navItem[data-section="${t}"],[data-tab-section="${t}"],#section-${t}{display:none!important}`).join("\n");
+  // if the page now open is one of them, go back home
+  try { const open = document.querySelector(".sectionPanel:not(.hidden)"); if (open && hide.includes(String(open.id).replace(/^section-/, ""))) { const h = document.querySelector('#bottomTabBar [data-tab-action="home"]'); if (h) h.click(); } } catch (e) {}
+}
 async function accessWho(acc) {   // "owner" | "viewer" | "user" | "none"; throws when the server can't be reached
   const j = await authCall({ action: "whoami" }, acc);
   if (!j || !j.ok) throw new Error((j && j.error) || "access server error");
@@ -1129,8 +1161,11 @@ async function accessWho(acc) {   // "owner" | "viewer" | "user" | "none"; throw
   try {
     if (role === "none") localStorage.removeItem("roleCache:" + em);
     else localStorage.setItem("roleCache:" + em, JSON.stringify({ r: role, t: Date.now() }));
+    if (role === "user" || role === "viewer") localStorage.setItem("tileHide:" + em, JSON.stringify(Array.isArray(j.hide) ? j.hide : []));
+    else localStorage.removeItem("tileHide:" + em);
   } catch (e) {}
   delete _roleMem[em];
+  setTimeout(tileHideApply, 0);
   if (role === "owner") applyOwnerCfg(j.cfg);
   return role;
 }
