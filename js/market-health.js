@@ -17,12 +17,22 @@
   const shared = () => { try { return JSON.parse(localStorage.getItem("mktDashShared") || "{}") || {}; } catch (e) { return {}; } };
   const ownUrl = () => { try { return localStorage.getItem(lsKey()) || ""; } catch (e) { return ""; } };
   const getUrl = () => ownUrl() || shared()[cur] || "";
+  // the link others get carries the dashboard's VIEW-only key (26-Nov-2026): first 40 hex of SHA-256(key + "|view"),
+  // the same the dashboard script works out - it opens the dashboards but cannot change the owner's watchlists
+  async function viewLink(u) {
+    const m = /([?&]key=)([^&#]+)/.exec(u);
+    if (!m || !(window.crypto && crypto.subtle)) return u;
+    const h = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(decodeURIComponent(m[2]) + "|view"))))
+      .map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 40);
+    return u.replace(m[0], m[1] + h);
+  }
   // owner: send this device's links to the access server (only when they differ from what it already has)
   async function share(have) {
     if (!isOwner() || typeof authCall !== "function" || typeof accessUrl !== "function" || !accessUrl()) return;
     let key = ""; try { key = localStorage.getItem("accessKey") || ""; } catch (e) {}
     if (!key) return;
-    const mine = {}; ["ind", "us", "intra"].forEach(k => { try { const u = localStorage.getItem(MKT[k].ls) || ""; if (u && valid(u)) mine[k] = u; } catch (e) {} });
+    const mine = {};
+    for (const k of ["ind", "us", "intra"]) { let u = ""; try { u = localStorage.getItem(MKT[k].ls) || ""; } catch (e) {} if (u && valid(u)) mine[k] = await viewLink(u); }
     const now = have || shared();
     if (["ind", "us", "intra"].every(k => (mine[k] || "") === (now[k] || ""))) return;
     try {

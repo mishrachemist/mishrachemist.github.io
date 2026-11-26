@@ -1094,9 +1094,9 @@ function waCloudShowInfo() {
   const cb = document.getElementById("waCloudToggle"), el = document.getElementById("waCloudInfo");
   if (cb) { cb.checked = waCloudOn(); cb.disabled = !waSyncEnabled(); }
   if (!el) return;
-  if (!waSyncEnabled()) { el.textContent = "Only for the main owner account."; return; }
-  el.textContent = waCloudOn() ? "ON - messages in the WhatsApp Inbox go to Excel even when the app is closed and the PC is off. The phone must be on: MacroDroid puts the messages in the Inbox."
-    : "OFF - only 📥 Fetch WhatsApp in the app saves the messages.";
+  if (!waSyncEnabled()) { el.textContent = uiT("Only for the main owner account."); return; }
+  el.textContent = uiT(waCloudOn() ? "ON - messages in the WhatsApp Inbox go to Excel even when the app is closed and the PC is off. The phone must be on: MacroDroid puts the messages in the Inbox."
+    : "OFF - only 📥 Fetch WhatsApp in the app saves the messages.");
 }
 function waSlotShowInfo() {
   waCloudShowInfo();
@@ -1106,10 +1106,10 @@ function waSlotShowInfo() {
   if (inp && document.activeElement !== inp) inp.value = waSlotText(waSlotList());
   if (link) link.value = location.origin + location.pathname + "?autofetch=1";
   if (!el) return;
-  if (!waSlotOn()) { el.textContent = "Scheduled sync is off on this device."; return; }
+  if (!waSlotOn()) { el.textContent = uiT("Scheduled sync is off on this device."); return; }
   const nx = new Date(waNextSlotTime());
-  el.textContent = "Next scheduled sync: " + nx.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
-    (nx.toDateString() === new Date().toDateString() ? " today" : " tomorrow") + (waCloudOn() ? " (cloud)" : "");
+  el.textContent = uiT("Next scheduled sync: ") + nx.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
+    uiT(nx.toDateString() === new Date().toDateString() ? " today" : " tomorrow") + (waCloudOn() ? uiT(" (cloud)") : "");
 }
 
 function waAutoReason(now, forced) {   // "" = go ahead, otherwise the reason it is not running now

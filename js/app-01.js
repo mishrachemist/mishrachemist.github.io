@@ -148,6 +148,75 @@ function uiHiDict() {
     "5. Scatter Diagram (Total Strip vs Edge Crack)": "5. स्कैटर डायग्राम (कुल स्ट्रिप बनाम एज क्रैक)",
     "6. Month-wise Trend (is rejection going up or down?)": "6. महीने-वार ट्रेंड (रिजेक्शन बढ़ रहा है या घट रहा है?)",
     "7. Cause & Effect (Fishbone / Ishikawa) Diagram": "7. कारण और प्रभाव (फिशबोन / इशिकावा) डायग्राम",
+    // 26-Nov-2026: newer screens (Settings, cloud sync, background scan, App Access tiles, Market, Stock, AOP ...)
+    "Switch Account": "अकाउंट बदलें", "Games": "गेम्स", "Lock Log": "लॉक लॉग", "Night mode": "नाइट मोड",
+    "☁️ Cloud auto sync": "☁️ क्लाउड ऑटो सिंक", "🕗 Scheduled sync at fixed times": "🕗 तय समय पर सिंक",
+    "ERP": "ईआरपी", "AOP": "एओपी", "Market": "मार्केट", "IND MKT": "भारत मार्केट", "US MKT": "US मार्केट", "INTRADAY": "इंट्राडे",
+    "← Back to Market Menu": "← मार्केट मेनू पर वापस", "← Back to Stock Menu": "← स्टॉक मेनू पर वापस",
+    "← Back to AOP Menu": "← एओपी मेनू पर वापस", "← Back to Element Menu": "← एलिमेंट मेनू पर वापस",
+    "🔔 Background scan": "🔔 बैकग्राउंड स्कैन", "ON": "चालू", "OFF": "बंद",
+    "Only for the main owner account.": "केवल मुख्य ओनर अकाउंट के लिए।",
+    "ON - messages in the WhatsApp Inbox go to Excel even when the app is closed and the PC is off. The phone must be on: MacroDroid puts the messages in the Inbox.":
+      "चालू - ऐप बंद हो और पीसी बंद हो तब भी WhatsApp इनबॉक्स के मैसेज Excel में जाते हैं। फ़ोन चालू होना चाहिए: MacroDroid ही मैसेज इनबॉक्स में डालता है।",
+    "OFF - only 📥 Fetch WhatsApp in the app saves the messages.": "बंद - मैसेज केवल ऐप में 📥 Fetch WhatsApp दबाने पर सेव होंगे।",
+    "Scheduled sync is off on this device.": "इस डिवाइस पर तय समय वाला सिंक बंद है।", "Next scheduled sync: ": "अगला तय सिंक: ",
+    " today": " आज", " tomorrow": " कल", " (cloud)": " (क्लाउड)",
+    "✅ All": "✅ सभी", "⬜ None": "⬜ कोई नहीं", "💾 Save": "💾 सेव करें", "Close": "बंद करें", "Saving...": "सेव हो रहा है...",
+    "✅ Saved - it applies the next time this account opens the app.": "✅ सेव हो गया - यह अकाउंट अगली बार ऐप खोलेगा तब लागू होगा।",
+    "Tiles this account can open": "यह अकाउंट कौन-सी टाइल खोल सकता है", "🚫 Remove": "🚫 हटाएँ", "since": "से", "all tiles": "सभी टाइल",
+    "tiles": "टाइल", "of": "में से", "No one else has access.": "किसी और को एक्सेस नहीं है।",
+    // Stock
+    "Raw Material Stock": "कच्चा माल स्टॉक", "Physical Stock Verification": "फ़िज़िकल स्टॉक सत्यापन", "Period": "अवधि", "Division": "डिवीजन",
+    "Date of Verification": "सत्यापन की तारीख", "ERP Stock as on": "ईआरपी स्टॉक (तारीख तक)", "🧹 Clear entries": "🧹 एंट्री साफ़ करें",
+    "📥 Import from Excel": "📥 Excel से लाएँ", "+ Lot": "+ लॉट", "− Lot": "− लॉट", "QAD-Team (1)": "QAD-टीम (1)", "QAD-Team (2)": "QAD-टीम (2)",
+    "Finance Team": "फ़ाइनेंस टीम", "Prod Team (1)": "प्रोडक्शन टीम (1)", "Prod Team (2)": "प्रोडक्शन टीम (2)", "Plant Head": "प्लांट हेड",
+    "💾 Save verification": "💾 सत्यापन सेव करें", "📄 PDF": "📄 PDF", "📊 Excel": "📊 Excel", "📚 Saved verifications": "📚 सेव किए सत्यापन",
+    "🔄 Refresh list": "🔄 लिस्ट रिफ़्रेश करें", "📥 Add past months (Excel files)": "📥 पिछले महीने जोड़ें (Excel फ़ाइलें)",
+    // ERP production / indent
+    "Indent / Requisition": "इंडेंट / रिक्विज़िशन", "🧾 ERP Entry Sheet (heat-wise)": "🧾 ईआरपी एंट्री शीट (हीट-वार)", "Load": "लोड करें",
+    "⬇️ Excel": "⬇️ Excel", "What to enter": "क्या भरना है", "Send to ERP": "ईआरपी में भेजें", "📋 Copy for ERP (phone)": "📋 ईआरपी के लिए कॉपी (फ़ोन)",
+    "📋 Copy bookmark code": "📋 बुकमार्क कोड कॉपी करें", "Type": "प्रकार", "Required date": "ज़रूरी तारीख", "Purpose": "उद्देश्य",
+    "🔎 Item name / code": "🔎 आइटम नाम / कोड", "📷 From a photo": "📷 फ़ोटो से",
+    // Trends
+    "RM Mix vs Quality": "कच्चा माल मिश्रण बनाम गुणवत्ता", "From month": "किस महीने से", "To month": "किस महीने तक",
+    // WhatsApp / ERP upload / sticky note
+    "ERP Upload": "ईआरपी अपलोड", "💾 Save times": "💾 समय सेव करें", "6mtr": "6 मीटर", "5mtr": "5 मीटर", "4mtr": "4 मीटर", "3mtr": "3 मीटर",
+    "Sponge Iron Required - Sticky Note": "स्पंज आयरन ज़रूरत - स्टिकी नोट", "Heading": "हेडिंग", "+ Add line": "+ लाइन जोड़ें",
+    "Reset to default": "डिफ़ॉल्ट पर लौटाएँ", "🌈 Multi-colour": "🌈 कई रंग", "✏️ Simple (one ink)": "✏️ सादा (एक रंग)",
+    "↩️ Default colours": "↩️ डिफ़ॉल्ट रंग", "📤 Share on WhatsApp": "📤 WhatsApp पर शेयर करें", "⬇️ Download JPG": "⬇️ JPG डाउनलोड करें",
+    "ERP Upload - Durgesh / M2M": "ईआरपी अपलोड - Durgesh / M2M", "Daily Stock date (also picks the month's Reports file)": "डेली स्टॉक तारीख (उसी महीने की रिपोर्ट फ़ाइल भी चुनती है)",
+    "📥 Durgesh ERP file": "📥 Durgesh ईआरपी फ़ाइल", "📥 M2M ERP file": "📥 M2M ईआरपी फ़ाइल", "Paste message here": "मैसेज यहाँ पेस्ट करें",
+    "Daily Stock date": "डेली स्टॉक तारीख", "🔍 Check": "🔍 जाँचें",
+    // Next-day block
+    "🗑️ Delete Block (made by mistake)": "🗑️ ब्लॉक हटाएँ (गलती से बना)", "Block date": "ब्लॉक तारीख", "🗑️ Delete this block": "🗑️ यह ब्लॉक हटाएँ",
+    // Reports
+    "Billet Cum Report": "बिलेट क्यूम रिपोर्ट", "SI, Mn Reports": "Si, Mn रिपोर्ट", "📄 Preview PDF": "📄 PDF देखें", "🖼️ Download JPG": "🖼️ JPG डाउनलोड करें",
+    "📤 Share JPG on WhatsApp": "📤 JPG WhatsApp पर शेयर करें", "🔄 Read again": "🔄 फिर से पढ़ें", "📄 Excel style": "📄 Excel जैसा",
+    "🎨 Colour": "🎨 रंगीन", "PO vs Actual & Raw Data": "PO बनाम वास्तविक और रॉ डेटा", "Monthly Weight & Average": "मासिक वज़न और औसत",
+    // ISO 9001 / NABL
+    "Audit Ready": "ऑडिट तैयारी", "📥 Upload certificates (PDF)": "📥 सर्टिफ़िकेट अपलोड करें (PDF)", "✨ Make saved certificates clear": "✨ सेव किए सर्टिफ़िकेट साफ़ बनाएँ",
+    "📄 Download log (PDF)": "📄 लॉग डाउनलोड करें (PDF)", "Make": "मेक", "Model": "मॉडल", "Range / Accuracy": "रेंज / सटीकता", "Edit": "बदलें",
+    "Remove": "हटाएँ", "Make scorecard": "स्कोरकार्ड बनाएँ", "Monthly ISO 9001 Pack": "मासिक ISO 9001 पैक", "Doc numbers": "दस्तावेज़ नंबर",
+    "Packs made": "बने हुए पैक", "NABL 17025": "NABL 17025", "Download readiness report (PDF)": "तैयारी रिपोर्ट डाउनलोड करें (PDF)",
+    "English": "अंग्रेज़ी",
+    // AOP
+    "AOP vs Indent": "एओपी बनाम इंडेंट", "Next FY AOP (WIP)": "अगले वित्त वर्ष का एओपी (चालू काम)", "📑 AOP (Annual Operating Plan)": "📑 एओपी (वार्षिक संचालन योजना)",
+    "AOP file": "एओपी फ़ाइल", "🔄 Refresh": "🔄 रिफ़्रेश", "📊 AOP vs Indent": "📊 एओपी बनाम इंडेंट", "📂 Choose the files": "📂 फ़ाइलें चुनें",
+    "⚖️ Compare": "⚖️ तुलना करें", "Item - type code or name": "आइटम - कोड या नाम लिखें", "Item code": "आइटम कोड", "Item name": "आइटम नाम",
+    "Qty": "मात्रा", "Rate (₹)": "दर (₹)", "Indent / slip no.": "इंडेंट / स्लिप नंबर", "Remark": "टिप्पणी", "➕ Add": "➕ जोड़ें",
+    "🛠️ Next FY AOP (work in progress)": "🛠️ अगले वित्त वर्ष का एओपी (काम चालू)", "📥 Import Excel": "📥 Excel लाएँ", "💾 Save": "💾 सेव करें",
+    "↩ Undo changes": "↩ बदलाव वापस लें", "✅ Move to final AOP": "✅ फ़ाइनल एओपी में डालें",
+    // Element (lab)
+    "Solution Preparation - Normality / Molarity": "घोल बनाना - नॉर्मलिटी / मोलरिटी", "Chemical formula": "रासायनिक सूत्र",
+    "Strength in": "सांद्रता की इकाई", "Normality (N)": "नॉर्मलिटी (N)", "Volume to make (ml)": "बनाने की मात्रा (ml)", "n-factor": "n-फ़ैक्टर",
+    "Chemical is": "रसायन है", "Purity / assay on the label (%)": "लेबल पर शुद्धता / assay (%)", "Periodic Table - 7 Designs": "आवर्त सारणी - 7 डिज़ाइन",
+    "⬇️ Download for print (JPG)": "⬇️ प्रिंट के लिए डाउनलोड (JPG)", "⬇️ Vector file (SVG)": "⬇️ वेक्टर फ़ाइल (SVG)",
+    "QAD Safety Posters - 10 (English + Hindi)": "QAD सुरक्षा पोस्टर - 10 (अंग्रेज़ी + हिंदी)", "📷 Use my own photo": "📷 अपनी फ़ोटो लगाएँ",
+    "⬇️ This poster for print (JPG)": "⬇️ यह पोस्टर प्रिंट के लिए (JPG)", "⬇️ All 10 posters (A3 PDF)": "⬇️ सभी 10 पोस्टर (A3 PDF)",
+    "SDS - Safety Data Sheets (16 lab chemicals)": "SDS - सेफ़्टी डेटा शीट (16 लैब रसायन)", "Emergency contact (printed in Section 1)": "आपातकालीन संपर्क (सेक्शन 1 में छपेगा)",
+    "⬇️ All 16 SDS (one PDF)": "⬇️ सभी 16 SDS (एक PDF)",
+    // Moltrix Sheet
+    "+ New sheet": "+ नई शीट", "Open .xlsx": ".xlsx खोलें",
     // placeholders
     "Paste the production/chemical message copied from WhatsApp here... (you can also paste several heats' messages together, straight from a WhatsApp export, and use 'Submit All Heats' below)":
       "WhatsApp से कॉपी किया प्रोडक्शन/केमिकल मैसेज यहाँ पेस्ट करें... (कई हीट के मैसेज एक साथ भी पेस्ट कर सकते हैं, फिर नीचे 'सभी हीट सबमिट करें' दबाएँ)",
@@ -164,7 +233,7 @@ function uiT(en) { if (uiLang() !== "hi") return en; const d = uiHiDict(); retur
 function uiLangApply(lang) {
   lang = lang || uiLang();
   const d = uiHiDict();
-  document.querySelectorAll(".navShort, .subLabel, .backBtn, .navDrawerItem > span:last-child, .bottomTabItem > span:last-child, #bottomTabFetchLabel, .navGroupHead, .navSub, .contentArea h2, .contentArea h3, .contentArea label, .contentArea button").forEach(el => {
+  document.querySelectorAll(".navShort, .subLabel, .backBtn, .navDrawerItem > span:last-child, .bottomTabItem > span:last-child, #bottomTabFetchLabel, .navGroupHead, .navSub, .contentArea h2, .contentArea h3, .contentArea label, .contentArea button, [data-i18n]").forEach(el => {
     if (el.children.length) return;                       // only plain-text labels
     const cur = el.textContent.trim();
     if (!cur) return;

@@ -643,11 +643,12 @@
     finally { scr.busy = false; renderScr(); scheduleScr(); if (!scr.bg) widgetPush(); }
   }
   // background Screener (Android app: ScrAlarm + ScrService open scr-bg.html every 15 min, 09:30-14:45 on weekdays)
+  const T_ = s => (typeof uiT === "function" ? uiT(s) : s);
   const scrBgOk = () => !!(window.MoltrixApp && typeof MoltrixApp.scrBg === "function");
   function scrBgHtml() {
     if (!scrBgOk()) return "";
     let on = false, st = ""; try { on = MoltrixApp.scrBgOn(); st = MoltrixApp.scrBgStatus() || ""; } catch (e) {}
-    return `<button type="button" id="scrBgTgl" class="scrGo ${on ? "on" : ""}">🔔 Background scan: ${on ? "ON" : "OFF"}</button>${on && st ? `<small>${esc(st)}</small>` : ""}`;
+    return `<button type="button" id="scrBgTgl" class="scrGo ${on ? "on" : ""}">${esc(T_("🔔 Background scan"))}: ${esc(T_(on ? "ON" : "OFF"))}</button>${on && st ? `<small>${esc(st)}</small>` : ""}`;
   }
   function scrBgToggle() {
     let on = false; try { on = MoltrixApp.scrBgOn(); } catch (e) {}
