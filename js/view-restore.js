@@ -28,15 +28,19 @@
   let v = null;
   try { v = JSON.parse(sessionStorage.getItem(KEY) || "null"); sessionStorage.removeItem(KEY); } catch (e) { v = null; }
   if (!v || !v.sec || !/^[a-z0-9]{1,30}$/.test(v.sec) || !(Date.now() - v.t < MAX_AGE)) return;
+  // no flash of Home (or of the tile's inner grid) while the page is put back: both stay invisible until it is done
+  const root = document.documentElement, done = () => root.classList.remove("mzRestoring");
+  root.classList.add("mzRestoring");
+  { const st = document.createElement("style"); st.textContent = "html.mzRestoring #mainSidebar,html.mzRestoring #contentArea{visibility:hidden!important}"; document.head.appendChild(st); }
   const t0 = Date.now();
   const tryOpen = () => {
-    if (Date.now() - t0 > 20000) return;                      // the app never got ready: stay on Home
+    if (Date.now() - t0 > 20000) { done(); return; }          // the app never got ready: stay on Home
     const home = document.getElementById("mainSidebar");
     let signed = false; try { signed = typeof account !== "undefined" && !!account; } catch (e) {}
     const locked = document.documentElement.classList.contains("mzLocked");   // the website's own fingerprint lock is showing
     const btn = document.querySelector(`#mainSidebar > .navItem[data-section="${v.sec}"]`);
     if (!signed || locked || !vis(home) || !btn) { setTimeout(tryOpen, 250); return; }
-    if (getComputedStyle(btn).display === "none") return;     // that tile is not available to this account any more
+    if (getComputedStyle(btn).display === "none") { done(); return; }   // that tile is not available to this account any more
     btn.click();
     setTimeout(() => {
       if (v.attr && /^data-sub[a-z]+$/.test(v.attr)) {
@@ -44,8 +48,8 @@
         const sub = panel && [...panel.querySelectorAll(`[${v.attr}]`)].find(b => b.getAttribute(v.attr) === v.val);
         if (sub) sub.click();
       }
-      if (v.y > 0) setTimeout(() => window.scrollTo({ top: v.y, behavior: "instant" }), 500);
-    }, 350);
+      setTimeout(() => { if (v.y > 0) window.scrollTo({ top: v.y, behavior: "instant" }); done(); }, 250);
+    }, 120);
   };
   setTimeout(tryOpen, 300);
 })();
