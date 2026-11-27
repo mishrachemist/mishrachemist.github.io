@@ -225,6 +225,7 @@ window.mzZeroBlank = function zeroBlankTables() {   // run by js/lazy-libs.js on
 
 <link rel="stylesheet" href="css/app-2.css?v=7ef588552e">
 <link rel="stylesheet" href="css/sheet.css?v=5674a841f3">
+<link rel="stylesheet" href="css/notes.css?v=f9191cdac9">
 </head>
 
 <body>
@@ -740,6 +741,7 @@ window.mzZeroBlank = function zeroBlankTables() {   // run by js/lazy-libs.js on
         <button class="navItem ownerOnly" data-section="aop"><span class="navPin">☆</span><span class="navIcon">📑</span><span class="navLabel" data-en="AOP" data-hi="AOP">AOP</span><span class="navShort">AOP</span></button>
         <button class="navItem" data-section="element"><span class="navPin">☆</span><span class="navIcon">⚛️</span><span class="navLabel" data-en="Element" data-hi="तत्व">Element</span><span class="navShort">Element</span></button>
         <button class="navItem" data-section="msheet"><span class="navPin">☆</span><span class="navIcon"><img class="navImg" alt="Sheet" src="img/298886d24449.webp"></span><span class="navLabel" data-en="Moltrix Sheet" data-hi="मोल्ट्रिक्स शीट">Moltrix Sheet</span><span class="navShort">Sheet</span></button>
+        <button class="navItem" data-section="notes"><span class="navPin">☆</span><span class="navIcon">📝</span><span class="navLabel" data-en="Notes" data-hi="नोट्स">Notes</span><span class="navShort">Notes</span></button>
         <button class="navItem ownerOnly" data-section="marketdash"><span class="navPin">☆</span><span class="navIcon"><img class="mkIco" alt="Nifty 50" src="img/ae8d90f089d3.webp"></span><span class="navLabel" data-en="Market Health" data-hi="मार्केट हेल्थ">Market Health</span><span class="navShort">Market</span></button>
       </nav>
 
@@ -2761,6 +2763,25 @@ window.mzZeroBlank = function zeroBlankTables() {   // run by js/lazy-libs.js on
           </div>
         </div>
 
+        <div class="sectionPanel hidden" id="section-notes">
+          <div class="card ntCard noLogoChip">
+            <h2>📝 <span data-i18n>Notes</span></h2>
+            <div class="mzInfoNote" style="font-size:12.5px;line-height:1.5;margin:0 0 10px;"><span data-i18n>Date-wise notes. Saved in your own OneDrive (app folder → Moltrix Notes) and on this device, so phone and PC show the same notes and they open without internet.</span></div>
+            <div class="ntNew">
+              <div class="ntDateRow"><label for="ntDate" data-i18n>Date</label><input type="date" id="ntDate"><button type="button" class="secondary" id="ntToday" data-i18n>Today</button></div>
+              <textarea id="ntText" rows="3" maxlength="20000" placeholder="Write a note… (Ctrl + Enter saves)"></textarea>
+              <button type="button" class="primary" id="ntSave" data-i18n>💾 Save note</button>
+            </div>
+            <div class="ntTools">
+              <input type="search" id="ntSearch" placeholder="🔎 Search notes or a date (27-11-2026)">
+              <select id="ntMonth" aria-label="Month"></select>
+            </div>
+            <div class="ntDl"><span id="ntDlInfo"></span><span class="ntDlBtns"><button type="button" class="secondary" id="ntPdf">⬇️ PDF</button><button type="button" class="secondary" id="ntXls">⬇️ Excel</button><button type="button" class="secondary" id="ntTxt">⬇️ Text</button></span></div>
+            <div id="ntStatus" class="ntStatus"></div>
+            <div id="ntList"></div>
+          </div>
+        </div>
+
         <div class="sectionPanel hidden ownerOnly" id="section-marketdash">
           <div class="sidebar subNav" id="marketSubNav">
             <button class="navItem" data-submkt="ind"><span class="navIcon"><img class="mkFlag" alt="India" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 40'%3E%3Crect width='60' height='40' fill='%23fff'/%3E%3Crect width='60' height='13.34' fill='%23FF9933'/%3E%3Crect y='26.66' width='60' height='13.34' fill='%23138808'/%3E %3Ccircle cx='30' cy='20' r='5.6' fill='none' stroke='%23000080' stroke-width='0.9'/%3E%3Cg stroke='%23000080' stroke-width='0.45'%3E%3Cline x1='30' y1='20' x2='35.40' y2='20.00'/%3E%3Cline x1='30' y1='20' x2='35.22' y2='21.40'/%3E%3Cline x1='30' y1='20' x2='34.68' y2='22.70'/%3E%3Cline x1='30' y1='20' x2='33.82' y2='23.82'/%3E%3Cline x1='30' y1='20' x2='32.70' y2='24.68'/%3E%3Cline x1='30' y1='20' x2='31.40' y2='25.22'/%3E%3Cline x1='30' y1='20' x2='30.00' y2='25.40'/%3E%3Cline x1='30' y1='20' x2='28.60' y2='25.22'/%3E%3Cline x1='30' y1='20' x2='27.30' y2='24.68'/%3E%3Cline x1='30' y1='20' x2='26.18' y2='23.82'/%3E%3Cline x1='30' y1='20' x2='25.32' y2='22.70'/%3E%3Cline x1='30' y1='20' x2='24.78' y2='21.40'/%3E%3Cline x1='30' y1='20' x2='24.60' y2='20.00'/%3E%3Cline x1='30' y1='20' x2='24.78' y2='18.60'/%3E%3Cline x1='30' y1='20' x2='25.32' y2='17.30'/%3E%3Cline x1='30' y1='20' x2='26.18' y2='16.18'/%3E%3Cline x1='30' y1='20' x2='27.30' y2='15.32'/%3E%3Cline x1='30' y1='20' x2='28.60' y2='14.78'/%3E%3Cline x1='30' y1='20' x2='30.00' y2='14.60'/%3E%3Cline x1='30' y1='20' x2='31.40' y2='14.78'/%3E%3Cline x1='30' y1='20' x2='32.70' y2='15.32'/%3E%3Cline x1='30' y1='20' x2='33.82' y2='16.18'/%3E%3Cline x1='30' y1='20' x2='34.68' y2='17.30'/%3E%3Cline x1='30' y1='20' x2='35.22' y2='18.60'/%3E%3C/g%3E%3Ccircle cx='30' cy='20' r='1.1' fill='%23000080'/%3E%3C/svg%3E"></span> IND MKT</button>
@@ -2980,7 +3001,7 @@ window.mzZeroBlank = function zeroBlankTables() {   // run by js/lazy-libs.js on
   </div>
 </div>
 
-<script src="js/app-01.js?v=828176d851"></script>
+<script src="js/app-01.js?v=68f2c41ac1"></script>
 <script src="js/app-02.js?v=606e231164"></script>
 <script src="js/app-03.js?v=02ebada266"></script>
 <script src="js/app-04.js?v=aaf34e3136"></script>
@@ -3234,7 +3255,7 @@ async function downloadAndroidApk() {
   }
   function add() {
     document.querySelectorAll(".card").forEach(card => {
-      if (card.querySelector(":scope .logoChip")) return;
+      if (card.classList.contains("noLogoChip") || card.querySelector(":scope .logoChip")) return;   // e.g. Notes: its PDF has no logo
       const btn = Array.from(card.querySelectorAll("button")).find(isReportBtn);
       if (!btn || btn.closest(".logoChip")) return;
       const anchor = btn.closest(".btnRow") && btn.closest(".btnRow").parentElement && card.contains(btn.closest(".btnRow")) ? btn.closest(".btnRow") : btn;
@@ -3318,6 +3339,7 @@ async function downloadAndroidApk() {
 <script src="js/info-notes.js?v=133c976721"></script>
 <script src="js/fno.js?v=95e3e99707"></script>
 <script src="js/sheet-fns.js?v=640bfbf43e"></script>
+<script src="js/notes.js?v=51476d449e"></script>
 <script src="js/sheet.js?v=884118dc18"></script>
 <script src="js/view-restore.js?v=ea39178432"></script>
 </body>
