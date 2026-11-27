@@ -457,7 +457,46 @@ function renderDaySticker() {
     <span>${dayHTML}</span>
     <span>${dateNumberHTML}</span>
   </span>` + dayCard;
+  dayStickerGuard(wrap, festival, now);
   if (window.homeProdMeter) window.homeProdMeter();   // ring around the date / corner badge
+}
+// 27-Nov-2026: a weekday's picture is downloaded the first time that day comes; if the phone's network fails then, the
+// card stayed empty. Now: try again (2 s, 8 s, 30 s, and when the phone is back online), then show the day as a painted
+// sticker instead of an empty card; and keep all 7 day pictures (and the next week's festival pictures) in the offline store.
+function dayStickerGuard(wrap, festival, now) {
+  const im = wrap.querySelector(".glassFrame img"); if (!im) return;
+  const WDN = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"], src = im.getAttribute("src");
+  let tries = 0, timer = 0;
+  const fallback = () => {
+    if (!im.isConnected) return;
+    const label = festival ? festival.name : WDN[now.getDay()];
+    const icon = `<text x="0" y="0" font-size="34" text-anchor="middle">${festival ? (festival.emoji || "🎉") : "✨"}</text>`;
+    const box = document.createElement("span"); box.innerHTML = buildStickerSVG(festival ? (festival.color || DAY_BADGE_COLORS[now.getDay()]) : DAY_BADGE_COLORS[now.getDay()], icon, label);
+    const svg = box.firstElementChild; if (svg) { svg.style.maxWidth = "100%"; svg.style.height = "auto"; svg.setAttribute("data-day-fallback", "1"); im.replaceWith(svg); }
+    const back = () => { window.removeEventListener("online", back); if (svg && svg.isConnected) { const n = new Image(); n.onload = () => { if (svg.isConnected) { im.src = src; svg.replaceWith(im); } }; n.src = src + "?r=" + Date.now(); } };
+    window.addEventListener("online", back);
+  };
+  const retry = () => {
+    clearTimeout(timer);
+    if (!im.isConnected || (im.complete && im.naturalWidth)) return;
+    if (tries === 1) fallback();   // something visible while it keeps trying
+    if (tries >= 4) return;
+    const wait = [2000, 8000, 30000, 60000][tries++];
+    timer = setTimeout(() => { const n = new Image(); n.onload = () => { const live = wrap.querySelector('svg[data-day-fallback]'); im.src = src; if (live) live.replaceWith(im); }; n.onerror = retry; n.src = src + "?r=" + Date.now(); }, wait);
+  };
+  im.addEventListener("error", retry);
+  if (im.complete && !im.naturalWidth) retry();
+  window.addEventListener("online", () => { if (!im.naturalWidth) { tries = Math.min(tries, 2); retry(); } }, { once: true });
+  // warm the offline store once per start, when the phone is idle (cache-first afterwards, so this costs nothing next time)
+  if (!window._dayPicsWarm) {
+    window._dayPicsWarm = 1;
+    const soon = [];
+    for (let i = 0; i < 8; i++) { const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      FESTIVALS_2026.forEach(f => { if (f.image && (f.date === iso || (FESTIVAL_DATES_MORE[f.name] || []).includes(iso))) soon.push(f.image); }); }
+    const go = () => DAY_STICKER_IMAGES.concat(soon).forEach(u => { try { fetch(u).catch(() => {}); } catch (e) {} });
+    setTimeout(() => (window.requestIdleCallback || setTimeout)(go, { timeout: 10000 }), 5000);
+  }
 }
 
 // Tall sky for the side-by-side greeting card: colours follow the time of day,
