@@ -23,7 +23,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.27.2";
+  const VERSION = "2026.11.27.3";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -827,6 +827,29 @@
     return { vr: v2, missing: r.missing };
   }
 
+  // more heats of the same date into the voucher already made for it (27-Nov-2026: one production voucher per date):
+  // Edit → Production Received → the new billet lines after the ones there → every line checked → Update.
+  // Lines already in the voucher (same item + Batch + Ref) are not added twice. No new RM line: the voucher has one.
+  async function addProdToVoucher(h, vr, log) {
+    await openVoucherForEdit(vr, backToListing, `Heats ${(h.members || [h]).map(x => x.heat).join(", ")} added by Moltrix`);
+    const dv = field("Production In Date").inp.value, din = dmyOf(dv) || dv.trim();
+    if (din && din !== h.date) throw Object.assign(new Error(`${vr} is a voucher of ${din}, not ${h.date} - clear the voucher box (or type the right one) and Start again`), { stopAll: true });
+    await openTab("Production Received");
+    const pf = await waitFor(() => grid("Production Received"), 10000, "Production Received grid");
+    const before = prodRowsNow().filter(x => x.code), sig = l => `${l.code}|${l.batch}|${l.ref}`;
+    const there = new Set(before.map(sig)), add = h.lines.filter(l => !there.has(sig(l)));
+    if (h.lines.length > add.length) log(`   ${h.lines.length - add.length} billet line(s) already in ${vr} - not added again`, "h");
+    if (!add.length) { await backToListing(); return { vr, missing: [], inVoucher: true }; }
+    for (const l of add) {
+      const tr = await addRow(pf);
+      await fillProdLine(tr, l); log(`   billet ${l.ref} ${l.len} Mtr ${l.pcs} pcs = ${l.mt.toFixed(3)} MT ✓`, "ok");
+    }
+    await checkProd(before.map(g => ({ code: g.code, batch: g.batch, ref: g.ref, pcs: g.pcs, cf: g.cf, mt: g.mt })).concat(add));
+    log(`   all ${before.length + add.length} billet lines re-checked ✓ (${before.length} were there, ${add.length} added)`, "ok");
+    const v2 = await save(/^Update$/);
+    return { vr: /^\(/.test(v2 || "(") ? vr : v2, missing: [] };
+  }
+
   // Approve: Production Entry Listing → the voucher's row → ✓ in the toolbar → the voucher opens with Approve / Back → Approve
   async function approveVoucher(vr) {
     await backToListing();
@@ -1602,6 +1625,11 @@
   const store =(key = DONE_KEY) => { try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch (e) { return {}; } };
   const remember = (k, v, key = DONE_KEY) => { try { const s = store(key); s[k] = v; localStorage.setItem(key, JSON.stringify(s)); } catch (e) {} };
   let data = null, appWin = null;
+  // 27-Nov-2026: ONE production voucher per date - the voucher already made for this date (this browser's record, else the
+  // one Moltrix sent from OneDrive); later heats of the same date are added to it
+  const dayVrOf = date => { const st = store(); let vr = "";
+    Object.keys(st).forEach(k => { if (k.startsWith(date + "|") && st[k]) vr = st[k]; });   // the last one saved
+    return vr || (data && data.date === date && data.dayVr) || ""; };
   function panel() {
     let p = document.getElementById("mzfPanel"); if (p) return p;
     p = document.createElement("div"); p.id = "mzfPanel"; p.dataset.v = VERSION;
@@ -1729,11 +1757,15 @@
          <span style="color:#8ea3c4;font-size:11px"> Start on the Production QC screen. Keep this tab in front.</span></div>`;
       return;
     }
-    b.innerHTML = `<div style="margin-bottom:6px"><b>${data.date}</b> · ${mode === "full" ? "ONE voucher for all ticked heats: every heat's billet lines + one RM line of 0.001 MT (the day's consumption with Add RM later)" : mode === "cons" ? "Add the RM consumption of all its heats to the saved voucher" : mode === "approve" ? "Approve the saved production voucher(s)" : "Production only"}</div>` +
+    b.innerHTML = `<div style="margin-bottom:6px"><b>${data.date}</b> · ${mode === "full" ? "ONE voucher per date: all ticked heats' billet lines (+ one RM line of 0.001 MT in a new voucher; the day's consumption with Add RM later)" : mode === "cons" ? "Add the RM consumption of all its heats to the saved voucher" : mode === "approve" ? "Approve the saved production voucher(s)" : "Production only"}</div>` +
       data.heats.map((h, i) => { const k = data.date + "|" + h.heat, done = s[k], appr = store(APPROVE_DONE_KEY)[k]; const can = mode === "cons" || mode === "approve" ? !!done : true;
         const tick = mode === "approve" ? can && !appr : mode === "cons" ? can && !appr : can && !done;   // an approved voucher doesn't open in Edit (13-Nov) - not ticked, can still be ticked by hand
         return `<label style="display:flex;gap:6px;align-items:center;margin:2px 0;${can ? "" : "opacity:.5"}"><input type="checkbox" data-i="${i}" ${tick ? "checked" : ""} ${can ? "" : "disabled"}>
           Heat ${h.heat} · ${h.lines.reduce((x, l) => x + l.pcs, 0)} pcs · ${h.mt.toFixed(3)} MT${done ? ` <span style="color:${mode === "cons" && appr ? "#ffb4a8" : "#9be7a0"}">(${done}${appr ? mode === "cons" ? " · approved - can't add RM" : " · approved" : ""})</span>` : ""}</label>`; }).join("") +
+      (mode !== "cons" && mode !== "approve" ? (() => { const dv = dayVrOf(data.date);
+        return `<div style="margin-top:8px;padding:6px 8px;border:1px solid #2b3d5c;border-radius:6px">Voucher of ${data.date}:
+          <input id="mzfDayVr" value="${dv}" placeholder="none yet - a new one is made" style="width:150px;background:#0a1526;color:#e8eef8;border:1px solid #3a4f73;border-radius:4px;padding:2px 6px">
+          <div style="color:#8ea3c4;font-size:11px;margin-top:3px">${dv ? `The ticked heats are <b>added to ${dv}</b> (one voucher per date).` : "No voucher of this date yet - the ticked heats make a new one."} Made on another phone / PC? Type its number here.</div></div>`; })() : "") +
       `<div style="margin-top:8px"><button data-a="start" style="background:#d4a017;color:#10213a;border:0;border-radius:6px;padding:6px 14px;font-weight:700;cursor:pointer">Start</button>
        <span style="color:#8ea3c4;font-size:11px"> Keep this tab open and don't click in the ERP while it runs.</span></div>`;
   }
@@ -1789,6 +1821,7 @@
     // ticked heats; Add RM and Approve work once per saved voucher (with the consumption of every heat in it).
     // Vouchers saved earlier one per heat still work: they are simply groups of one.
     const dayMode = !qc && !m2m;   // production (any kind), Add RM, Approve
+    const dvBox = panel().querySelector("#mzfDayVr"), dayVr = dvBox ? dvBox.value.trim().toUpperCase() : "";
     if (dayMode) {
       const groups = [];
       if (data.mode === "cons" || data.mode === "approve") {
@@ -1822,17 +1855,22 @@
           if (h.members && h.members.length > 1) log(`   consumption of ${h.members.length} heats together: ${(h.rm || []).map(l => `${l.label} ${l.qty.toFixed(3)}`).join(", ") || "none"}`, "h");
           r = await addConsumption(h, vr, log); }
         else if (data.mode === "approve") { const vr = store()[k]; if (!vr) throw new Error("no saved voucher recorded for this heat on this phone / browser"); r = await approveVoucher(vr); }
+        else if (dayVr) {
+          if (Object.values(store(APPROVE_DONE_KEY)).includes(dayVr))
+            throw Object.assign(new Error(`${dayVr} (the voucher of ${data.date}) is already approved - the ERP doesn't open an approved voucher in Edit, so the heats can't be added to it`), { stopAll: true });
+          r = await addProdToVoucher(h, dayVr, log); }
         else r = await newVoucher(h, data.mode, log);
         const rememberAll = (vr, key) => keys.forEach(kk => remember(kk, vr, key));
         if (r.already) { rememberAll(r.vr, APPROVE_DONE_KEY); okN += members.length; log(`   ${r.vr} was already approved ✓`, "ok"); }
         else if (r.complete) log(`   ${r.vr} already has all its tests ✓`, "ok");
+        else if (r.inVoucher) { rememberAll(r.vr, DONE_KEY); okN += members.length; log(`   these heats are already in ${r.vr} ✓`, "ok"); }
         else if (r.nothing) log(`   nothing added to ${r.vr}`, "err");
         else if (r.vr === "DRY RUN") log("   trial done - check the voucher in the ERP, then press Back to throw it away", "h");
         else if (data.mode === "approve") { rememberAll(r.vr, APPROVE_DONE_KEY); okN += members.length; log(`   approved ${r.vr}`, "ok"); }
         else { rememberAll(r.vr, qc ? QC_DONE_KEY : m2m ? M2M_DONE_KEY : DONE_KEY); okN += members.length; log(`   saved ${r.vr}${members.length > 1 ? ` (${members.length} heats)` : ""}`, "ok"); }
         if (r.missing && r.missing.length) log(`   NOT entered: ${r.missing.join("; ")}`, "err");
         lastErr = "";
-        try { if (appWin) members.forEach(x => appWin.postMessage({ type: "moltrix-erp-done", date: data.date, heat: x.heat, vr: r.vr, missing: r.missing || [] }, APP_ORIGIN)); } catch (e) {}
+        try { if (appWin) members.forEach(x => appWin.postMessage({ type: "moltrix-erp-done", mode: data.mode, date: data.date, heat: x.heat, vr: r.vr, missing: r.missing || [] }, APP_ORIGIN)); } catch (e) {}
       } catch (e) {
         const slow = /^Timed out/.test(e.message) && !e.stopAll;
         if (e.noRights && qc) { try { localStorage.setItem(QC_NOEDIT_KEY, "1"); } catch (x) {}

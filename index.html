@@ -1592,7 +1592,7 @@ window.mzZeroBlank = function zeroBlankTables() {   // run by js/lazy-libs.js on
               <p id="erpSendHint" style="font-size:12px;color:var(--muted);margin:6px 0 10px;"></p>
               <label for="erpSendMode">What to enter</label>
               <select id="erpSendMode">
-                <option value="full">Production + RM (one voucher for the day)</option>
+                <option value="full">Production + RM (one voucher per date)</option>
                 <option value="cons">Add RM to saved vouchers</option>
                 <option value="approve">Approve production vouchers</option>
                 <option value="qc">Production QC (BIS Doc)</option>
@@ -1619,7 +1619,7 @@ window.mzZeroBlank = function zeroBlankTables() {   // run by js/lazy-libs.js on
                   <li>Drag this button onto the bookmarks bar: <a id="erpBookmarklet" href="#" style="display:inline-block;padding:3px 10px;border-radius:6px;background:#d4a017;color:#10213a;font-weight:700;text-decoration:none;">Moltrix ERP</a></li>
                   <li>Daily: open the ERP → Production Entry Listing → click <b>Moltrix ERP</b> → <b>Open Moltrix</b> → pick the date here → <b>Send to ERP</b> → <b>Start</b> in the ERP.</li>
                   <li>While it runs keep the ERP tab in front and don't click in it (a heat takes about 3-4 minutes; Chrome slows down tabs in the background).</li>
-                  <li><b>One voucher for the day</b> (ERP change, 27-Nov-2026): all ticked heats go into ONE Production Entry - every heat's billet lines (each with its heat in Batch / Ref) and one RM line of 0.001 MT. Every line is checked before Save; if anything doesn't match, the voucher is <b>not saved</b> and the reason is shown - fix it and Start again (heats already in a saved voucher are skipped).</li>
+                  <li><b>One voucher per date</b> (ERP change, 27-Nov-2026): heats sent later for the same date are <b>added to that date's voucher</b> (its number is kept in OneDrive and shown in the ERP panel - type it there if it doesn't show). The first time, all ticked heats go into ONE Production Entry - every heat's billet lines (each with its heat in Batch / Ref) and one RM line of 0.001 MT. Every line is checked before Save; if anything doesn't match, the voucher is <b>not saved</b> and the reason is shown - fix it and Start again (heats already in a saved voucher are skipped).</li>
                   <li>The ERP doesn't accept a Production Entry without at least one RM line, so production goes in together with the consumption. "Add RM to saved vouchers" then puts the RM consumption of <b>all heats of that voucher together</b> (item-wise totals) into it, and "Approve" approves it once. Then Production QC, heat by heat as before.</li>
                   <li><b>Production QC</b>: open Production QC in the ERP (Quick Search → QC → Production QC), click <b>Moltrix ERP</b>, pick "Production QC" here and Send. One QC per heat (series 2G HEAT WISE ANALYSIS) on the heat's first billet line, everything from the BIS Doc Final row (C, Mn, P, S, Si, N, S+P, CE, Bend, Camber, Length, Width, Freedom From Defects, Grade if the ERP asks), QC Time = heat date 10:00 (shift A), every test Pass. Only heats whose production voucher is approved can be picked in the ERP.</li>
                 </ol>
@@ -3017,7 +3017,7 @@ window.mzZeroBlank = function zeroBlankTables() {   // run by js/lazy-libs.js on
 <script src="js/app-05.js?v=494cd05504"></script>
 <script src="js/app-06.js?v=455f01999f"></script>
 <script src="js/app-07.js?v=07e11d08b9"></script>
-<script src="js/app-08.js?v=6571f24dd7"></script>
+<script src="js/app-08.js?v=02b86427bf"></script>
 <script src="js/app-09.js?v=eb1e7571c6"></script>
 <script src="js/app-10.js?v=bf8dd50e70"></script>
 <script src="js/app-11.js?v=1faf78e08c"></script>
