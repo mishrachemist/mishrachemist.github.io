@@ -4,15 +4,31 @@ const DM_LEVELS = [["WWWWWWWWWWWWWWWWWWWW", "WP...o....*....o...W", "W....*.....
 /* ===== Games hub ===== */
 (function gamesHub() {
   const ov = document.getElementById("gamesOverlay"); if (!ov) return;
-  const open = () => { if (window.__gmFont) window.__gmFont(); ov.classList.remove("hidden"); };
+  const overlay = () => { if (window.__gmFont) window.__gmFont(); ov.classList.remove("hidden"); };
+  // 27-Nov-2026: Games is a page of tiles like the home screen (menu → Games); the arcade card screen stays for the
+  // offline bar when the app itself is not open (signed out)
+  const play = g => {
+    if (g === "snake" && window.openSnakeGame) window.openSnakeGame();
+    if (g === "ball" && window.openBallJump) window.openBallJump();
+    if (g === "mine" && window.openDiamondMine) window.openDiamondMine();
+  };
+  const open = () => {
+    const app = document.getElementById("app"), sec = document.getElementById("section-games");
+    if (!sec || !app || app.classList.contains("hidden")) { overlay(); return; }
+    document.querySelectorAll("#mainSidebar > .navItem").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".sectionPanel").forEach(p => p.classList.add("hidden"));
+    sec.classList.remove("hidden");
+    document.getElementById("mainSidebar").classList.add("hidden");
+    document.getElementById("contentArea").classList.remove("hidden");
+    const mb = document.getElementById("mainBackBar"); if (mb) mb.classList.remove("hidden");
+    window.scrollTo({ top: 0, behavior: "instant" });
+  };
+  document.querySelectorAll("#gamesSubNav .navItem[data-game]").forEach(b => b.addEventListener("click", () => play(b.dataset.game)));
   window.openGames = open;
   document.getElementById("gamesClose").addEventListener("click", () => ov.classList.add("hidden"));
   ov.querySelectorAll(".gmHub button").forEach(b => b.addEventListener("click", () => {
     ov.classList.add("hidden");
-    const g = b.dataset.g;
-    if (g === "snake" && window.openSnakeGame) window.openSnakeGame();
-    if (g === "ball" && window.openBallJump) window.openBallJump();
-    if (g === "mine" && window.openDiamondMine) window.openDiamondMine();
+    play(b.dataset.g);
   }));
   // the red offline bar now offers all games
   const ob = document.querySelector("#offlineBanner .snkOfflineBtn");

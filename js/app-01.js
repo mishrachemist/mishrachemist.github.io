@@ -31,7 +31,6 @@ function applyLanguagePreference() {
   });
   const nm = (UI_LANGS.find(l => l.code === lang) || UI_LANGS[0]);
   document.getElementById("langToggle").textContent = lang === "hi" ? "🌐 भाषा: " + nm.native : "🌐 Language: " + nm.en;
-  const dl = document.getElementById("navDrawerLangLbl"); if (dl) dl.textContent = lang === "hi" ? "भाषा: " + nm.native : "Language: " + nm.en;
   uiLangApply(lang);
   try { window.dispatchEvent(new Event("mzlang")); } catch (e) {}
 }
@@ -232,6 +231,7 @@ function uiHiDict() {
     "Showing the notes saved on this device": "इस डिवाइस पर सेव नोट्स दिख रहे हैं", "Delete this note?": "यह नोट हटाएँ?", "The note is empty. Delete it?": "नोट खाली है। हटा दें?",
     "edited": "बदला", "Copy": "कॉपी", "Copied": "कॉपी हो गया", "Delete": "हटाएँ", "Save": "सेव करें", "Cancel": "रद्द करें", "Nothing to download": "डाउनलोड के लिए कुछ नहीं",
     "Making the PDF...": "PDF बन रहा है...", "continued": "जारी", "Could not save on this device (storage full?)": "इस डिवाइस पर सेव नहीं हुआ (स्टोरेज भरा?)",
+    "🎮 Games": "🎮 गेम्स", "works offline, plays in landscape": "बिना इंटरनेट चलते हैं, फ़ोन आड़ा करके खेलें",
     // placeholders
     "Paste the production/chemical message copied from WhatsApp here... (you can also paste several heats' messages together, straight from a WhatsApp export, and use 'Submit All Heats' below)":
       "WhatsApp से कॉपी किया प्रोडक्शन/केमिकल मैसेज यहाँ पेस्ट करें... (कई हीट के मैसेज एक साथ भी पेस्ट कर सकते हैं, फिर नीचे 'सभी हीट सबमिट करें' दबाएँ)",
@@ -632,6 +632,7 @@ function applyIconStyle(id) {
   const sb = document.getElementById("mainSidebar");
   if (sb) sb.dataset.ico = id;
   document.querySelectorAll(".sidebar.subNav").forEach(sn => { sn.dataset.ico = id; });   // inner pages follow the same style
+  document.querySelectorAll(".sidebar.gamesGrid").forEach(sn => { sn.dataset.ico = id; });   // Games page: tiles exactly like the home screen
   try { localStorage.setItem("homeIconStyle", id); } catch (e) {}
   applyNavGroupOrder();
   document.querySelectorAll("#iconStyleList .icoOpt").forEach(b => b.classList.toggle("sel", b.dataset.ico === id));
