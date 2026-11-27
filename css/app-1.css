@@ -2864,3 +2864,6 @@
 .langPickBtns button{flex:1;margin:0;height:46px;border-radius:14px;font-size:16px;font-weight:600;cursor:pointer}
 .langPickCancel{background:#fff;color:#0f172a;border:1.5px solid #cbd5e1}
 .langPickGo{background:#1b3149;color:#fff;border:0}
+
+/* Games page (27-Nov-2026): the home-screen tile grid, without the home cards above it */
+#gamesSubNav{ position:static !important; margin:0; }
