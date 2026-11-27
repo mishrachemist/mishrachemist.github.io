@@ -23,7 +23,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.27.1";
+  const VERSION = "2026.11.27.2";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -1605,7 +1605,9 @@
   function panel() {
     let p = document.getElementById("mzfPanel"); if (p) return p;
     p = document.createElement("div"); p.id = "mzfPanel"; p.dataset.v = VERSION;
-    p.style.cssText = "position:fixed;right:8px;bottom:8px;width:min(420px, calc(100vw - 16px));max-height:70vh;display:flex;flex-direction:column;background:#0f1d33;color:#e8eef8;font:13px/1.4 system-ui,Segoe UI,sans-serif;border:2px solid #d4a017;border-radius:10px;z-index:2147483647;box-shadow:0 8px 28px rgba(0,0,0,.45)";
+    p.addEventListener("mouseenter", () => { over = true; dim(); }); p.addEventListener("mouseleave", () => { over = false; dim(); });
+    p.addEventListener("touchstart", () => { peekT = Date.now() + 5000; dim(); setTimeout(dim, 5100); }, { passive: true });
+    p.style.cssText = "transition:opacity .25s;position:fixed;right:8px;bottom:8px;width:min(420px, calc(100vw - 16px));max-height:70vh;display:flex;flex-direction:column;background:#0f1d33;color:#e8eef8;font:13px/1.4 system-ui,Segoe UI,sans-serif;border:2px solid #d4a017;border-radius:10px;z-index:2147483647;box-shadow:0 8px 28px rgba(0,0,0,.45)";
     p.innerHTML = `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid #2b3d5c">
         <b style="flex:1;color:#f2c94c">Moltrix → ERP <span style="font-weight:400;color:#8ea3c4;font-size:11px">v${VERSION}</span></b>
         <button data-a="open">Open Moltrix</button><button data-a="paste">Paste</button><button data-a="pcview" id="mzfPcBtn">PC view</button><button data-a="stop">Stop</button><button data-a="min" title="Make small / big">–</button><button data-a="x">✕</button></div>
@@ -1876,7 +1878,12 @@
     if (!d || !MODES.includes(d.mode) || !(Array.isArray(d.heats) || Array.isArray(d.items))) { log("The pasted data is not complete - copy it again in Moltrix.", "err"); return; }
     if (takeData(d, " (pasted)")) { const p = panel(); p.querySelector("#mzfPasteBox").value = ""; p.querySelector("#mzfPaste").style.display = "none"; }
   }
-  window.MZF = { VERSION, busy: false, show() { panel(); renderData(); }, _t: { newVoucher, addConsumption, fillRm, backToListing, log, setData(d) { data = d; renderData(); }, debug(on) { DEBUG = on; dbgT = Date.now(); },
+  // 27-Nov-2026: while an entry runs the panel fades to 20% so the ERP behind it stays visible; mouse over it (PC) or
+  // tap it (phone) to see it fully for a few seconds - the Stop button stays where it is
+  let busy0 = false, peekT = 0, over = false;
+  const dim = () => { const p = document.getElementById("mzfPanel"); if (!p) return;
+    p.style.opacity = busy0 && !over && Date.now() > peekT ? "0.2" : "1"; };
+  window.MZF = { VERSION, get busy() { return busy0; }, set busy(v) { busy0 = !!v; dim(); }, show() { panel(); renderData(); }, _t: { newVoucher, addConsumption, fillRm, backToListing, log, setData(d) { data = d; renderData(); }, debug(on) { DEBUG = on; dbgT = Date.now(); },
     grid, realRows, addRow, activate, fillProdLine, fillRmLine, alertBox, lov, pickLov, field, cell, newQc, qcFill, qcAddRest, backToQcListing, qcPickBatch, qcRowsNow, screenTitle,
     newIrq, irqAddItem, backToIrqListing, ngPick, irqGridRows, irqDefaults, loadPasted, doAction, formOpen, onListing, newM2m, backToM2mListing, m2mIssueLine, m2mRecvLine, m2mRowsNow, closeAlert } };
   panel(); renderData();
