@@ -23,7 +23,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.27.3";
+  const VERSION = "2026.11.28.1";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -1757,12 +1757,12 @@
          <span style="color:#8ea3c4;font-size:11px"> Start on the Production QC screen. Keep this tab in front.</span></div>`;
       return;
     }
-    b.innerHTML = `<div style="margin-bottom:6px"><b>${data.date}</b> · ${mode === "full" ? "ONE voucher per date: all ticked heats' billet lines (+ one RM line of 0.001 MT in a new voucher; the day's consumption with Add RM later)" : mode === "cons" ? "Add the RM consumption of all its heats to the saved voucher" : mode === "approve" ? "Approve the saved production voucher(s)" : "Production only"}</div>` +
+    b.innerHTML = `<div style="margin-bottom:6px"><b>${data.date}</b> · ${mode === "full" ? (data.vmode === "heat" ? "One voucher per heat (old way): billet lines + one RM line of 0.001 MT (the consumption with Add RM later)" : "ONE voucher per date: all ticked heats' billet lines (+ one RM line of 0.001 MT in a new voucher; the day's consumption with Add RM later)") : mode === "cons" ? "Add the RM consumption of all its heats to the saved voucher" : mode === "approve" ? "Approve the saved production voucher(s)" : "Production only"}</div>` +
       data.heats.map((h, i) => { const k = data.date + "|" + h.heat, done = s[k], appr = store(APPROVE_DONE_KEY)[k]; const can = mode === "cons" || mode === "approve" ? !!done : true;
         const tick = mode === "approve" ? can && !appr : mode === "cons" ? can && !appr : can && !done;   // an approved voucher doesn't open in Edit (13-Nov) - not ticked, can still be ticked by hand
         return `<label style="display:flex;gap:6px;align-items:center;margin:2px 0;${can ? "" : "opacity:.5"}"><input type="checkbox" data-i="${i}" ${tick ? "checked" : ""} ${can ? "" : "disabled"}>
           Heat ${h.heat} · ${h.lines.reduce((x, l) => x + l.pcs, 0)} pcs · ${h.mt.toFixed(3)} MT${done ? ` <span style="color:${mode === "cons" && appr ? "#ffb4a8" : "#9be7a0"}">(${done}${appr ? mode === "cons" ? " · approved - can't add RM" : " · approved" : ""})</span>` : ""}</label>`; }).join("") +
-      (mode !== "cons" && mode !== "approve" ? (() => { const dv = dayVrOf(data.date);
+      (mode !== "cons" && mode !== "approve" && data.vmode !== "heat" ? (() => { const dv = dayVrOf(data.date);
         return `<div style="margin-top:8px;padding:6px 8px;border:1px solid #2b3d5c;border-radius:6px">Voucher of ${data.date}:
           <input id="mzfDayVr" value="${dv}" placeholder="none yet - a new one is made" style="width:150px;background:#0a1526;color:#e8eef8;border:1px solid #3a4f73;border-radius:4px;padding:2px 6px">
           <div style="color:#8ea3c4;font-size:11px;margin-top:3px">${dv ? `The ticked heats are <b>added to ${dv}</b> (one voucher per date).` : "No voucher of this date yet - the ticked heats make a new one."} Made on another phone / PC? Type its number here.</div></div>`; })() : "") +
@@ -1821,7 +1821,7 @@
     // ticked heats; Add RM and Approve work once per saved voucher (with the consumption of every heat in it).
     // Vouchers saved earlier one per heat still work: they are simply groups of one.
     const dayMode = !qc && !m2m;   // production (any kind), Add RM, Approve
-    const dvBox = panel().querySelector("#mzfDayVr"), dayVr = dvBox ? dvBox.value.trim().toUpperCase() : "";
+    const dvBox = panel().querySelector("#mzfDayVr"), dayVr = dvBox && data.vmode !== "heat" ? dvBox.value.trim().toUpperCase() : "";
     if (dayMode) {
       const groups = [];
       if (data.mode === "cons" || data.mode === "approve") {
@@ -1832,9 +1832,10 @@
           const all = vr && data.mode === "cons" ? data.heats.filter(h => st[data.date + "|" + h.heat] === vr) : list;
           groups.push(mergeHeats(all.length ? all : list, list));
         });
-      } else groups.push(mergeHeats(picked, picked));
+      } else if (data.vmode === "heat") picked.forEach(h => groups.push(mergeHeats([h], [h])));   // old way: a voucher per heat
+      else groups.push(mergeHeats(picked, picked));
       picked = groups;
-      log(`${data.mode !== "cons" && data.mode !== "approve" ? "One voucher" : picked.length + " voucher(s)"} for ${picked.reduce((n, g) => n + g.members.length, 0)} heat(s): ${picked.map(g => g.heat).join(" | ")}`, "h");
+      log(`${data.mode !== "cons" && data.mode !== "approve" && data.vmode !== "heat" ? "One voucher" : picked.length + " voucher(s)"} for ${picked.reduce((n, g) => n + g.members.length, 0)} heat(s): ${picked.map(g => g.heat).join(" | ")}`, "h");
     }
     let lastErr = "";
     const again = [];                                     // heats that only timed out (slow internet) - tried once more at the end
