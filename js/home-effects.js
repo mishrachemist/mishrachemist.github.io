@@ -311,7 +311,7 @@
   setInterval(() => { loadWeather(); updateChips(); reset(); }, 30 * 60000);
   window.homeFxRefresh = () => { reset(); updateChips(); prodMeter(); };
   prodMeter();
-  const langBtn = document.getElementById("langToggle"); if (langBtn) langBtn.addEventListener("click", () => setTimeout(() => { updateChips(); prodMeter(); }, 50));
+  window.addEventListener("mzlang", () => setTimeout(() => { updateChips(); prodMeter(); }, 50));   // language changed (language box)
 })();
 
 /* ===================== HOME EDIT: move & resize tiles ===================== */

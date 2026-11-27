@@ -22,13 +22,18 @@ function applyDarkModePreference() {
 applyDarkModePreference();
 
 /* ===================== LANGUAGE TOGGLE (nav labels) ===================== */
+/* the languages the app can show (each needs its own translations, so only these two for now) */
+const UI_LANGS = [{ code: "en", native: "English", en: "English" }, { code: "hi", native: "हिंदी", en: "Hindi" }];
 function applyLanguagePreference() {
   const lang = localStorage.getItem("appLanguage") || "en";
   document.querySelectorAll("[data-en]").forEach(el => {
     el.textContent = lang === "hi" ? el.dataset.hi : el.dataset.en;
   });
-  document.getElementById("langToggle").textContent = lang === "hi" ? "🌐 हिं / EN" : "🌐 EN / हिं";
+  const nm = (UI_LANGS.find(l => l.code === lang) || UI_LANGS[0]);
+  document.getElementById("langToggle").textContent = lang === "hi" ? "🌐 भाषा: " + nm.native : "🌐 Language: " + nm.en;
+  const dl = document.getElementById("navDrawerLangLbl"); if (dl) dl.textContent = lang === "hi" ? "भाषा: " + nm.native : "Language: " + nm.en;
   uiLangApply(lang);
+  try { window.dispatchEvent(new Event("mzlang")); } catch (e) {}
 }
 function uiLang() { try { return localStorage.getItem("appLanguage") || "en"; } catch (e) { return "en"; } }
 // Hindi for everything you actually see: home tiles, inner page tiles, Back buttons,
@@ -370,11 +375,48 @@ function maybeShowChangelog() {
   });
 }
 
-document.getElementById("langToggle").addEventListener("click", () => {
-  const current = localStorage.getItem("appLanguage") || "en";
-  localStorage.setItem("appLanguage", current === "hi" ? "en" : "hi");
-  applyLanguagePreference();
-});
+/* "Choose your preferred language" box (27-Nov-2026): search, each language in its own script + in English, Cancel / Continue */
+function openLangPicker() {
+  const cur = uiLang(); let pick = cur;
+  let ov = document.getElementById("langPickOv");
+  if (!ov) { ov = document.createElement("div"); ov.id = "langPickOv"; ov.className = "langPickOv"; document.body.appendChild(ov); }
+  const hi = () => pick === "hi";
+  const draw = () => {
+    const q = (document.getElementById("langPickQ") || {}).value || "";
+    const ql = q.trim().toLowerCase();
+    const L = UI_LANGS.filter(l => !ql || l.en.toLowerCase().includes(ql) || l.native.toLowerCase().includes(ql) || l.code === ql);
+    ov.querySelector(".langPickList").innerHTML = L.length ? L.map(l => `<button type="button" class="langPickItem${l.code === pick ? " on" : ""}" data-code="${l.code}" role="radio" aria-checked="${l.code === pick}" lang="${l.code}"><span class="lpNative">${l.native}</span><span class="lpEn">${l.en}</span></button>`).join("")
+      : `<div class="langPickNone">${hi() ? "कोई भाषा नहीं मिली" : "No language found"}</div>`;
+    ov.querySelectorAll(".langPickItem").forEach(b => b.onclick = () => { pick = b.dataset.code; draw(); retitle(); });
+  };
+  const retitle = () => {
+    ov.querySelector(".langPickTitle").textContent = hi() ? "अपनी पसंद की भाषा चुनें" : "Choose your preferred language";
+    document.getElementById("langPickQ").placeholder = hi() ? "भाषा खोजें" : "Search language";
+    ov.querySelector(".langPickNote").textContent = hi() ? "हिंदी अभी बीटा में है: कुछ जगह अभी अंग्रेज़ी में दिख सकती हैं।" : "Hindi is in Beta: some screens may still show English.";
+    document.getElementById("langPickCancel").textContent = hi() ? "रद्द करें" : "Cancel";
+    document.getElementById("langPickGo").textContent = hi() ? "आगे बढ़ें" : "Continue";
+  };
+  ov.innerHTML = `<div class="langPickBox" role="dialog" aria-modal="true" aria-labelledby="langPickT">
+    <div class="langPickHead"><div class="langPickTitle" id="langPickT"></div><span class="langPickBeta"><b>Beta</b></span></div>
+    <div class="langPickBody"><label class="langPickSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg><input type="search" id="langPickQ" autocomplete="off"></label>
+      <div class="langPickList" role="radiogroup"></div></div>
+    <div class="langPickNote"></div>
+    <div class="langPickBtns"><button type="button" id="langPickCancel" class="langPickCancel"></button><button type="button" id="langPickGo" class="langPickGo"></button></div></div>`;
+  retitle(); draw();
+  const close = () => { ov.classList.remove("open"); document.removeEventListener("keydown", key, true); setTimeout(() => { if (!ov.classList.contains("open")) ov.innerHTML = ""; }, 200); };
+  const key = e => { if (e.key === "Escape") { e.stopPropagation(); close(); } else if (e.key === "Enter" && e.target.id !== "langPickQ") { /* default button */ } };
+  document.addEventListener("keydown", key, true);
+  document.getElementById("langPickQ").addEventListener("input", draw);
+  document.getElementById("langPickCancel").onclick = close;
+  ov.onclick = e => { if (e.target === ov) close(); };
+  document.getElementById("langPickGo").onclick = () => {
+    close();
+    if (pick !== cur) { try { localStorage.setItem("appLanguage", pick); } catch (e) {} applyLanguagePreference(); }
+  };
+  requestAnimationFrame(() => ov.classList.add("open"));
+}
+document.getElementById("langToggle").addEventListener("click", openLangPicker);
+document.getElementById("langCornerBtn").addEventListener("click", openLangPicker);
 
 /* ===================== PINNED TOOLS (home screen) ===================== */
 function getPinnedSections() {
