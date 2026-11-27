@@ -43,6 +43,13 @@ jobs:
         with:
           node-version: 22
 
+      # only the gold / silver page reader (tools/bullion-parse.mjs) - a tiny sparse checkout
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools/bullion-parse.mjs
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+
       - name: WhatsApp -> Excel
         env:
           MS_REFRESH_TOKEN: ${{ secrets.MS_REFRESH_TOKEN }}
@@ -106,41 +113,19 @@ jobs:
           }
 
           // ---- gold / silver rates -> OneDrive app folder bullion.json (every run; the app's Market screen reads it) ----
+          // the page is read by tools/bullion-parse.mjs (27-Nov-2026: the site's new layout; the old file's daily history is kept)
           await (async () => {
             try {
               const BURL = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/bullion.json:/content";
+              const { parseBullion } = await import((process.env.GITHUB_WORKSPACE || process.cwd()) + "/tools/bullion-parse.mjs");
               const hr = await fetch("https://bullions.co.in/", { headers: { "User-Agent": "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Mobile Safari/537.36", "Accept-Language": "en-IN,en;q=0.9" } });
               if (!hr.ok) throw new Error("page " + hr.status);
-              const html = await hr.text();
-              const txt = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ")
-                .replace(/&#x20B9;|&#8377;/gi, "₹").replace(/&#x24;/gi, "$").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/&#0?39;|&#x27;/g, "'")
-                .replace(/\s+/g, " ");
-              const num = v => Number(String(v).replace(/,/g, ""));
-              const N6 = "([\\d,]+(?:\\.\\d+)?) ([\\d,]+(?:\\.\\d+)?) ([\\d,]+(?:\\.\\d+)?) ([\\d,]+(?:\\.\\d+)?) ([\\d,]+(?:\\.\\d+)?) ([\\d,]+(?:\\.\\d+)?)";
-              const units = m => ({ g1: num(m[1]), g10: num(m[2]), g100: num(m[3]), kg: num(m[4]), oz: num(m[5]), tola: num(m[6]) });
-              const gold = [...txt.matchAll(new RegExp("Gold (\\d{1,2}) Karat \\(Rs ₹\\) " + N6, "g"))].map(m => Object.assign({ k: +m[1] }, units(m.slice(1))));
-              const silver = [...txt.matchAll(new RegExp("Silver (\\d{3}) (\\w+) \\(Rs ₹\\) " + N6, "g"))].map(m => Object.assign({ p: +m[1], name: m[2] }, units(m.slice(2))));
-              if (!gold.length || !silver.length || !gold.some(x => x.k === 24)) throw new Error("rates not found on the page");
-              const upd = (/Gold Rate Today in India Last Update : (\w+, \d{1,2} \w{3} \d{4} \d{1,2}:\d{2} [AP]M)/.exec(txt) || [])[1] || "";
-              const sUpd = (/Silver Rate Today in India Last Update : (\w+, \d{1,2} \w{3} \d{4} \d{1,2}:\d{2} [AP]M)/.exec(txt) || [])[1] || upd;
-              const head = k => { const m = new RegExp(k + " ([\\d,]+\\.\\d+) ([+-][\\d,]+\\.\\d+) \\(([+-][\\d.]+)%\\)").exec(txt); return m ? { price: num(m[1]), chg: num(m[2]), pct: +m[3] } : null; };
-              const dm = /1 Day Ago (\d{4}-\d\d-\d\d) 1 Week Ago (\d{4}-\d\d-\d\d) 1 Month Ago (\d{4}-\d\d-\d\d) 1 Year Ago (\d{4}-\d\d-\d\d)/.exec(txt);
-              const chRow = re => { const m = re.exec(txt); return m ? [0, 1, 2, 3].map(i => ({ price: num(m[1 + 2 * i]), pct: +m[2 + 2 * i] })) : null; };
-              const P4 = " ([\\d,]+\\.\\d+) ([+-]?[\\d.]+)% ([\\d,]+\\.\\d+) ([+-]?[\\d.]+)% ([\\d,]+\\.\\d+) ([+-]?[\\d.]+)% ([\\d,]+\\.\\d+) ([+-]?[\\d.]+)%";
-              const live = [["Gold - India MCX", "₹/10 g"], ["Silver - India MCX", "₹/kg"], ["Gold - US Comex", "$/oz"], ["Silver - US Comex", "$/oz"]].map(([n, u]) => {
-                const m = new RegExp(n.replace(/ /g, "\\s") + " \\([^)]*\\) ([\\d,]+\\.\\d+) ([+-]?[\\d,]+\\.\\d+) ([+-]?[\\d.]+)% ([\\d,]+\\.\\d+) ([\\d,]+\\.\\d+) ([\\d,]+\\.\\d+) (\\d{1,2} \\w{3}, \\d{1,2}:\\d{2})").exec(txt);
-                return m ? { name: n.replace(" - ", " · "), unit: u, price: num(m[1]), chg: num(m[2]), pct: +m[3], high: num(m[4]), low: num(m[5]), prev: num(m[6]), time: m[7] } : null;
-              }).filter(Boolean);
-              const newsSeg = (txt.split("publish their rates once or more during the day")[1] || "").split("Copyright")[0];
-              const news = [...newsSeg.matchAll(/([A-Z][^]{10,140}?) In News (\w{3}, \w{3} \d{1,2} \d{4})/g)].map(m => ({ t: m[1].replace(/^.*?News\s+/, "").trim(), d: m[2] })).slice(0, 8);
-              const hist = id => { const m = new RegExp("var " + id + "=\\[([\\s\\S]*?)\\];").exec(html); return m ? [...m[1].matchAll(/date: '(\d{4}-\d\d-\d\d)', value:([\d.]+)/g)].map(x => [x[1], +x[2]]) : []; };
-              const data = { v: 1, fetchedAt: new Date().toISOString(), updated: upd, silverUpdated: sUpd,
-                head: { gold: head("GOLD"), silver: head("SILVER") }, gold, silver,
-                change: dm ? { dates: dm.slice(1, 5), gold: chRow(new RegExp("Gold 24 Karat \\( Rs ₹ /10gm\\)" + P4)), silver: chRow(new RegExp("Silver 999 \\(Rs ₹/1kg\\)" + P4)) } : null,
-                live, news, hist: { gold: hist("chartData1"), silver: hist("chartData2") } };
+              let prev = null;
+              try { const pr = await fetch(BURL + "?t=" + Date.now(), { headers: { Authorization: "Bearer " + token } }); if (pr.ok) prev = await pr.json(); } catch (e) {}
+              const data = parseBullion(await hr.text(), prev);
               const up = await fetch(BURL, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(data) });
               if (!up.ok) throw new Error("OneDrive " + up.status);
-              console.log(`Bullion rates saved (${upd || "time n/a"}; ${gold.length} gold, ${silver.length} silver rows, ${live.length} live, ${data.hist.gold.length}/${data.hist.silver.length} chart days, ${news.length} news).`);
+              console.log(`Bullion rates saved (${data.updated || "time n/a"}; ${data.source}; ${data.gold.length} gold, ${data.silver.length} silver rows, ${data.live.length} live, ${data.hist.gold.length}/${data.hist.silver.length} chart days, ${data.news.length} news).`);
             } catch (e) { console.log("Bullion rates not updated: " + e.message); }
           })();
 

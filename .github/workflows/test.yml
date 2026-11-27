@@ -22,6 +22,8 @@ jobs:
         run: |
           node tools/stamp.mjs
           git diff --exit-code index.html || { echo "::error::js/css changed without 'node tools/stamp.mjs'"; exit 1; }
+      - name: Gold / silver page reader
+        run: node tests/bullion-parse.test.mjs
       - name: Playwright (uses the runner's Chrome)
         run: npm install --no-save --no-audit --no-fund --silent playwright-core@1
       - name: Smoke test
