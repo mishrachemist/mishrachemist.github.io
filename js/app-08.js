@@ -1125,13 +1125,18 @@ function erpQcPayload(d, bis) {
 function erpSendLog(m, cls) { const L = document.getElementById("erpSendLog"); if (!L) return; const d = document.createElement("div"); d.textContent = m;
   d.style.color = cls === "err" ? "#c0392b" : cls === "ok" ? "#2e9d5b" : cls === "h" ? "#b7860b" : ""; L.appendChild(d); L.scrollTop = L.scrollHeight; }
 const ERP_MODE_NOTE = {
-  full: "New production voucher per heat with one RM line of 0.001 MT (an item with stock) - the consumption later with Add RM to saved vouchers.",
+  full: "Production with one RM line of 0.001 MT (an item with stock) - the consumption later with Add RM to saved vouchers.",
   cons: "Adds the missing RM lines to vouchers already saved.",
   qc: "BIS Doc Final row - only after the voucher is approved. The tests the ERP has get entered and saved; run it again later and the tests still empty are added to the same QC (needs Edit rights on Production QC in the ERP).",
   approve: "Approves the production vouchers saved from this phone for the date (✓ → Approve) - needed before Production QC.",
   m2m: "Hot charging (R) billets, series BL - one voucher per heat and length."
 };
-function erpModeNote() { const m = document.getElementById("erpSendMode"), n = document.getElementById("erpSendModeNote"); if (m && n) n.textContent = ERP_MODE_NOTE[m.value] || ""; }
+function erpModeNote() { const m = document.getElementById("erpSendMode"), n = document.getElementById("erpSendModeNote"); if (m && n) n.textContent = ERP_MODE_NOTE[m.value] || "";
+  const w = document.getElementById("erpVmodeWrap"); if (m && w) w.style.display = m.value === "full" ? "" : "none"; }
+// 28-Nov-2026: voucher / heat (the old way) or voucher / all heats of the date (the new ERP way) - kept on this device
+{ const v = document.getElementById("erpVmode");
+  if (v) { try { const s = localStorage.getItem("erpVmode"); if (s === "heat" || s === "day") v.value = s; } catch (e) {}
+    v.addEventListener("change", () => { try { localStorage.setItem("erpVmode", v.value); } catch (e) {} }); } }
 document.getElementById("erpSendMode").addEventListener("change", erpModeNote);
 function erpSendRefresh() {
   const b = document.getElementById("erpSendBtn"), h = document.getElementById("erpSendHint");
@@ -1160,7 +1165,9 @@ async function erpBuildPayload() {
   } else {
     ({ bad, payload } = erpPayload(erpEntryData, mode));
     if (bad.length) { alert("Can't send - " + bad.join("; ")); return null; }
-    if (mode !== "m2m") { const dv = (await erpDayVrLoad())[payload.date]; if (dv) { payload.dayVr = dv; erpSendLog(`Voucher of ${payload.date}: ${dv} - the heats are added to it.`); } }
+    const vm = (document.getElementById("erpVmode") || {}).value === "heat" ? "heat" : "day";
+    if (mode === "full") { payload.vmode = vm; erpSendLog(vm === "heat" ? "One voucher per heat (old way)." : "One voucher for all heats of the date."); }
+    if (mode !== "m2m" && !(mode === "full" && vm === "heat")) { const dv = (await erpDayVrLoad())[payload.date]; if (dv) { payload.dayVr = dv; if (mode === "full") erpSendLog(`Voucher of ${payload.date}: ${dv} - the heats are added to it.`); } }
   }
   return payload;
 }

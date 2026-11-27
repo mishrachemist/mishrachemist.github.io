@@ -1592,13 +1592,20 @@ window.mzZeroBlank = function zeroBlankTables() {   // run by js/lazy-libs.js on
               <p id="erpSendHint" style="font-size:12px;color:var(--muted);margin:6px 0 10px;"></p>
               <label for="erpSendMode">What to enter</label>
               <select id="erpSendMode">
-                <option value="full">Production + RM (one voucher per date)</option>
+                <option value="full">Production + RM</option>
                 <option value="cons">Add RM to saved vouchers</option>
                 <option value="approve">Approve production vouchers</option>
                 <option value="qc">Production QC (BIS Doc)</option>
                 <option value="m2m">M2M SMS2 → BLRM</option>
               </select>
               <div id="erpSendModeNote" style="font-size:12px;color:var(--muted);margin:4px 0 0;"></div>
+              <div id="erpVmodeWrap" style="margin-top:8px;">
+                <label for="erpVmode">Production voucher</label>
+                <select id="erpVmode">
+                  <option value="day">One voucher / all heats of the date</option>
+                  <option value="heat">One voucher / heat (old way)</option>
+                </select>
+              </div>
               <div class="btnRow"><button class="primary" id="erpSendBtn" disabled>Send to ERP</button><button class="secondary" id="erpCopyBtn" type="button" disabled>📋 Copy for ERP (phone)</button></div>
               </div>
               <div id="erpSendLog" style="font:12px/1.4 Consolas,monospace;white-space:pre-wrap;margin-top:8px;max-height:220px;overflow:auto;"></div>
@@ -3017,7 +3024,7 @@ window.mzZeroBlank = function zeroBlankTables() {   // run by js/lazy-libs.js on
 <script src="js/app-05.js?v=494cd05504"></script>
 <script src="js/app-06.js?v=455f01999f"></script>
 <script src="js/app-07.js?v=07e11d08b9"></script>
-<script src="js/app-08.js?v=02b86427bf"></script>
+<script src="js/app-08.js?v=4f1ee35314"></script>
 <script src="js/app-09.js?v=eb1e7571c6"></script>
 <script src="js/app-10.js?v=bf8dd50e70"></script>
 <script src="js/app-11.js?v=1faf78e08c"></script>
