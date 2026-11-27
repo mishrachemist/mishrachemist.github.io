@@ -1,0 +1,15 @@
+name: bullion page snapshot (temporary)
+on: { pull_request: { paths: [".github/workflows/bullion-snap.yml"] } }
+permissions: { contents: read }
+jobs:
+  snap:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir -p out
+          curl -sL -A "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Mobile Safari/537.36" https://bullions.co.in/ -o out/page.html
+          grep -o 'href="[^"]*\.css[^"]*"' out/page.html | head -20 > out/css-links.txt || true
+          for u in $(grep -o 'href="https://bullions.co.in[^"]*\.css[^"]*"' out/page.html | sed 's/href="//;s/"$//' | head -10); do curl -sL "$u" >> out/site.css; echo >> out/site.css; done
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with: { name: page, path: out }
