@@ -66,16 +66,58 @@
     const l = (D.live || []).find(x => x.name.toLowerCase().startsWith(m) && /MCX/.test(x.name));
     return l ? l.pct : 0;
   }
+  /* 27-Nov-2026: rate cards in the style of the rates page - a certificate: guilloche frame, corner rosettes,
+     "Rate card", big price, unit, today's change, yesterday's rate, a hallmark seal and the update time */
+  const inr2 = v => Math.round(v).toLocaleString("en-IN");
+  function stampTxt(m) {   // "Friday, 27 Nov 2026 10:50 AM" -> "27 Nov 2026, 10:50 India time"
+    const s = String((m === "silver" ? D.silverUpdated : D.updated) || D.updated || "");
+    const x = /(\d{1,2}) (\w{3}) (\d{4}) (\d{1,2}):(\d{2}) ([AP]M)/.exec(s);
+    if (!x) return s;
+    const h = +x[4] % 12 + (x[6] === "PM" ? 12 : 0);
+    return `${x[1]} ${x[2]} ${x[3]}, ${String(h).padStart(2, "0")}:${x[5]} India time`;
+  }
+  const ROSETTE = '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.1">' +
+    Array.from({ length: 8 }, (_, i) => `<ellipse cx="20" cy="20" rx="17" ry="6.5" transform="rotate(${i * 22.5} 20 20)"/>`).join("") + '<circle cx="20" cy="20" r="4"/></g></svg>';
+  const GUIL = '<svg class="bxGuil" viewBox="0 0 200 200" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width=".7">' +
+    Array.from({ length: 18 }, (_, i) => `<ellipse cx="100" cy="100" rx="92" ry="34" transform="rotate(${i * 10} 100 100)"/>`).join("") +
+    Array.from({ length: 12 }, (_, i) => `<circle cx="${100 + 46 * Math.cos(i * Math.PI / 6)}" cy="${100 + 46 * Math.sin(i * Math.PI / 6)}" r="46"/>`).join("") + '</g></svg>';
+  function seal(m) {
+    const g = m === "gold" ? ["#fff4c2", "#f1c94a", "#b8860b", "#7a5600"] : ["#ffffff", "#e5e7eb", "#9ca3af", "#4b5563"], id = "bxSeal" + m;
+    const pts = Array.from({ length: 48 }, (_, i) => { const r = i % 2 ? 31 : 34, a = i * Math.PI / 24; return (50 + r * Math.cos(a)).toFixed(1) + "," + (46 + r * Math.sin(a)).toFixed(1); }).join(" ");
+    return `<svg class="bxSeal" viewBox="0 0 100 112" aria-hidden="true"><defs>
+      <radialGradient id="${id}g" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="${g[0]}"/><stop offset=".45" stop-color="${g[1]}"/><stop offset="1" stop-color="${g[2]}"/></radialGradient>
+      <path id="${id}c" d="M50 46 m-23 0 a23 23 0 1 1 46 0 a23 23 0 1 1 -46 0"/></defs>
+      <path d="M34 66 L26 108 L36 100 L42 110 L48 70 Z" fill="#1f5a3f"/><path d="M66 66 L74 108 L64 100 L58 110 L52 70 Z" fill="#2c7350"/>
+      <polygon points="${pts}" fill="url(#${id}g)" stroke="${g[3]}" stroke-width=".8"/>
+      <circle cx="50" cy="46" r="27" fill="none" stroke="${g[3]}" stroke-width=".8" opacity=".7"/>
+      <text font-size="7.2" font-weight="700" letter-spacing="1.1" fill="${g[3]}" font-family="Georgia,serif"><textPath href="#${id}c" startOffset="2%">HALLMARK CERTIFIED · FINE ${m === "gold" ? "GOLD" : "SILVER"} ·</textPath></text>
+      <circle cx="50" cy="46" r="15.5" fill="#fffdf4" stroke="${g[3]}" stroke-width="1.2"/>
+      <text x="50" y="50.5" text-anchor="middle" font-size="12" font-weight="800" fill="#1f2937" font-family="Georgia,serif">999</text></svg>`;
+  }
   function renderStrip() {
     if (!D || !rowsOf("gold").length || !rowsOf("silver").length) { strip.classList.add("hidden"); return; }
-    const row = m => {
-      const p = dayPct(m), arr = p > 0 ? '<span class="up">▲</span>' : p < 0 ? '<span class="dn">▼</span>' : '<span class="fl">●</span>';
-      return `<button type="button" class="bxRow ${m}" data-bx="${m}">
-        <div class="bxTop">${bars(m)}<div class="t">${m === "gold" ? "GOLD RATE<small>24 KT · 10 GM</small>" : "SILVER RATE<small>999 · 1 KG</small>"}</div></div>
-        <div class="bxPanelBox"><div class="p">${inr(baseOf(m)[histUnit(m)])}</div><div class="l">LIVE PRICE</div>
-          <div class="u">${arr} ${esc(upd(m))}</div></div></button>`;
+    const card = m => {
+      const price = baseOf(m)[histUnit(m)], ch = D.change && D.change[m] && D.change[m][0], hd = D.head && D.head[m];
+      const yest = ch && ch.price > 0 ? ch.price : null;
+      const chg = hd && typeof hd.chg === "number" ? hd.chg : (yest ? price - yest : null);
+      const pct = hd && typeof hd.pct === "number" ? hd.pct : dayPct(m);
+      const dir = pct > 0 ? "up" : pct < 0 ? "dn" : "fl", ar = pct > 0 ? "▲" : pct < 0 ? "▼" : "●";
+      const pill = chg !== null ? `${ar} ${chg >= 0 ? "+" : "−"}${Math.abs(chg).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${pct >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(2)}%) today` : `${ar} ${pct >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(2)}% today`;
+      return `<button type="button" class="bxCert ${m}" data-bx="${m}" aria-label="${m === "gold" ? "Gold 24 Carat" : "Silver 999"} rate ${inr(price)}">
+        ${["tl", "tr", "bl", "br"].map(c => `<i class="bxRos ${c}">${ROSETTE}</i>`).join("")}
+        <div class="bxCi">${GUIL}
+          <div class="bxCk">Rate card</div>
+          <div class="bxCn">${m === "gold" ? "Gold 24 Carat" : "Silver 999"}</div>
+          <div class="bxCs">${m === "gold" ? "Fine gold · hallmark 999" : "Fine silver · hallmark 999"}</div>
+          <div class="bxCp"><span class="cur">₹</span>${inr2(price)}<span class="dec">.00</span></div>
+          <div class="bxCu">${m === "gold" ? "Rupees per 10 grams" : "Rupees per 1 kilogram"}</div>
+          <span class="bxCpill ${dir}">${esc(pill)}</span>
+          ${yest ? `<div class="bxCy">Yesterday <b>${inr(yest)}</b></div>` : ""}
+          ${seal(m)}
+          <div class="bxCt">Updated ${esc(stampTxt(m))}</div>
+        </div></button>`;
     };
-    strip.innerHTML = `<div class="bxBoard">${row("gold")}${row("silver")}</div>`;
+    strip.innerHTML = `<div class="bxCerts">${card("gold")}${card("silver")}</div>`;
     strip.classList.remove("hidden");
   }
 
