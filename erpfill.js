@@ -23,7 +23,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.22.2";
+  const VERSION = "2026.11.27.1";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -1727,7 +1727,7 @@
          <span style="color:#8ea3c4;font-size:11px"> Start on the Production QC screen. Keep this tab in front.</span></div>`;
       return;
     }
-    b.innerHTML = `<div style="margin-bottom:6px"><b>${data.date}</b> · ${mode === "full" ? "Production + one RM line of 0.001 MT (the consumption with Add RM later)" : mode === "cons" ? "Add RM consumption to saved vouchers" : mode === "approve" ? "Approve the saved production vouchers" : "Production only"}</div>` +
+    b.innerHTML = `<div style="margin-bottom:6px"><b>${data.date}</b> · ${mode === "full" ? "ONE voucher for all ticked heats: every heat's billet lines + one RM line of 0.001 MT (the day's consumption with Add RM later)" : mode === "cons" ? "Add the RM consumption of all its heats to the saved voucher" : mode === "approve" ? "Approve the saved production voucher(s)" : "Production only"}</div>` +
       data.heats.map((h, i) => { const k = data.date + "|" + h.heat, done = s[k], appr = store(APPROVE_DONE_KEY)[k]; const can = mode === "cons" || mode === "approve" ? !!done : true;
         const tick = mode === "approve" ? can && !appr : mode === "cons" ? can && !appr : can && !done;   // an approved voucher doesn't open in Edit (13-Nov) - not ticked, can still be ticked by hand
         return `<label style="display:flex;gap:6px;align-items:center;margin:2px 0;${can ? "" : "opacity:.5"}"><input type="checkbox" data-i="${i}" ${tick ? "checked" : ""} ${can ? "" : "disabled"}>
@@ -1756,6 +1756,19 @@
     window.MZF_DRY = dry0; keepAwake(false);
     MZF.busy = false; STOP = false; renderData();
   }
+  // several heats as one voucher: all billet lines (each keeps its heat in Batch / Ref), RM added up item by item
+  function mergeHeats(all, ticked) {
+    if (all.length === 1 && ticked.length === 1) return Object.assign({}, all[0], { members: ticked });
+    const rm = {}, order = [];
+    all.forEach(h => (h.rm || []).forEach(l => { const key = l.code || "?" + l.label;
+      if (!rm[key]) { rm[key] = { code: l.code, label: l.label, qty: 0 }; order.push(key); } rm[key].qty = r3(rm[key].qty + (+l.qty || 0)); }));
+    const names = all.map(h => h.heat), withPh = all.find(h => h.rmPh && h.rmPh.length);
+    let remark = "Heats " + names.join(", ");
+    if (remark.length > 180) remark = `Heats ${names[0]} ... ${names[names.length - 1]} (${names.length} heats)`;
+    return { heat: names.join(", "), remark, date: all[0].date, mt: r3(all.reduce((x, h) => x + (+h.mt || 0), 0)),
+      lines: [].concat(...all.map(h => h.lines || [])), rm: order.map(k => rm[k]).filter(l => l.qty > 0.0005),
+      ...(withPh && !order.length ? { rmPh: withPh.rmPh, rmPhFrom: withPh.rmPhFrom } : {}), members: ticked };
+  }
   async function start() {
     if (MZF.busy || !data) return;
     if (data.mode === "indent" || data.mode === "req") return startIrq();
@@ -1769,10 +1782,31 @@
     const qc = data.mode === "qc", back = qc ? backToQcListing : m2m ? backToM2mListing : backToListing;
     try { await back(); }
     catch (e) { log(`✗ ${e.message}`, "err"); log("Nothing was entered.", "err"); window.MZF_DRY = dry0; keepAwake(false); MZF.busy = false; STOP = false; return; }
+    // 27-Nov-2026: the ERP now takes ONE production voucher for the whole day - every heat's billet lines in it, the
+    // RM consumption of all heats together - and the QC stays heat by heat. So Production makes one voucher of all
+    // ticked heats; Add RM and Approve work once per saved voucher (with the consumption of every heat in it).
+    // Vouchers saved earlier one per heat still work: they are simply groups of one.
+    const dayMode = !qc && !m2m;   // production (any kind), Add RM, Approve
+    if (dayMode) {
+      const groups = [];
+      if (data.mode === "cons" || data.mode === "approve") {
+        const by = new Map(), st = store();
+        picked.forEach(h => { const vr = st[data.date + "|" + h.heat] || ""; if (!by.has(vr)) by.set(vr, []); by.get(vr).push(h); });
+        by.forEach((list, vr) => {
+          // Add RM: the consumption of EVERY heat in that voucher, also the ones not ticked
+          const all = vr && data.mode === "cons" ? data.heats.filter(h => st[data.date + "|" + h.heat] === vr) : list;
+          groups.push(mergeHeats(all.length ? all : list, list));
+        });
+      } else groups.push(mergeHeats(picked, picked));
+      picked = groups;
+      log(`${data.mode !== "cons" && data.mode !== "approve" ? "One voucher" : picked.length + " voucher(s)"} for ${picked.reduce((n, g) => n + g.members.length, 0)} heat(s): ${picked.map(g => g.heat).join(" | ")}`, "h");
+    }
     let lastErr = "";
     const again = [];                                     // heats that only timed out (slow internet) - tried once more at the end
     const runOne = async (h, second) => {
-      const k = data.date + "|" + h.heat + (m2m ? "|" + h.lines[0].len : "");
+      const members = h.members || [h];                  // the heats this voucher stands for
+      const k = data.date + "|" + members[0].heat + (m2m ? "|" + h.lines[0].len : "");
+      const keys = members.map(x => data.date + "|" + x.heat + (m2m ? "|" + h.lines[0].len : ""));
       log(`Heat ${h.heat}${m2m ? ` · ${h.lines[0].size} ${h.lines[0].len} Mtr` : ""}${second ? " (2nd try)" : ""}`, "h");
       try {
         let r;
@@ -1783,23 +1817,25 @@
           if (r.nothing && !r.left.length) { r.nothing = false; r.complete = true; } }
         else if (m2m) r = { vr: await newM2m(h, log) };
         else if (data.mode === "cons") { const vr = store()[k]; if (!vr) throw new Error("no saved voucher recorded for this heat");
+          if (h.members && h.members.length > 1) log(`   consumption of ${h.members.length} heats together: ${(h.rm || []).map(l => `${l.label} ${l.qty.toFixed(3)}`).join(", ") || "none"}`, "h");
           r = await addConsumption(h, vr, log); }
         else if (data.mode === "approve") { const vr = store()[k]; if (!vr) throw new Error("no saved voucher recorded for this heat on this phone / browser"); r = await approveVoucher(vr); }
         else r = await newVoucher(h, data.mode, log);
-        if (r.already) { remember(k, r.vr, APPROVE_DONE_KEY); okN++; log(`   ${r.vr} was already approved ✓`, "ok"); }
+        const rememberAll = (vr, key) => keys.forEach(kk => remember(kk, vr, key));
+        if (r.already) { rememberAll(r.vr, APPROVE_DONE_KEY); okN += members.length; log(`   ${r.vr} was already approved ✓`, "ok"); }
         else if (r.complete) log(`   ${r.vr} already has all its tests ✓`, "ok");
         else if (r.nothing) log(`   nothing added to ${r.vr}`, "err");
         else if (r.vr === "DRY RUN") log("   trial done - check the voucher in the ERP, then press Back to throw it away", "h");
-        else if (data.mode === "approve") { remember(k, r.vr, APPROVE_DONE_KEY); okN++; log(`   approved ${r.vr}`, "ok"); }
-        else { remember(k, r.vr, qc ? QC_DONE_KEY : m2m ? M2M_DONE_KEY : DONE_KEY); okN++; log(`   saved ${r.vr}`, "ok"); }
+        else if (data.mode === "approve") { rememberAll(r.vr, APPROVE_DONE_KEY); okN += members.length; log(`   approved ${r.vr}`, "ok"); }
+        else { rememberAll(r.vr, qc ? QC_DONE_KEY : m2m ? M2M_DONE_KEY : DONE_KEY); okN += members.length; log(`   saved ${r.vr}${members.length > 1 ? ` (${members.length} heats)` : ""}`, "ok"); }
         if (r.missing && r.missing.length) log(`   NOT entered: ${r.missing.join("; ")}`, "err");
         lastErr = "";
-        try { if (appWin) appWin.postMessage({ type: "moltrix-erp-done", date: data.date, heat: h.heat, vr: r.vr, missing: r.missing || [] }, APP_ORIGIN); } catch (e) {}
+        try { if (appWin) members.forEach(x => appWin.postMessage({ type: "moltrix-erp-done", date: data.date, heat: x.heat, vr: r.vr, missing: r.missing || [] }, APP_ORIGIN)); } catch (e) {}
       } catch (e) {
         const slow = /^Timed out/.test(e.message) && !e.stopAll;
         if (e.noRights && qc) { try { localStorage.setItem(QC_NOEDIT_KEY, "1"); } catch (x) {}
           log("   A saved QC can't be changed from this login, so tests still empty can't be added to it. Ask the ERP admin for Edit rights on Production QC [NQ:QCPRO], then tick those heats and Start again. New heats (no QC yet) still go in as before.", "err"); }
-        log(`   ✗ ${e.message}${whereOf(e)} - this heat was NOT saved${slow && !second && !trial ? " (will try it again at the end)" : ""}`, "err");
+        log(`   ✗ ${e.message}${whereOf(e)} - ${members.length > 1 ? `this voucher (${members.length} heats) was` : "this heat was"} NOT saved${slow && !second && !trial ? " (will try it again at the end)" : ""}`, "err");
         if (trial) { log("   The half-filled voucher is left open - press Back in the ERP to throw it away.", "err"); return "stop"; }
         if (slow && !second) { again.push(h); try { await back(); } catch (e2) {} return; }
         if (e.message === lastErr) { log("   Stopped - the same problem on two heats in a row; send me a screenshot of this.", "err"); try { await back(); } catch (e2) {} return "stop"; }
@@ -1814,7 +1850,8 @@
       log(`Trying again ${again.length} heat(s) that timed out (slow internet)...`, "h");
       for (const h of again) { if ((await runOne(h, true)) === "stop") break; renderData(); if (STOP) break; }
     }
-    log(`Finished: ${okN} of ${picked.length} heat(s) saved in ${Math.round((Date.now() - t0) / 60000)} min.`, "h");
+    const heatN = picked.reduce((n, g) => n + (g.members ? g.members.length : 1), 0);
+    log(`Finished: ${okN} of ${heatN} heat(s) done in ${Math.round((Date.now() - t0) / 60000)} min.`, "h");
     window.MZF_DRY = dry0; keepAwake(false);
     MZF.busy = false; STOP = false; renderData();
   }
