@@ -1023,6 +1023,36 @@ function erpConfigLoad(force) {
   return _erpCfgP;
 }
 const ERP_FILLER_URL = "https://mishrachemist.github.io/erpfill.js";
+// 27-Nov-2026: ONE production voucher per date. The voucher number of each date (sent back by the ERP panel when it saves)
+// is kept here and in OneDrive (Apps → erp_day_vouchers.json), so the panel on any PC / phone adds later heats of that
+// date to the same voucher.
+const ERP_DAYVR_URL = "https://graph.microsoft.com/v1.0/me/drive/special/approot:/erp_day_vouchers.json:/content";
+const erpDayVrLocal = () => { try { return JSON.parse(localStorage.getItem("erpDayVr") || "{}") || {}; } catch (e) { return {}; } };
+async function erpDayVrLoad() {
+  try {
+    if (!account || (typeof isViewer === "function" && isViewer())) return erpDayVrLocal();
+    const token = await getToken(); if (!token) return erpDayVrLocal();
+    const r = await fetch(ERP_DAYVR_URL, { headers: { Authorization: "Bearer " + token } });
+    const o = r.ok ? await r.json() : {}, m = Object.assign({}, o && typeof o === "object" ? o : {}, erpDayVrLocal());
+    try { localStorage.setItem("erpDayVr", JSON.stringify(m)); } catch (e) {}
+    return m;
+  } catch (e) { return erpDayVrLocal(); }
+}
+async function erpDayVrSave(date, vr) {
+  if (!/^\d{2}-\d{2}-\d{4}$/.test(date || "") || !vr || /^(DRY RUN|\()/.test(vr)) return;
+  const m = erpDayVrLocal(); if (m[date] === vr) return;
+  m[date] = vr; try { localStorage.setItem("erpDayVr", JSON.stringify(m)); } catch (e) {}
+  try {
+    const token = await getToken(); if (!token) return;
+    const r = await fetch(ERP_DAYVR_URL, { headers: { Authorization: "Bearer " + token } });
+    const o = r.ok ? await r.json() : {}; o[date] = vr;
+    await fetch(ERP_DAYVR_URL, { method: "PUT", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(o) });
+  } catch (e) {}
+}
+window.addEventListener("message", ev => {
+  if (ev.origin !== ERP_ORIGIN || !ev.data || ev.data.type !== "moltrix-erp-done") return;
+  if (/^(full|prod)$/.test(ev.data.mode || "")) erpDayVrSave(ev.data.date, ev.data.vr);
+});
 const erpBridge = (() => { try { return new URLSearchParams(location.search).get("erpbridge") === "1" && !!window.opener; } catch (e) { return false; } })();
 // Android phone (not opened from the ERP bookmark): only the 📲 buttons; PC: mode list + Send to ERP + set-up
 if (/Android/i.test(navigator.userAgent) && !erpBridge) document.body.classList.add("erpPhone");
@@ -1130,6 +1160,7 @@ async function erpBuildPayload() {
   } else {
     ({ bad, payload } = erpPayload(erpEntryData, mode));
     if (bad.length) { alert("Can't send - " + bad.join("; ")); return null; }
+    if (mode !== "m2m") { const dv = (await erpDayVrLoad())[payload.date]; if (dv) { payload.dayVr = dv; erpSendLog(`Voucher of ${payload.date}: ${dv} - the heats are added to it.`); } }
   }
   return payload;
 }
