@@ -1203,7 +1203,29 @@ async function erpAppOpen(payload, logEl) {
   }
   location.href = url;
 }
+// phone (28-Nov-2026): Production + RM asks first - one voucher for all heats of the date, or one voucher per heat
+function erpVmodeAsk() {
+  return new Promise(done => {
+    const v = document.getElementById("erpVmode"); let pick = v && v.value === "heat" ? "heat" : "day";
+    let ov = document.getElementById("erpVmOv");
+    if (!ov) { ov = document.createElement("div"); ov.id = "erpVmOv"; ov.className = "langPickOv"; document.body.appendChild(ov); }
+    const opts = [["day", "One voucher / all heats", "All heats of the date in one voucher (the new ERP way)"], ["heat", "One voucher / heat", "A separate voucher for every heat (old way)"]];
+    ov.innerHTML = `<div class="langPickBox" role="dialog" aria-modal="true" aria-labelledby="erpVmT">
+      <div class="langPickHead"><div class="langPickTitle" id="erpVmT">Production voucher</div></div>
+      <div class="langPickBody"><div class="langPickList" role="radiogroup">${opts.map(([k, t, d]) => `<button type="button" class="langPickItem" data-k="${k}" role="radio"><b style="font-size:16px">${t}</b><span style="font-size:12.5px;color:#64748b">${d}</span></button>`).join("")}</div></div>
+      <div class="langPickBtns"><button type="button" class="langPickCancel" data-x="0">Cancel</button><button type="button" class="langPickGo" data-x="1">Continue</button></div></div>`;
+    const mark = () => ov.querySelectorAll(".langPickItem").forEach(b => { b.classList.toggle("on", b.dataset.k === pick); b.setAttribute("aria-checked", b.dataset.k === pick); });
+    ov.querySelectorAll(".langPickItem").forEach(b => b.onclick = () => { pick = b.dataset.k; mark(); });
+    mark();
+    const close = r => { ov.classList.remove("open"); setTimeout(() => { if (!ov.classList.contains("open")) ov.innerHTML = ""; }, 200); done(r); };
+    ov.querySelector('[data-x="0"]').onclick = () => close(null);
+    ov.querySelector('[data-x="1"]').onclick = () => { if (v) { v.value = pick; try { localStorage.setItem("erpVmode", pick); } catch (e) {} } close(pick); };
+    ov.onclick = e => { if (e.target === ov) close(null); };
+    requestAnimationFrame(() => ov.classList.add("open"));
+  });
+}
 document.querySelectorAll("[data-erpapp]").forEach(b => b.addEventListener("click", async () => {
+  if (b.dataset.erpapp === "full" && !(await erpVmodeAsk())) return;
   const sel = document.getElementById("erpSendMode");
   sel.value = b.dataset.erpapp; erpModeNote();
   const payload = await erpBuildPayload(); if (!payload) return;
