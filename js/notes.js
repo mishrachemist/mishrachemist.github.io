@@ -78,13 +78,13 @@
     let html = "", cur = "";
     L.forEach(n => {
       if (n.d !== cur) { if (cur) html += "</div>"; cur = n.d; const cnt = L.filter(x => x.d === cur).length;
-        html += `<div class="ntDay"><div class="ntDayH"><span>${esc(dateLong(cur))}</span><span class="ntCnt">${cnt}</span></div>`; }
+        html += `<div class="ntPage"><div class="ntPageH"><span class="ntPgDay">${esc(T(DAYS[dOf(cur).getDay()]))}</span><span class="ntPgDate" title="${esc(T("Date"))}">${dmy(cur)}</span><span class="ntCnt" title="${cnt} ${esc(T("Notes"))}">${cnt}</span></div>`; }
       if (n.id === editId) {
-        html += `<div class="ntNote ntEdit" data-id="${n.id}"><input type="date" class="ntEdD" value="${n.d}"><textarea class="ntEdX" rows="4">${esc(n.x)}</textarea>` +
+        html += `<div class="ntNote ntEdit" data-id="${n.id}"><span class="ntTime">${timeOf(n.c)}</span><input type="date" class="ntEdD" value="${n.d}"><textarea class="ntEdX ntRuled" rows="4">${esc(n.x)}</textarea>` +
           `<div class="ntBtns"><button type="button" class="primary" data-act="save">💾 ${esc(T("Save"))}</button><button type="button" class="secondary" data-act="cancel">${esc(T("Cancel"))}</button></div></div>`;
       } else {
-        html += `<div class="ntNote" data-id="${n.id}"><div class="ntMeta">🕒 ${timeOf(n.c)}${n.u - n.c > 60000 ? " · " + esc(T("edited")) + " " + timeOf(n.u) : ""}` +
-          `<span class="ntAct"><button type="button" data-act="edit" title="${esc(T("Edit"))}">✏️</button><button type="button" data-act="copy" title="${esc(T("Copy"))}">📋</button><button type="button" data-act="del" title="${esc(T("Delete"))}">🗑️</button></span></div>` +
+        html += `<div class="ntNote" data-id="${n.id}"><span class="ntTime" title="${n.u - n.c > 60000 ? esc(T("edited")) + " " + timeOf(n.u) : ""}">${timeOf(n.c)}${n.u - n.c > 60000 ? "*" : ""}</span>` +
+          `<span class="ntAct"><button type="button" data-act="edit" title="${esc(T("Edit"))}">✏️</button><button type="button" data-act="copy" title="${esc(T("Copy"))}">📋</button><button type="button" data-act="del" title="${esc(T("Delete"))}">🗑️</button></span>` +
           `<div class="ntText">${linkify(n.x)}</div></div>`;
       }
     });
@@ -125,37 +125,58 @@
     const ws = X.utils.aoa_to_sheet(rows); ws["!cols"] = [{ wch: 12 }, { wch: 11 }, { wch: 7 }, { wch: 90 }];
     const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, "Notes"); X.writeFile(wb, "Moltrix_Notes_" + stamp() + ".xlsx");
   }
-  // pages drawn on a canvas (any language, emoji too), one picture per A4 page
+  // spiral-notebook pages drawn on a canvas (handwriting font Kalam: English + Hindi), one picture per A4 page
   async function dlPdf() {
     const L = shown().slice().reverse(); if (!L.length) return status(T("Nothing to download"));
-    status("📄 " + T("Making the PDF...") );
-    const W = 1240, H = 1754, M = 90, FONT = "'Segoe UI', Arial, 'Noto Sans Devanagari', 'Nirmala UI', 'Noto Color Emoji', sans-serif";
-    const pages = []; let cv, ctx, y;
-    const page = () => { cv = document.createElement("canvas"); cv.width = W; cv.height = H; ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H); ctx.textBaseline = "top"; pages.push(cv); y = M;
-      if (pages.length === 1) { ctx.fillStyle = "#1e3a8a"; ctx.font = "bold 44px " + FONT; ctx.fillText("📝 Moltrix Notes", M, y); y += 60;
-        ctx.fillStyle = "#64748b"; ctx.font = "22px " + FONT; ctx.fillText(dmy(L[0].d) + (L.length > 1 ? "  →  " + dmy(L[L.length - 1].d) : "") + "   ·   " + L.length + " notes", M, y); y += 50; } };
+    status("📄 " + T("Making the PDF..."));
+    try { await Promise.all([document.fonts.load("30px Kalam", "Notes"), document.fonts.load("30px Kalam", "नोट्स"), document.fonts.load("bold 30px Kalam", "Date")]); } catch (e) {}
+    const W = 1240, H = 1754, TOP = 176, LH = 46, MX = 212, RX = W - 70, HAND = "Kalam, 'Noto Sans Devanagari', 'Nirmala UI', 'Segoe UI', sans-serif";
+    const INK = "#1d3a8a", RED = "#d9534f";
+    const pages = []; let cv, ctx, row, pageDate = "";
+    const yOf = r => TOP + r * LH;                         // baseline area of ruled line r (text sits just above the rule)
+    const maxRow = Math.floor((H - 110 - TOP) / LH) - 1;
+    const page = d => {
+      cv = document.createElement("canvas"); cv.width = W; cv.height = H; ctx = cv.getContext("2d"); pages.push(cv); row = 0; pageDate = d;
+      ctx.fillStyle = "#fffdf4"; ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = "#a9c6e8"; ctx.lineWidth = 2;           // ruled lines
+      for (let y = TOP + LH; y < H - 70; y += LH) { ctx.beginPath(); ctx.moveTo(110, y); ctx.lineTo(W - 40, y); ctx.stroke(); }
+      ctx.strokeStyle = "#f19a95"; ctx.lineWidth = 3;           // red margin
+      ctx.beginPath(); ctx.moveTo(MX - 22, 0); ctx.lineTo(MX - 22, H); ctx.stroke();
+      ctx.strokeStyle = "#f3b6b2"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(110, TOP); ctx.lineTo(W - 40, TOP); ctx.stroke();
+      for (let y = 60; y < H - 30; y += 74) {                   // spiral: punched hole + metal ring
+        ctx.fillStyle = "#4b5563"; ctx.beginPath(); ctx.arc(78, y, 11, 0, 2 * Math.PI); ctx.fill();
+        ctx.strokeStyle = "#8b95a3"; ctx.lineWidth = 7; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(78, y - 4); ctx.bezierCurveTo(30, y - 22, 4, y - 6, 8, y + 6); ctx.stroke();
+        ctx.strokeStyle = "#e5e7eb"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(74, y - 7); ctx.bezierCurveTo(32, y - 22, 10, y - 8, 12, y + 2); ctx.stroke();
+      }
+      ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = "#64748b"; ctx.font = "22px " + HAND; ctx.textAlign = "left"; ctx.fillText("Moltrix Notes", MX, TOP - 70);
+      ctx.fillStyle = INK; ctx.font = "bold 30px " + HAND; ctx.textAlign = "right";
+      ctx.fillText(T("Date") + ": " + dmy(d) + "  (" + T(DAYS[dOf(d).getDay()]) + ")", RX, TOP - 18); ctx.textAlign = "left";
+    };
     const wrap = (text, font, maxW) => { ctx.font = font; const out = [];
       String(text).split("\n").forEach(par => { if (!par) { out.push(""); return; } let line = "";
         for (const word of par.split(/(\s+)/)) { const t = line + word; if (ctx.measureText(t).width <= maxW) { line = t; continue; }
           if (line.trim()) { out.push(line.replace(/\s+$/, "")); line = word.replace(/^\s+/, ""); } else line = word;
           while (ctx.measureText(line).width > maxW) { let k = line.length; while (k > 1 && ctx.measureText(line.slice(0, k)).width > maxW) k--; out.push(line.slice(0, k)); line = line.slice(k); } }
         out.push(line.replace(/\s+$/, "")); }); return out; };
-    page();
     let cur = "";
     for (const n of L) {
-      if (n.d !== cur) { cur = n.d; if (y > H - M - 160) page();
-        ctx.fillStyle = "#eef2ff"; ctx.fillRect(M - 10, y, W - 2 * M + 20, 48); ctx.fillStyle = "#1e3a8a"; ctx.font = "bold 26px " + FONT; ctx.fillText(dateLong(cur), M, y + 10); y += 64; }
-      const lines = wrap(n.x, "24px " + FONT, W - 2 * M - 110), LH = 34;
-      let first = true;
-      for (let i = 0; i < lines.length; i++) {
-        if (y + LH > H - M - 40) { page(); ctx.fillStyle = "#94a3b8"; ctx.font = "italic 20px " + FONT; ctx.fillText(dateLong(cur) + " (" + T("continued") + ")", M, y); y += 36; }
-        if (first) { ctx.fillStyle = "#64748b"; ctx.font = "bold 20px " + FONT; ctx.fillText(timeOf(n.c), M, y + 3); first = false; }
-        ctx.fillStyle = "#0f172a"; ctx.font = "24px " + FONT; ctx.fillText(lines[i], M + 100, y); y += LH;
+      if (n.d !== cur) {                                     // a new date: new page, like a fresh notebook page for the day
+        cur = n.d;
+        if (!pages.length || row > 0) page(cur);
       }
-      ctx.strokeStyle = "#e2e8f0"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(M + 100, y + 8); ctx.lineTo(W - M, y + 8); ctx.stroke(); y += 24;
+      const lines = wrap(n.x, "31px " + HAND, RX - MX);
+      if (row + Math.min(lines.length, 3) > maxRow) page(cur);
+      lines.forEach((ln, k) => {
+        if (row > maxRow) page(cur);
+        const y = yOf(row + 1) - 9;
+        if (k === 0) { ctx.fillStyle = "#94a3b8"; ctx.font = "21px " + HAND; ctx.textAlign = "right"; ctx.fillText(timeOf(n.c), MX - 34, y); ctx.textAlign = "left"; }
+        ctx.fillStyle = INK; ctx.font = "31px " + HAND; ctx.fillText(ln, MX, y); row++;
+      });
+      row++;                                                  // one empty line between notes
     }
     const { jsPDF } = window.jspdf, doc = new jsPDF({ unit: "mm", format: "a4" });
-    pages.forEach((c, i) => { if (i) doc.addPage(); const g = c.getContext("2d"); g.fillStyle = "#94a3b8"; g.font = "18px " + FONT; g.textAlign = "right"; g.fillText((i + 1) + " / " + pages.length, W - M, H - 60);
+    pages.forEach((c, i) => { if (i) doc.addPage(); const g = c.getContext("2d"); g.fillStyle = "#94a3b8"; g.font = "20px " + HAND; g.textAlign = "center"; g.fillText("— " + (i + 1) + " / " + pages.length + " —", W / 2, H - 40);
       doc.addImage(c.toDataURL("image/jpeg", 0.9), "JPEG", 0, 0, 210, 297); });
     status("");
     const name = "Moltrix_Notes_" + stamp() + ".pdf";
@@ -165,7 +186,7 @@
   /* ---- wiring (once) ---- */
   function wire() {
     const sec = $("section-notes"); if (!sec || sec.dataset.ntWired) return; sec.dataset.ntWired = "1";
-    $("ntDate").value = today();
+    $("ntDate").value = today(); $("ntText").classList.add("ntRuled");
     const save = () => { if (add($("ntDate").value || today(), $("ntText").value)) { $("ntText").value = ""; $("ntText").style.height = ""; q = ""; $("ntSearch").value = ""; } else $("ntText").focus(); };
     $("ntSave").onclick = save;
     $("ntText").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); } });

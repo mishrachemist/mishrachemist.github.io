@@ -4,7 +4,7 @@
 .ntDateRow label{font-weight:600;font-size:13.5px}
 .ntDateRow input{flex:0 1 170px;margin:0}
 .ntDateRow button{margin:0;padding:6px 12px;width:auto}
-#ntText{width:100%;box-sizing:border-box;min-height:84px;resize:vertical;font:inherit;font-size:15px;line-height:1.5;padding:10px 12px;border-radius:10px}
+#ntText{width:100%;box-sizing:border-box;min-height:128px;resize:vertical;border-radius:8px}
 #ntSave{margin:0;align-self:flex-start;min-width:160px}
 .ntTools{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px}
 .ntTools input{flex:1 1 200px;margin:0}
@@ -13,17 +13,34 @@
 .ntDlBtns{display:flex;gap:6px;flex-wrap:wrap}
 .ntDlBtns button{margin:0;padding:6px 12px;width:auto;font-size:13px}
 .ntStatus{font-size:12px;opacity:.75;min-height:16px;margin:0 0 8px}
-.ntDay{margin:0 0 14px}
-.ntDayH{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14px;padding:7px 10px;border-radius:9px;background:rgba(100,116,139,.13);margin:0 0 6px}
-.ntCnt{font-size:12px;font-weight:700;min-width:22px;text-align:center;border-radius:20px;padding:1px 7px;background:rgba(100,116,139,.22)}
-.ntNote{border:1px solid rgba(100,116,139,.28);border-radius:10px;padding:8px 10px;margin:0 0 6px;background:rgba(127,127,127,.05)}
-.ntMeta{display:flex;align-items:center;gap:6px;font-size:11.5px;opacity:.7}
-.ntAct{margin-left:auto;display:flex;gap:2px}
-.ntAct button{background:none;border:0;padding:2px 5px;margin:0;width:auto;cursor:pointer;font-size:14px;opacity:.8;box-shadow:none}
+/* spiral notebook page: cream paper, blue rules every 32px, red margin, rings on the left (27-Nov-2026) */
+@font-face{font-family:Kalam;font-style:normal;font-weight:400;font-display:swap;src:url(../vendor/kalam-5.3.0/kalam-devanagari-400-normal.woff2) format("woff2");unicode-range:U+0900-097F,U+1CD0-1CF9,U+200C-200D,U+20A8,U+20B9,U+20F0,U+25CC,U+A830-A839,U+A8E0-A8FF}
+@font-face{font-family:Kalam;font-style:normal;font-weight:700;font-display:swap;src:url(../vendor/kalam-5.3.0/kalam-devanagari-700-normal.woff2) format("woff2");unicode-range:U+0900-097F,U+1CD0-1CF9,U+200C-200D,U+20A8,U+20B9,U+20F0,U+25CC,U+A830-A839,U+A8E0-A8FF}
+@font-face{font-family:Kalam;font-style:normal;font-weight:400;font-display:swap;src:url(../vendor/kalam-5.3.0/kalam-latin-ext-400-normal.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:Kalam;font-style:normal;font-weight:400;font-display:swap;src:url(../vendor/kalam-5.3.0/kalam-latin-400-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Kalam;font-style:normal;font-weight:700;font-display:swap;src:url(../vendor/kalam-5.3.0/kalam-latin-700-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+.ntPage{position:relative;margin:0 0 22px 14px;padding:32px 12px 32px 72px;border-radius:4px 10px 10px 4px;color:#1d3a8a;
+  font-family:Kalam,'Noto Sans Devanagari','Nirmala UI',cursive;font-size:19px;line-height:32px;
+  background-color:#fffdf4;
+  background-image:linear-gradient(90deg,transparent 61px,#f19a95 61px,#f19a95 63px,transparent 63px),repeating-linear-gradient(180deg,transparent 0,transparent 31px,#a9c6e8 31px,#a9c6e8 32px);
+  box-shadow:0 1px 0 #e7e1cf,0 2px 0 #fbf8ee,0 3px 0 #e7e1cf,0 6px 14px rgba(0,0,0,.22)}
+.ntPage::before{content:"";position:absolute;left:-14px;top:0;bottom:0;width:36px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='32'%3E%3Ccircle cx='27' cy='16' r='4.2' fill='%234b5563'/%3E%3Cpath d='M27 13.6C15 8.5 3 10.5 3 16.5' fill='none' stroke='%238b95a3' stroke-width='3.2' stroke-linecap='round'/%3E%3Cpath d='M25.5 12.3C15 8.3 5.5 10.2 4.8 14.8' fill='none' stroke='%23e5e7eb' stroke-width='1.1' stroke-linecap='round'/%3E%3C/svg%3E") repeat-y 0 0;pointer-events:none}
+.ntPageH{display:flex;align-items:center;gap:8px;height:32px;font-weight:700;white-space:nowrap;overflow:hidden;font-size:18px}
+.ntPgDay{color:#b45309}
+.ntPgDate{margin-left:auto;color:#c2410c}
+.ntCnt{font-family:system-ui,sans-serif;font-size:11px;font-weight:700;line-height:18px;min-width:18px;text-align:center;border-radius:20px;padding:0 6px;background:#fde68a;color:#7c2d12}
+.ntNote{position:relative;margin:0 0 32px;padding:0;border:0;background:none}
+.ntTime{position:absolute;left:-66px;width:52px;top:0;text-align:right;font-family:system-ui,sans-serif;font-size:11.5px;line-height:32px;color:#94a3b8}
+.ntAct{float:right;height:32px;display:flex;align-items:center;gap:0;margin-left:6px}
+.ntAct button{background:none;border:0;padding:0 4px;margin:0;width:auto;cursor:pointer;font-size:14px;line-height:1;opacity:.55;box-shadow:none;min-height:0}
 .ntAct button:hover{opacity:1}
-.ntText{white-space:pre-wrap;word-break:break-word;font-size:14.5px;line-height:1.5;margin-top:3px}
-.ntEdit{display:flex;flex-direction:column;gap:6px}
-.ntEdit input{max-width:170px;margin:0}
-.ntEdit textarea{width:100%;box-sizing:border-box;font:inherit;font-size:14.5px;line-height:1.5;padding:8px 10px;border-radius:8px}
-.ntBtns{display:flex;gap:6px}.ntBtns button{margin:0;width:auto;padding:6px 14px}
+.ntText{white-space:pre-wrap;word-break:break-word;font-size:19px;line-height:32px}
+.ntText a{color:#2563eb}
+.ntRuled{font-family:Kalam,'Noto Sans Devanagari','Nirmala UI',cursive !important;font-size:19px !important;line-height:32px !important;color:#1d3a8a !important;
+  background-color:#fffdf4 !important;background-image:linear-gradient(90deg,transparent 47px,#f19a95 47px,#f19a95 49px,transparent 49px),repeating-linear-gradient(180deg,transparent 0,transparent 31px,#a9c6e8 31px,#a9c6e8 32px) !important;
+  background-attachment:local !important;padding:0 10px 0 58px !important;border:1px solid #e3dcc6 !important}
+.ntEdit{display:flex;flex-direction:column;gap:0}
+.ntEdit input{max-width:170px;margin:0;height:32px;padding:0 8px;box-sizing:border-box;font-size:14px}
+.ntEdit textarea{width:100%;box-sizing:border-box;border-radius:6px;min-height:128px}
+.ntBtns{display:flex;gap:6px;height:32px;align-items:center}.ntBtns button{margin:0;width:auto;padding:3px 14px;font-family:system-ui,sans-serif;font-size:13px}
 .ntEmpty{text-align:center;opacity:.7;padding:22px 8px;font-size:14px}
