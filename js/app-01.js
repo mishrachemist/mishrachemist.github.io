@@ -748,14 +748,42 @@ document.getElementById("fileLocationMenuBtn").addEventListener("click", () => {
   window.scrollTo({ top: 0, behavior: "instant" });
 });
 
-document.getElementById("refreshPageBtn").addEventListener("click", () => {
+// 28-Nov-2026: Refresh first asks the service worker for a newer version of the app. If there is one, it is
+// downloaded completely (page + all its parts) and the app reloads into it; if not, the usual refresh.
+function mzCheckUpdate(timeoutMs) {
+  return new Promise(done => {
+    try {
+      const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+      if (!sw || navigator.onLine === false) return done(null);
+      let t = 0;
+      const on = e => { if (!e.data || e.data.type !== "update-result") return; clearTimeout(t); navigator.serviceWorker.removeEventListener("message", on); done(e.data); };
+      navigator.serviceWorker.addEventListener("message", on);
+      t = setTimeout(() => { navigator.serviceWorker.removeEventListener("message", on); done(null); }, timeoutMs || 20000);
+      sw.postMessage({ action: "updateNow", version: typeof APP_BUILD !== "undefined" && APP_BUILD !== "0000000000" ? APP_BUILD : APP_VERSION });
+    } catch (e) { done(null); }
+  });
+}
+function mzUpdatingNote() {
+  if (document.getElementById("mzUpdNote")) return;
+  const n = document.createElement("div"); n.id = "mzUpdNote"; n.textContent = "🔄 Updating Moltrix to the newest version…";
+  n.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:12px;z-index:2147483002;background:var(--gold,#c9a227);color:#0b2545;border-radius:999px;padding:8px 16px;font-weight:700;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.3)";
+  document.body.appendChild(n);
+}
+let mzRefreshing = false;
+async function mzRefresh(btn, soft) {
+  if (mzRefreshing) return; mzRefreshing = true;
+  if (btn) btn.classList.add("busy");
+  const r = await mzCheckUpdate();
+  if (r && r.newer) { mzUpdatingNote(); location.reload(); return; }
+  mzRefreshing = false;
+  if (soft && typeof window.mzSoftRefresh === "function") { if (btn) btn.classList.remove("busy"); window.mzSoftRefresh(); return; }
   location.reload();
-});
+}
+document.getElementById("refreshPageBtn").addEventListener("click", () => mzRefresh(null, false));
 document.getElementById("refreshCornerBtn").addEventListener("click", (e) => {
-  // 26-Nov-2026: refresh in place (js/view-restore.js) - the open page reads its figures again, no reload / sign-in wait
-  if (typeof window.mzSoftRefresh === "function") { window.mzSoftRefresh(); return; }
-  e.currentTarget.classList.add("busy");   // spin like the Fetch button while the page reloads
-  location.reload();
+  // 26-Nov-2026: refresh in place (js/view-restore.js) - the open page reads its figures again, no reload / sign-in wait;
+  // 28-Nov-2026: unless a newer version of the app is out - then that is loaded
+  mzRefresh(e.currentTarget, true);
 });
 
 /* ===================== VIBRATION TOGGLE ===================== */

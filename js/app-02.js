@@ -843,7 +843,7 @@ if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready.then(reg => {
         const w = navigator.serviceWorker.controller || reg.active; if (!w) return;
         localStorage.setItem("shellRefreshAt", String(Date.now()));
-        w.postMessage({ action: "refreshShell", version: typeof APP_VERSION !== "undefined" ? APP_VERSION : "" });
+        w.postMessage({ action: "refreshShell", version: typeof APP_BUILD !== "undefined" && APP_BUILD !== "0000000000" ? APP_BUILD : typeof APP_VERSION !== "undefined" ? APP_VERSION : "" });   // the worker compares build ids
       }).catch(() => {});
     } catch (e) {}
   };
@@ -856,7 +856,7 @@ if ("serviceWorker" in navigator) {
     if (!e.data || e.data.type !== "sms-new-version" || document.getElementById("swUpdateBar")) return;
     const bar = document.createElement("button");
     bar.id = "swUpdateBar"; bar.type = "button";
-    bar.textContent = "🔄 New version available" + (e.data.version ? " (" + e.data.version + ")" : "") + " - tap to update";
+    bar.textContent = "🔄 New version available - tap to update";
     bar.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:2147483002;" +
       "background:var(--gold,#c9a227);color:#0b2545;border:none;border-radius:999px;padding:10px 18px;" +
       "font-weight:700;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.3);cursor:pointer;";
