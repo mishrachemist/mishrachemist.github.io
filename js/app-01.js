@@ -413,6 +413,10 @@ function openLangPicker() {
     close();
     if (pick !== cur) { try { localStorage.setItem("appLanguage", pick); } catch (e) {} applyLanguagePreference(); }
   };
+  // 28-Nov-2026: a small box under the language button in the top corner (not a big box in the middle)
+  { const b = document.getElementById("langCornerBtn"), r = b && b.offsetParent ? b.getBoundingClientRect() : null;
+    ov.style.setProperty("--lpTop", (r ? Math.round(r.bottom + 8) : 64) + "px");
+    ov.style.setProperty("--lpRight", "10px"); }   // right: the screen's own corner
   requestAnimationFrame(() => ov.classList.add("open"));
 }
 document.getElementById("langToggle").addEventListener("click", openLangPicker);
