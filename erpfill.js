@@ -23,7 +23,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.28.1";
+  const VERSION = "2026.11.28.2";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -827,13 +827,42 @@
     return { vr: v2, missing: r.missing };
   }
 
+  // 28-Nov-2026: the date's voucher looked up in the ERP itself, so it is found whichever phone / PC made it.
+  // Production Entry Listing shows (SMS vouchers only): Voucher No. (Q226N27-0003) | Voucher Date (27-Nov-2026) | Division |
+  // Plant | Status (Approved / Unapproved). The Voucher Date may be the day of entry, so every voucher dated the production
+  // date or up to 2 days after it is a candidate; the one whose Production In Date is the date is used (checked on opening).
+  function listingRows() {
+    return [...document.querySelectorAll("tr")].filter(vis).map(r => {
+      const c = [...r.children].map(x => txt(x).trim()), vr = c.find(x => /^[A-Z0-9]{4,}-\d{3,}$/.test(x)), d = c.map(dmyOf).find(Boolean);
+      const st = c.find(x => /^(un)?approved$/i.test(x)) || "";
+      return vr && d ? { vr, date: d, approved: /^approved$/i.test(st) } : null;
+    }).filter(Boolean);
+  }
+  async function findDayVoucher(date, log) {
+    await backToListing(); await sleep(1500);
+    const dn = s => { const [d, m, y] = s.split("-"); return Date.UTC(+y, +m - 1, +d) / 864e5; }, d0 = dn(date);
+    const near = rows => rows.filter(x => dn(x.date) - d0 >= 0 && dn(x.date) - d0 <= 2);
+    let rows = listingRows();
+    if (!near(rows).length) {                                      // not on the first page: the list's search box
+      const sb = [...document.querySelectorAll("input")].filter(vis).find(i => /Search Here/i.test(i.placeholder || ""));
+      if (sb) { await typeInto(sb, monDate(date)); keyEv(sb, "Enter"); await sleep(2500); rows = rows.concat(listingRows());
+        await typeInto(sb, ""); keyEv(sb, "Enter"); await sleep(1500); }
+    }
+    if (!rows.length) throw Object.assign(new Error(`couldn't read the vouchers in Production Entry Listing - type the voucher number of ${date} in the "Voucher of" box (or NEW for a new voucher) and Start again`), { stopAll: true });
+    const seen = new Set(), c = near(rows).filter(x => !seen.has(x.vr) && seen.add(x.vr))
+      .sort((a, b) => (a.date === date ? 0 : 1) - (b.date === date ? 0 : 1) || (b.vr > a.vr ? 1 : -1));
+    const open = c.filter(x => !x.approved), approved = c.filter(x => x.approved && x.date === date);
+    log(open.length || approved.length ? `In the ERP: ${c.map(x => `${x.vr} (${x.date.slice(0, 5)}, ${x.approved ? "approved" : "unapproved"})`).join(", ")}` : `No voucher of ${date} in the ERP yet - a new one is made`, "h");
+    return { open, approved };
+  }
+
   // more heats of the same date into the voucher already made for it (27-Nov-2026: one production voucher per date):
   // Edit → Production Received → the new billet lines after the ones there → every line checked → Update.
   // Lines already in the voucher (same item + Batch + Ref) are not added twice. No new RM line: the voucher has one.
   async function addProdToVoucher(h, vr, log) {
     await openVoucherForEdit(vr, backToListing, `Heats ${(h.members || [h]).map(x => x.heat).join(", ")} added by Moltrix`);
     const dv = field("Production In Date").inp.value, din = dmyOf(dv) || dv.trim();
-    if (din && din !== h.date) throw Object.assign(new Error(`${vr} is a voucher of ${din}, not ${h.date} - clear the voucher box (or type the right one) and Start again`), { stopAll: true });
+    if (din && din !== h.date) throw Object.assign(new Error(`${vr} is a voucher of ${din}, not ${h.date} - clear the voucher box (or type the right one) and Start again`), { stopAll: true, wrongDate: true });
     await openTab("Production Received");
     const pf = await waitFor(() => grid("Production Received"), 10000, "Production Received grid");
     const before = prodRowsNow().filter(x => x.code), sig = l => `${l.code}|${l.batch}|${l.ref}`;
@@ -846,6 +875,7 @@
     }
     await checkProd(before.map(g => ({ code: g.code, batch: g.batch, ref: g.ref, pcs: g.pcs, cf: g.cf, mt: g.mt })).concat(add));
     log(`   all ${before.length + add.length} billet lines re-checked ✓ (${before.length} were there, ${add.length} added)`, "ok");
+    if (window.MZF_DRY) { log("   (trial - not updated; press Back in the ERP to throw it away)", "h"); return { vr: "DRY RUN", missing: [] }; }
     const v2 = await save(/^Update$/);
     return { vr: /^\(/.test(v2 || "(") ? vr : v2, missing: [] };
   }
@@ -1765,7 +1795,7 @@
       (mode !== "cons" && mode !== "approve" && data.vmode !== "heat" ? (() => { const dv = dayVrOf(data.date);
         return `<div style="margin-top:8px;padding:6px 8px;border:1px solid #2b3d5c;border-radius:6px">Voucher of ${data.date}:
           <input id="mzfDayVr" value="${dv}" placeholder="none yet - a new one is made" style="width:150px;background:#0a1526;color:#e8eef8;border:1px solid #3a4f73;border-radius:4px;padding:2px 6px">
-          <div style="color:#8ea3c4;font-size:11px;margin-top:3px">${dv ? `The ticked heats are <b>added to ${dv}</b> (one voucher per date).` : "No voucher of this date yet - the ticked heats make a new one."} Made on another phone / PC? Type its number here.</div></div>`; })() : "") +
+          <div style="color:#8ea3c4;font-size:11px;margin-top:3px">${dv ? `The ticked heats are <b>added to ${dv}</b> (one voucher per date).` : "Blank: the panel looks for this date's voucher in the ERP (a new one only if there is none)."} NEW = a new voucher anyway.</div></div>`; })() : "") +
       `<div style="margin-top:8px"><button data-a="start" style="background:#d4a017;color:#10213a;border:0;border-radius:6px;padding:6px 14px;font-weight:700;cursor:pointer">Start</button>
        <span style="color:#8ea3c4;font-size:11px"> Keep this tab open and don't click in the ERP while it runs.</span></div>`;
   }
@@ -1821,7 +1851,10 @@
     // ticked heats; Add RM and Approve work once per saved voucher (with the consumption of every heat in it).
     // Vouchers saved earlier one per heat still work: they are simply groups of one.
     const dayMode = !qc && !m2m;   // production (any kind), Add RM, Approve
-    const dvBox = panel().querySelector("#mzfDayVr"), dayVr = dvBox && data.vmode !== "heat" ? dvBox.value.trim().toUpperCase() : "";
+    const dvBox = panel().querySelector("#mzfDayVr"), dvIn = dvBox && data.vmode !== "heat" ? dvBox.value.trim().toUpperCase() : "";
+    const forceNew = dvIn === "NEW", dayVr = forceNew ? "" : dvIn;
+    let dayFind = null;                                  // no number known: the date's voucher is looked up in the ERP (in runOne)
+    const findDay = dvBox && data.vmode !== "heat" && !dayVr && !forceNew;
     if (dayMode) {
       const groups = [];
       if (data.mode === "cons" || data.mode === "approve") {
@@ -1860,6 +1893,16 @@
           if (Object.values(store(APPROVE_DONE_KEY)).includes(dayVr))
             throw Object.assign(new Error(`${dayVr} (the voucher of ${data.date}) is already approved - the ERP doesn't open an approved voucher in Edit, so the heats can't be added to it`), { stopAll: true });
           r = await addProdToVoucher(h, dayVr, log); }
+        else if (findDay) {
+          if (!dayFind) { log(`Looking for the voucher of ${data.date} in the ERP ...`, "h"); dayFind = await findDayVoucher(data.date, log); }
+          r = null;
+          for (const c of dayFind.open) {
+            try { r = await addProdToVoucher(h, c.vr, log); break; }
+            catch (e) { if (!e.wrongDate) throw e; log(`   ${c.vr} is of another production date - not this one`, "h"); dayFind.open = dayFind.open.filter(x => x !== c); await backToListing(); }
+          }
+          if (!r && dayFind.approved.length) throw Object.assign(new Error(`${dayFind.approved.map(x => x.vr).join(", ")} dated ${data.date} is already approved, so the heats can't be added to it. If it is of another production date, type NEW in the "Voucher of" box and Start again`), { stopAll: true });
+          if (!r) { r = await newVoucher(h, data.mode, log); if (r && r.vr) dayFind.open.unshift({ vr: r.vr, date: data.date }); }
+        }
         else r = await newVoucher(h, data.mode, log);
         const rememberAll = (vr, key) => keys.forEach(kk => remember(kk, vr, key));
         if (r.already) { rememberAll(r.vr, APPROVE_DONE_KEY); okN += members.length; log(`   ${r.vr} was already approved ✓`, "ok"); }
@@ -1922,7 +1965,7 @@
   let busy0 = false, peekT = 0, over = false;
   const dim = () => { const p = document.getElementById("mzfPanel"); if (!p) return;
     p.style.opacity = busy0 && !over && Date.now() > peekT ? "0.2" : "1"; };
-  window.MZF = { VERSION, get busy() { return busy0; }, set busy(v) { busy0 = !!v; dim(); }, show() { panel(); renderData(); }, _t: { newVoucher, addConsumption, fillRm, backToListing, log, setData(d) { data = d; renderData(); }, debug(on) { DEBUG = on; dbgT = Date.now(); },
+  window.MZF = { VERSION, get busy() { return busy0; }, set busy(v) { busy0 = !!v; dim(); }, show() { panel(); renderData(); }, _t: { newVoucher, listingRows, addConsumption, fillRm, backToListing, log, setData(d) { data = d; renderData(); }, debug(on) { DEBUG = on; dbgT = Date.now(); },
     grid, realRows, addRow, activate, fillProdLine, fillRmLine, alertBox, lov, pickLov, field, cell, newQc, qcFill, qcAddRest, backToQcListing, qcPickBatch, qcRowsNow, screenTitle,
     newIrq, irqAddItem, backToIrqListing, ngPick, irqGridRows, irqDefaults, loadPasted, doAction, formOpen, onListing, newM2m, backToM2mListing, m2mIssueLine, m2mRecvLine, m2mRowsNow, closeAlert } };
   panel(); renderData();
