@@ -23,7 +23,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.28.7";
+  const VERSION = "2026.11.28.8";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -37,7 +37,13 @@
   { const old = document.getElementById("mzfPanel"); if (old && old.dataset.v !== VERSION) old.remove(); }
 
   /* ================= helpers ================= */
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  // 28-Nov-2026 speed: every fixed wait is multiplied by SPEED (Normal 1 / Fast 0.6 / Faster 0.4, chosen in the panel).
+  // Waits for the ERP to show something (waitFor) are not cut - only the extra pauses. A heat that fails while fast is
+  // tried once more at Normal speed at the end, and the rest of the run goes on at Normal.
+  let SPEED = 1;
+  const SPEEDS = { "1": "Normal", "0.6": "Fast", "0.4": "Faster" };
+  const speedSaved = () => { try { const v = localStorage.getItem("mzfSpeed"); return SPEEDS[v] ? v : "0.6"; } catch (e) { return "0.6"; } };
+  const sleep = ms => new Promise(r => setTimeout(r, ms <= 0 ? 0 : Math.max(20, Math.round(ms * SPEED))));
   const vis = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
   const txt = e => (e && e.innerText || "").replace(/\s+/g, " ").trim();
   let STOP = false;
@@ -1714,7 +1720,7 @@
     p.style.cssText = "transition:opacity .25s;position:fixed;right:8px;bottom:8px;width:min(420px, calc(100vw - 16px));max-height:70vh;display:flex;flex-direction:column;background:#0f1d33;color:#e8eef8;font:13px/1.4 system-ui,Segoe UI,sans-serif;border:2px solid #d4a017;border-radius:10px;z-index:2147483647;box-shadow:0 8px 28px rgba(0,0,0,.45)";
     p.innerHTML = `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid #2b3d5c">
         <b style="flex:1;color:#f2c94c">Moltrix → ERP <span style="font-weight:400;color:#8ea3c4;font-size:11px">v${VERSION}</span></b>
-        <button data-a="open">Open Moltrix</button><button data-a="paste">Paste</button><button data-a="pcview" id="mzfPcBtn">PC view</button><button data-a="stop">Stop</button><button data-a="min" title="Make small / big">–</button><button data-a="x">✕</button></div>
+        <select id="mzfSpeed" title="How long the panel pauses between steps. Fast / Faster: a heat that fails is tried again at Normal speed." style="background:#1f3558;color:#fff;border:1px solid #3d5a86;border-radius:6px;padding:2px 4px">${Object.entries(SPEEDS).map(([v, n]) => `<option value="${v}" ${v === speedSaved() ? "selected" : ""}>${n}</option>`).join("")}</select><button data-a="open">Open Moltrix</button><button data-a="paste">Paste</button><button data-a="pcview" id="mzfPcBtn">PC view</button><button data-a="stop">Stop</button><button data-a="min" title="Make small / big">–</button><button data-a="x">✕</button></div>
       <div id="mzfPaste" style="display:none;padding:8px 10px;border-bottom:1px solid #2b3d5c">
         <div style="font-size:12px;color:#8ea3c4;margin-bottom:4px">Phone: in Moltrix press <b>Copy for ERP</b>, come back here, long-press the box below → Paste, then Load.</div>
         <textarea id="mzfPasteBox" rows="3" style="width:100%;box-sizing:border-box;font:12px Consolas,monospace;background:#0b1526;color:#e8eef8;border:1px solid #3d5a86;border-radius:6px" placeholder="Paste here"></textarea>
@@ -1728,6 +1734,7 @@
       else if (a === "pcview") pcView(!pcViewOn());
       else if (a === "min") { const sm = p.dataset.min !== "1"; p.dataset.min = sm ? "1" : ""; ["#mzfBody", "#mzfLog", "#mzfPaste"].forEach(q => { const e = p.querySelector(q); if (e) e.style.display = sm ? "none" : (q === "#mzfPaste" ? "none" : ""); }); }
       else if (a === "open") openApp(); else if (a === "stop") { STOP = true; log("Stopping after the current step…", "err"); } else if (a === "x") { if (!MZF.busy) p.remove(); } else if (a === "start") start(); });
+    p.querySelector("#mzfSpeed").addEventListener("change", e => { try { localStorage.setItem("mzfSpeed", e.target.value); } catch (x) {} });
     document.body.appendChild(p); return p;
   }
   /* ---- phone: lay the ERP out like a PC (1366 px wide) - its Create New Record / Save / Back buttons only show on a wide screen ---- */
@@ -1889,7 +1896,8 @@
     if (trial) { picked = picked.slice(0, 1); window.MZF_DRY = true; log("Trial: only the first ticked heat is filled and left open, not saved.", "h"); }
     keepAwake(true);
     MZF.busy = true; STOP = false; const t0 = Date.now(); let okN = 0; RUN_SKIP.clear();
-    log(`Starting ${picked.length} heat(s) for ${data.date}`, "h");
+    SPEED = +speedSaved(); const fast0 = SPEED < 1;
+    log(`Starting ${picked.length} heat(s) for ${data.date}${fast0 ? ` - ${SPEEDS[String(SPEED)]} speed` : ""}`, "h");
     const qc = data.mode === "qc", back = qc ? backToQcListing : m2m ? backToM2mListing : backToListing;
     try { await back(); }
     catch (e) { log(`✗ ${e.message}`, "err"); log("Nothing was entered.", "err"); window.MZF_DRY = dry0; keepAwake(false); MZF.busy = false; STOP = false; return; }
@@ -1912,6 +1920,7 @@
     let lastErr = "";
     const again = [];                                     // heats that only timed out (slow internet) - tried once more at the end
     const runOne = async (h, second) => {
+      const th = Date.now(); if (second) SPEED = 1;
       const members = h.members || [h];                  // the heats this voucher stands for
       const k = data.date + "|" + members[0].heat + (m2m ? "|" + h.lines[0].len : "");
       const keys = members.map(x => data.date + "|" + x.heat + (m2m ? "|" + h.lines[0].len : ""));
@@ -1961,16 +1970,21 @@
         else if (data.mode === "approve") { rememberAll(r.vr, APPROVE_DONE_KEY); okN += members.length; log(`   approved ${r.vr}`, "ok"); }
         else { rememberAll(r.vr, qc ? QC_DONE_KEY : m2m ? M2M_DONE_KEY : DONE_KEY); okN += members.length; log(`   saved ${r.vr}${members.length > 1 ? ` (${members.length} heats)` : ""}`, "ok"); }
         if (r.missing && r.missing.length) log(`   NOT entered: ${r.missing.join("; ")}`, "err");
+        log(`   (${Math.round((Date.now() - th) / 1000)} s)`, "h");
         lastErr = "";
         try { if (appWin) members.forEach(x => appWin.postMessage({ type: "moltrix-erp-done", mode: data.mode, date: data.date, heat: x.heat, vr: r.vr, missing: r.missing || [] }, APP_ORIGIN)); } catch (e) {}
       } catch (e) {
-        const slow = /^Timed out/.test(e.message) && !e.stopAll;
+        // fast speed: a heat that failed for another reason than the data (no stock, wrong date ...) may only have been too
+        // quick for the ERP - from here on Normal speed, and that heat once more at the end
+        const tooFast = SPEED < 1 && !e.stopAll && !e.noStock && !e.wrongDate && !e.noRights && e.message !== "Stopped by user";
+        if (tooFast) { SPEED = 1; log("   (failed at fast speed - the rest goes on at Normal speed)", "h"); }
+        const slow = (/^Timed out/.test(e.message) || tooFast) && !e.stopAll;
         if (e.noRights && qc) { try { localStorage.setItem(QC_NOEDIT_KEY, "1"); } catch (x) {}
           log("   A saved QC can't be changed from this login, so tests still empty can't be added to it. Ask the ERP admin for Edit rights on Production QC [NQ:QCPRO], then tick those heats and Start again. New heats (no QC yet) still go in as before.", "err"); }
         log(`   ✗ ${e.message}${whereOf(e)} - ${members.length > 1 ? `this voucher (${members.length} heats) was` : "this heat was"} NOT saved${slow && !second && !trial ? " (will try it again at the end)" : ""}`, "err");
         if (trial) { log("   The half-filled voucher is left open - press Back in the ERP to throw it away.", "err"); return "stop"; }
         if (slow && !second) { again.push(h); try { await back(); } catch (e2) {} return; }
-        if (e.message === lastErr) { log("   Stopped - the same problem on two heats in a row; send me a screenshot of this.", "err"); try { await back(); } catch (e2) {} return "stop"; }
+        if (e.message === lastErr && !(slow && !second)) { log("   Stopped - the same problem on two heats in a row; send me a screenshot of this.", "err"); try { await back(); } catch (e2) {} return "stop"; }
         lastErr = e.message;
         if (e.stopAll) { log("   Stopped - the other heats would fail the same way.", "err"); try { await back(); } catch (e2) {} return "stop"; }
         try { await back(); } catch (e2) {}
@@ -1979,12 +1993,12 @@
     let halted = false;
     for (const h of picked) { if ((await runOne(h)) === "stop") { halted = true; break; } renderData(); if (STOP) break; }
     if (!halted && !STOP && again.length) {
-      log(`Trying again ${again.length} heat(s) that timed out (slow internet)...`, "h");
+      log(`Trying again ${again.length} heat(s) that timed out or were too quick for the ERP - at Normal speed...`, "h");
       for (const h of again) { if ((await runOne(h, true)) === "stop") break; renderData(); if (STOP) break; }
     }
     const heatN = picked.reduce((n, g) => n + (g.members ? g.members.length : 1), 0);
     log(`Finished: ${okN} of ${heatN} heat(s) done in ${Math.round((Date.now() - t0) / 60000)} min.`, "h");
-    window.MZF_DRY = dry0; keepAwake(false);
+    window.MZF_DRY = dry0; keepAwake(false); SPEED = 1;
     MZF.busy = false; STOP = false; renderData();
   }
   function takeData(d, how) {
