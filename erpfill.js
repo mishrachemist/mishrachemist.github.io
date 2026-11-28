@@ -23,7 +23,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.28.2";
+  const VERSION = "2026.11.28.3";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -798,8 +798,16 @@
     let ar = null; try { ar = field("Audit Remark").inp; } catch (e) { if (back === backToListing) throw e; }   // QC: only if the screen has one
     if (ar) await typeInto(ar, remark);
   }
+  // the open voucher must be of the production date (28-Nov-2026: the date's voucher may be looked up in the ERP)
+  function prodDateIs(vr, date) {
+    const dv = field("Production In Date").inp.value, din = dmyOf(dv) || dv.trim();
+    if (din && din !== date) throw Object.assign(new Error(`${vr} is a voucher of ${din}, not ${date} - clear the voucher box (or type the right one) and Start again`), { stopAll: true, wrongDate: true });
+  }
+  async function checkVoucherDate(vr, date) {          // Approve: look (Edit, then Back without saving) before approving
+    await openVoucherForEdit(vr, backToListing, "checked by Moltrix before Approve"); prodDateIs(vr, date); await backToListing();
+  }
   async function addConsumption(h, vr, log) {
-    await openVoucherForEdit(vr);
+    await openVoucherForEdit(vr); prodDateIs(vr, h.date);
     await openTab("RM Consumption");
     const rf = await waitFor(() => grid("R.M. Consumed For Material"), 10000, "RM Consumption grid");
     const before = rmRowsNow().filter(x => x.code);
@@ -861,8 +869,7 @@
   // Lines already in the voucher (same item + Batch + Ref) are not added twice. No new RM line: the voucher has one.
   async function addProdToVoucher(h, vr, log) {
     await openVoucherForEdit(vr, backToListing, `Heats ${(h.members || [h]).map(x => x.heat).join(", ")} added by Moltrix`);
-    const dv = field("Production In Date").inp.value, din = dmyOf(dv) || dv.trim();
-    if (din && din !== h.date) throw Object.assign(new Error(`${vr} is a voucher of ${din}, not ${h.date} - clear the voucher box (or type the right one) and Start again`), { stopAll: true, wrongDate: true });
+    prodDateIs(vr, h.date);
     await openTab("Production Received");
     const pf = await waitFor(() => grid("Production Received"), 10000, "Production Received grid");
     const before = prodRowsNow().filter(x => x.code), sig = l => `${l.code}|${l.batch}|${l.ref}`;
@@ -1787,15 +1794,16 @@
          <span style="color:#8ea3c4;font-size:11px"> Start on the Production QC screen. Keep this tab in front.</span></div>`;
       return;
     }
-    b.innerHTML = `<div style="margin-bottom:6px"><b>${data.date}</b> · ${mode === "full" ? (data.vmode === "heat" ? "One voucher per heat (old way): billet lines + one RM line of 0.001 MT (the consumption with Add RM later)" : "ONE voucher per date: all ticked heats' billet lines (+ one RM line of 0.001 MT in a new voucher; the day's consumption with Add RM later)") : mode === "cons" ? "Add the RM consumption of all its heats to the saved voucher" : mode === "approve" ? "Approve the saved production voucher(s)" : "Production only"}</div>` +
-      data.heats.map((h, i) => { const k = data.date + "|" + h.heat, done = s[k], appr = store(APPROVE_DONE_KEY)[k]; const can = mode === "cons" || mode === "approve" ? !!done : true;
-        const tick = mode === "approve" ? can && !appr : mode === "cons" ? can && !appr : can && !done;   // an approved voucher doesn't open in Edit (13-Nov) - not ticked, can still be ticked by hand
-        return `<label style="display:flex;gap:6px;align-items:center;margin:2px 0;${can ? "" : "opacity:.5"}"><input type="checkbox" data-i="${i}" ${tick ? "checked" : ""} ${can ? "" : "disabled"}>
-          Heat ${h.heat} · ${h.lines.reduce((x, l) => x + l.pcs, 0)} pcs · ${h.mt.toFixed(3)} MT${done ? ` <span style="color:${mode === "cons" && appr ? "#ffb4a8" : "#9be7a0"}">(${done}${appr ? mode === "cons" ? " · approved - can't add RM" : " · approved" : ""})</span>` : ""}</label>`; }).join("") +
-      (mode !== "cons" && mode !== "approve" && data.vmode !== "heat" ? (() => { const dv = dayVrOf(data.date);
+    // 28-Nov-2026: ONE production voucher per date - production, Add RM (the day's total) and Approve all work on it
+    const all = mode === "cons" || mode === "approve";
+    b.innerHTML = `<div style="margin-bottom:6px"><b>${data.date}</b> · ${mode === "full" ? "ONE voucher per date: the ticked heats' billet lines (+ one RM line of 0.001 MT in a new voucher; the day's consumption with Add RM later)" : mode === "cons" ? "Add RM: the TOTAL consumption of all heats of the date into the date's voucher" : mode === "approve" ? "Approve the date's production voucher" : "Production only - ONE voucher per date"}</div>` +
+      data.heats.map((h, i) => { const k = data.date + "|" + h.heat, done = s[k];
+        return `<label style="display:flex;gap:6px;align-items:center;margin:2px 0"><input type="checkbox" data-i="${i}" ${all || !done ? "checked" : ""} ${all ? "disabled" : ""}>
+          Heat ${h.heat} · ${h.lines.reduce((x, l) => x + l.pcs, 0)} pcs · ${h.mt.toFixed(3)} MT${done ? ` <span style="color:#9be7a0">(${done})</span>` : ""}</label>`; }).join("") +
+      ((() => { const dv = dayVrOf(data.date);
         return `<div style="margin-top:8px;padding:6px 8px;border:1px solid #2b3d5c;border-radius:6px">Voucher of ${data.date}:
           <input id="mzfDayVr" value="${dv}" placeholder="none yet - a new one is made" style="width:150px;background:#0a1526;color:#e8eef8;border:1px solid #3a4f73;border-radius:4px;padding:2px 6px">
-          <div style="color:#8ea3c4;font-size:11px;margin-top:3px">${dv ? `The ticked heats are <b>added to ${dv}</b> (one voucher per date).` : "Blank: the panel looks for this date's voucher in the ERP (a new one only if there is none)."} NEW = a new voucher anyway.</div></div>`; })() : "") +
+          <div style="color:#8ea3c4;font-size:11px;margin-top:3px">${dv ? `${all ? "Works on" : "The ticked heats are <b>added to"} ${dv}${all ? "" : "</b>"} (one voucher per date).` : `Blank: the panel looks for this date's voucher in the ERP${all ? "" : " (a new one only if there is none)"}.`}${all ? "" : " NEW = a new voucher anyway."}</div></div>`; })()) +
       `<div style="margin-top:8px"><button data-a="start" style="background:#d4a017;color:#10213a;border:0;border-radius:6px;padding:6px 14px;font-weight:700;cursor:pointer">Start</button>
        <span style="color:#8ea3c4;font-size:11px"> Keep this tab open and don't click in the ERP while it runs.</span></div>`;
   }
@@ -1851,24 +1859,16 @@
     // ticked heats; Add RM and Approve work once per saved voucher (with the consumption of every heat in it).
     // Vouchers saved earlier one per heat still work: they are simply groups of one.
     const dayMode = !qc && !m2m;   // production (any kind), Add RM, Approve
-    const dvBox = panel().querySelector("#mzfDayVr"), dvIn = dvBox && data.vmode !== "heat" ? dvBox.value.trim().toUpperCase() : "";
-    const forceNew = dvIn === "NEW", dayVr = forceNew ? "" : dvIn;
+    const dvBox = panel().querySelector("#mzfDayVr"), dvIn = dvBox ? dvBox.value.trim().toUpperCase() : "";
+    const forceNew = dvIn === "NEW" && (data.mode === "full" || data.mode === "prod"), dayVr = dvIn === "NEW" ? "" : dvIn;
     let dayFind = null;                                  // no number known: the date's voucher is looked up in the ERP (in runOne)
-    const findDay = dvBox && data.vmode !== "heat" && !dayVr && !forceNew;
+    const findDay = dayMode && !dayVr && !forceNew;
     if (dayMode) {
-      const groups = [];
-      if (data.mode === "cons" || data.mode === "approve") {
-        const by = new Map(), st = store();
-        picked.forEach(h => { const vr = st[data.date + "|" + h.heat] || ""; if (!by.has(vr)) by.set(vr, []); by.get(vr).push(h); });
-        by.forEach((list, vr) => {
-          // Add RM: the consumption of EVERY heat in that voucher, also the ones not ticked
-          const all = vr && data.mode === "cons" ? data.heats.filter(h => st[data.date + "|" + h.heat] === vr) : list;
-          groups.push(mergeHeats(all.length ? all : list, list));
-        });
-      } else if (data.vmode === "heat") picked.forEach(h => groups.push(mergeHeats([h], [h])));   // old way: a voucher per heat
-      else groups.push(mergeHeats(picked, picked));
-      picked = groups;
-      log(`${data.mode !== "cons" && data.mode !== "approve" && data.vmode !== "heat" ? "One voucher" : picked.length + " voucher(s)"} for ${picked.reduce((n, g) => n + g.members.length, 0)} heat(s): ${picked.map(g => g.heat).join(" | ")}`, "h");
+      // one voucher per date: production = the ticked heats; Add RM = the TOTAL of all heats of the date; Approve = once
+      const all = data.mode === "cons" || data.mode === "approve";
+      picked = [mergeHeats(all ? data.heats : picked, all ? data.heats : picked)];
+      log(`One voucher for ${data.date}: ${picked[0].members.length} heat(s) - ${picked[0].heat}`, "h");
+      if (data.mode === "cons") log(`   total consumption: ${(picked[0].rm || []).map(l => `${l.label} ${l.qty.toFixed(3)}`).join(", ") || "none in the RM Report yet"}`, "h");
     }
     let lastErr = "";
     const again = [];                                     // heats that only timed out (slow internet) - tried once more at the end
@@ -1885,10 +1885,19 @@
           r.missing = r.left.length ? [`QC tests ${r.left.join(", ")} (Start again later - they are added to the same QC)`] : [];
           if (r.nothing && !r.left.length) { r.nothing = false; r.complete = true; } }
         else if (m2m) r = { vr: await newM2m(h, log) };
-        else if (data.mode === "cons") { const vr = store()[k]; if (!vr) throw new Error("no saved voucher recorded for this heat");
-          if (h.members && h.members.length > 1) log(`   consumption of ${h.members.length} heats together: ${(h.rm || []).map(l => `${l.label} ${l.qty.toFixed(3)}`).join(", ") || "none"}`, "h");
-          r = await addConsumption(h, vr, log); }
-        else if (data.mode === "approve") { const vr = store()[k]; if (!vr) throw new Error("no saved voucher recorded for this heat on this phone / browser"); r = await approveVoucher(vr); }
+        else if (data.mode === "cons" || data.mode === "approve") {
+          const act = data.mode === "cons" ? vr => addConsumption(h, vr, log) : async vr => { await checkVoucherDate(vr, h.date); return approveVoucher(vr); };
+          if (dayVr) r = await act(dayVr);
+          else {
+            if (!dayFind) { log(`Looking for the voucher of ${data.date} in the ERP ...`, "h"); dayFind = await findDayVoucher(data.date, log); }
+            r = null;
+            for (const c of dayFind.open) {
+              try { r = await act(c.vr); break; }
+              catch (e) { if (!e.wrongDate) throw e; log(`   ${c.vr} is of another production date - not this one`, "h"); await backToListing(); }
+            }
+            if (!r && data.mode === "approve" && dayFind.approved.length) r = { vr: dayFind.approved[0].vr, already: true };
+            if (!r) throw Object.assign(new Error(dayFind.approved.length ? `${dayFind.approved.map(x => x.vr).join(", ")} dated ${data.date} is already approved - the ERP doesn't open an approved voucher in Edit, so the RM can't be added` : `no unapproved production voucher of ${data.date} found in the ERP - make the Production entry first (or type the voucher number in the "Voucher of" box)`), { stopAll: true });
+          } }
         else if (dayVr) {
           if (Object.values(store(APPROVE_DONE_KEY)).includes(dayVr))
             throw Object.assign(new Error(`${dayVr} (the voucher of ${data.date}) is already approved - the ERP doesn't open an approved voucher in Edit, so the heats can't be added to it`), { stopAll: true });
