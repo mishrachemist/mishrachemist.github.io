@@ -23,7 +23,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.28.5";
+  const VERSION = "2026.11.28.6";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -1536,8 +1536,25 @@
     const ci = n => heads.findIndex(h => h === n.toLowerCase());
     const [gC, bC, rC, sC] = [ci("Godown Code"), ci("Batchno"), ci("Refrence slno"), heads.findIndex(h => /^stock/.test(h))];
     if (gC < 0) { await closeLov(); throw new Error("godown list has no Godown Code column"); }
-    const rows = lovRows(L).filter(r => txt(r.children[gC]).toUpperCase() === M2M.from);
-    const row = rows.find(r => rC >= 0 && txt(r.children[rC]).toUpperCase() === l.ref.toUpperCase()) || rows.find(r => bC < 0 || /^N\.?D\.?$/i.test(txt(r.children[bC])));
+    const pick = () => { const rows = lovRows(L).filter(r => txt(r.children[gC]).toUpperCase() === M2M.from);
+      return rows.find(r => rC >= 0 && txt(r.children[rC]).toUpperCase() === l.ref.toUpperCase()) || null; };
+    const nd = () => lovRows(L).filter(r => txt(r.children[gC]).toUpperCase() === M2M.from).find(r => bC < 0 || /^N\.?D\.?$/i.test(txt(r.children[bC])));
+    let row = pick(); const ndRow = row ? null : nd();
+    // 28-Nov-2026: the list shows only its first 100 rows - 27/11/2R, 4R, 6R were further down, so they "had no stock".
+    // Not in the first rows: the list's own filter box of Batchno (else Refrence slno) narrows it to this heat
+    if (!row) {
+      const ftr = [...L.querySelectorAll("thead tr")].find(tr => tr.querySelector("input"));
+      const fi = k => k >= 0 && ftr && ftr.children[k] && ftr.children[k].querySelector("input");
+      const f = fi(bC) || fi(rC);                        // the batch: its B rows stay in view too (for the message)
+      if (f) { await typeInto(f, `%${f === fi(bC) ? l.batch : l.ref}%`, 300); row = await waitFor(pick, 15000, "stock row " + l.ref).catch(() => null); }
+      else {                                             // no filter row: the list's Search box + Find
+        const sb = [...L.querySelectorAll("input")].find(i => /Search Here/i.test(i.placeholder || "")), fb = btn(/^Find$/, L);
+        if (sb) { sb.focus(); setIn.call(sb, l.ref); sb.dispatchEvent(new Event("input", { bubbles: true })); if (fb) click(fb); else keyEv(sb, "Enter");
+          row = await waitFor(pick, 15000, "stock row " + l.ref).catch(() => null); }
+      }
+    }
+    if (!row && ndRow && ndRow.isConnected) row = ndRow;
+    else if (!row) row = nd() || null;
     if (!row) {   // 28-Nov-2026: only this heat's rows in the message (the whole list was hundreds of rows long)
       const mine = lovRows(L).map(r => ({ g: gC < 0 ? "" : txt(r.children[gC]), b: bC < 0 ? "" : txt(r.children[bC]), r: rC < 0 ? "" : txt(r.children[rC]), s: sC < 0 ? "" : txt(r.children[sC]) }))
         .filter(x => x.b.toUpperCase() === String(l.batch).toUpperCase() || x.r.toUpperCase().startsWith(String(l.batch).toUpperCase()));
