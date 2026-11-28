@@ -435,12 +435,6 @@ public class MoltrixActivity extends FragmentActivity {
             if (on) { runOnUiThread(MoltrixActivity.this::askNotifyPermission); NotifyWorker.schedule(MoltrixActivity.this); NotifyWorker.checkNow(MoltrixActivity.this); }
             else NotifyWorker.cancel(MoltrixActivity.this);
         }
-        /** WhatsApp capture instead of MacroDroid (WaCapture): on/off with the Inbox Web app URL + TOKEN, its status, the access screen */
-        @JavascriptInterface public void waCap(boolean on, String url, String token) { WaCapture.set(MoltrixActivity.this, on, url, token); }
-        @JavascriptInterface public String waCapStatus() { return WaCapture.status(MoltrixActivity.this); }
-        @JavascriptInterface public void waCapAccess() {
-            runOnUiThread(() -> { try { startActivity(new Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); } catch (Exception e) {} });
-        }
         @JavascriptInterface public void notify(String title, String body) {
             notifyNow(MoltrixActivity.this, "app", "Moltrix", (int) (System.currentTimeMillis() & 0xffffff), title, body, null);
         }
