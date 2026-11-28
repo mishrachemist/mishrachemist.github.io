@@ -610,6 +610,8 @@ function waInboxEditSettings() {
   if (last === null) return;
   localStorage.setItem("waInboxUrl", url.trim());
   localStorage.setItem("waInboxToken", token.trim());
+  // the Moltrix Android app's WhatsApp capture (if ON) uses the new URL / TOKEN too
+  try { const A = window.MoltrixApp; if (A && typeof A.waCapStatus === "function" && JSON.parse(A.waCapStatus() || "{}").on) A.waCap(true, url.trim(), token.trim()); } catch (e) {}
   localStorage.setItem("waInboxLastRow", String(parseInt(last, 10) || 0));
   localStorage.removeItem("waInboxAutoMin");
   waStateTouch();
@@ -1042,6 +1044,39 @@ async function waInboxFetch() {
 document.getElementById("waFetchBtn").addEventListener("click", () => waInboxFetch());
 document.getElementById("waInboxSettingsBtn").addEventListener("click", waInboxEditSettings);
 waInboxShowInfo();
+
+/* ===================== WHATSAPP CAPTURE IN THE MOLTRIX ANDROID APP (28-Nov-2026, instead of MacroDroid) ===================== */
+(() => {
+  const box = document.getElementById("waCapBox");
+  const A = window.MoltrixApp;
+  if (!box || !A || typeof A.waCapStatus !== "function") return;   // only inside the Moltrix Android app (new enough)
+  box.classList.remove("hidden");
+  const $s = document.getElementById("waCapStatus"), $t = document.getElementById("waCapToggleBtn"), $a = document.getElementById("waCapAccessBtn");
+  const st = () => { try { return JSON.parse(A.waCapStatus() || "{}"); } catch (e) { return {}; } };
+  const when = ms => { if (!ms) return "never"; const d = new Date(ms); return d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); };
+  function show() {
+    const s = st();
+    $t.textContent = s.on ? "Turn OFF" : "Turn ON";
+    $a.style.display = s.allowed ? "none" : "";
+    $s.innerHTML = "";
+    const line = (txt, col) => { const d = document.createElement("div"); d.textContent = txt; if (col) d.style.color = col; $s.appendChild(d); };
+    if (!s.on) line("OFF - MacroDroid (if set up) is still doing the job.");
+    else if (!s.allowed) line("⚠️ ON, but Moltrix has no notification access yet - tap 'Allow notification access', switch Moltrix ON there and come back. (Android 13+: if it is greyed out, open Moltrix's App info → ⋮ → Allow restricted settings first.)", "#c0392b");
+    else line(`✅ ON - sent ${s.sent || 0} message(s), last ${when(s.lastAt)}; last WhatsApp notification seen ${when(s.seenAt)}` + (s.pending ? ` · ${s.pending} waiting to be sent` : ""), "#2e9d5b");
+    if (s.on && s.lastErr) line("Last problem: " + s.lastErr + " (it is tried again by itself)", "#b7860b");
+  }
+  $a.addEventListener("click", () => { try { A.waCapAccess(); } catch (e) {} });
+  $t.addEventListener("click", () => {
+    const s = st(), c = waInboxCfg();
+    if (!s.on && (!c.url || !c.token)) { alert("First enter your Inbox Web app URL and TOKEN (⚙️ Enter my Inbox URL / TOKEN)."); return; }
+    try { A.waCap(!s.on, c.url, c.token); } catch (e) {}
+    if (!s.on && !s.allowed) { try { A.waCapAccess(); } catch (e) {} }
+    setTimeout(show, 300);
+  });
+  show();
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") setTimeout(show, 400); });
+  setInterval(() => { if (box.offsetParent) show(); }, 10000);
+})();
 
 /* ===================== AUTO-FETCH (fixed times only; also via MacroDroid when the app is closed) ===================== */
 // While the app is open (also in the background) every minute it checks "has a fixed time passed since the last fetch?"
