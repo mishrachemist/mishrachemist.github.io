@@ -23,7 +23,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.28.8";
+  const VERSION = "2026.11.28.9";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -592,6 +592,22 @@
     return realRows(pf).map(t => ({ code: cell(t, "ITEM_CODE").value.trim(), godown: cell(t, "GODOWN_CODE").value.trim(), batch: cell(t, "BATCHNO").value, ref: cell(t, "REF_SLNO").value,
       um: cell(t, "AUM").value.trim(), pcs: +cell(t, "AQTYRECD").value, cf: +cell(t, "AUMTOUM").value, mt: +cell(t, "QTYRECD").value, st: (t.querySelector("ion-select") || {}).value }));
   }
+  // 28-Nov-2026: one voucher per date can hold 40-80 billet lines. If the ERP's grid shows them a page at a time, the
+  // lines on other pages can't be read - a heat already in the voucher would look missing and go in twice. The grid's
+  // total row (pcs and MT under the columns) is compared with the lines read: both bigger = lines are hidden, so stop.
+  function prodHiddenRows() {
+    try {
+      const pf = grid("Production Received"), rr = realRows(pf); if (!rr.length) return "";
+      const col = id => { const i = cell(rr[0], id), td = i && i.closest("td"); return td ? [...td.parentElement.children].indexOf(td) : -1; };
+      const num = t => { const v = String(t || "").replace(/,/g, "").trim(); return /^-?\d+(\.\d+)?$/.test(v) ? +v : null; };
+      const ip = col("AQTYRECD"), im = col("QTYRECD"); if (ip < 0 || im < 0) return "";
+      const foot = [...pf.querySelectorAll("tr")].filter(tr => !rr.includes(tr) && tr.children[ip] && tr.children[im] && num(txt(tr.children[ip])) !== null && num(txt(tr.children[im])) !== null).pop();
+      if (!foot) return "";
+      const fp = num(txt(foot.children[ip])), fm = num(txt(foot.children[im])), rows = prodRowsNow();
+      const sp = rows.reduce((x, r) => x + (r.pcs || 0), 0), sm = rows.reduce((x, r) => x + (r.mt || 0), 0);
+      return fp > sp + 0.5 && fm > sm + 0.0015 ? `the ERP shows only ${rows.length} billet lines (${sp} pcs) but the voucher's total is ${fp} pcs / ${fm.toFixed(3)} MT - some lines are on another page of the grid` : "";
+    } catch (e) { return ""; }
+  }
   function rmRowsNow() {
     const rf = grid("R.M. Consumed For Material");
     return realRows(rf).map(t => ({ code: cell(t, "ITEM_CODE").value.trim(), godown: cell(t, "GODOWN_CODE").value.trim(), q: +cell(t, "QTYISSUED").value || 0, aq: +cell(t, "AQTYISSUED").value || 0 }));
@@ -599,6 +615,8 @@
   const rmTotals = rows => rows.reduce((m, r) => { if (r.code) m[r.code] = r3((m[r.code] || 0) + r.q); return m; }, {});
   async function checkProd(lines) {
     await openTab("Production Received");
+    const hid = prodHiddenRows();
+    if (hid) throw Object.assign(new Error(hid + " - send me a screenshot of the bottom of the Production Received grid"), { stopAll: true });
     const got = prodRowsNow(), bad = [];
     if (got.length !== lines.length) bad.push(`${got.length} billet lines in the ERP, expected ${lines.length}`);
     lines.forEach((l, i) => { const g = got[i]; if (!g) return;
@@ -881,6 +899,8 @@
     // 28-Nov-2026: the voucher may have been made by hand in the lab, with some heats in it already - every heat is looked
     // for in it by its heat number (Batch No. / Ref No., e.g. F-A-12/345/6 or F-A-12/345/6R); a heat found there is NOT
     // entered again (whatever its lines look like - a difference is only reported), only the heats not in it are added
+    const hid = prodHiddenRows();
+    if (hid) throw Object.assign(new Error(hid + " - so it can't be checked which heats are already in it. Send me a screenshot of the bottom of the Production Received grid"), { stopAll: true });
     const before = prodRowsNow().filter(x => x.code);
     const hk = v => { const t = String(v || "").toUpperCase().replace(/\s+/g, ""), m = t.match(/(?:^|[^0-9])(\d+)\/(\d+)\/(\d+)/), f = t.match(/^F-([A-Z])-/);
       return m ? `${f ? f[1] : ""}${+m[1]}/${+m[2]}/${+m[3]}` : t.replace(/[RC]$/, ""); };
@@ -1968,6 +1988,7 @@
         else if (r.nothing) log(`   nothing added to ${r.vr}`, "err");
         else if (r.vr === "DRY RUN") log("   trial done - check the voucher in the ERP, then press Back to throw it away", "h");
         else if (data.mode === "approve") { rememberAll(r.vr, APPROVE_DONE_KEY); okN += members.length; log(`   approved ${r.vr}`, "ok"); }
+        else if (data.mode === "cons") { okN += members.length; log(`   RM of all ${members.length} heats is in ${r.vr}`, "ok"); }   // the date's total - not a sign that every heat is in its production
         else { rememberAll(r.vr, qc ? QC_DONE_KEY : m2m ? M2M_DONE_KEY : DONE_KEY); okN += members.length; log(`   saved ${r.vr}${members.length > 1 ? ` (${members.length} heats)` : ""}`, "ok"); }
         if (r.missing && r.missing.length) log(`   NOT entered: ${r.missing.join("; ")}`, "err");
         log(`   (${Math.round((Date.now() - th) / 1000)} s)`, "h");
@@ -2027,7 +2048,7 @@
   let busy0 = false, peekT = 0, over = false;
   const dim = () => { const p = document.getElementById("mzfPanel"); if (!p) return;
     p.style.opacity = busy0 && !over && Date.now() > peekT ? "0.2" : "1"; };
-  window.MZF = { VERSION, get busy() { return busy0; }, set busy(v) { busy0 = !!v; dim(); }, show() { panel(); renderData(); }, _t: { newVoucher, listingRows, addConsumption, fillRm, backToListing, log, setData(d) { data = d; renderData(); }, debug(on) { DEBUG = on; dbgT = Date.now(); },
+  window.MZF = { VERSION, get busy() { return busy0; }, set busy(v) { busy0 = !!v; dim(); }, show() { panel(); renderData(); }, _t: { newVoucher, listingRows, prodHiddenRows, addConsumption, fillRm, backToListing, log, setData(d) { data = d; renderData(); }, debug(on) { DEBUG = on; dbgT = Date.now(); },
     grid, realRows, addRow, activate, fillProdLine, fillRmLine, alertBox, lov, pickLov, field, cell, newQc, qcFill, qcAddRest, backToQcListing, qcPickBatch, qcRowsNow, screenTitle,
     newIrq, irqAddItem, backToIrqListing, ngPick, irqGridRows, irqDefaults, loadPasted, doAction, formOpen, onListing, newM2m, backToM2mListing, m2mIssueLine, m2mRecvLine, m2mRowsNow, closeAlert } };
   panel(); renderData();

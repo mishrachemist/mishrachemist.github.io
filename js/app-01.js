@@ -208,7 +208,7 @@ function uiHiDict() {
     "AOP file": "एओपी फ़ाइल", "🔄 Refresh": "🔄 रिफ़्रेश", "📊 AOP vs Indent": "📊 एओपी बनाम इंडेंट", "📂 Choose the files": "📂 फ़ाइलें चुनें",
     "⚖️ Compare": "⚖️ तुलना करें", "Item - type code or name": "आइटम - कोड या नाम लिखें", "Item code": "आइटम कोड", "Item name": "आइटम नाम",
     "Qty": "मात्रा", "Rate (₹)": "दर (₹)", "Indent / slip no.": "इंडेंट / स्लिप नंबर", "Remark": "टिप्पणी", "➕ Add": "➕ जोड़ें",
-    "🛠️ Next FY AOP (work in progress)": "🛠️ अगले वित्त वर्ष का एओपी (काम चालू)", "📥 Import Excel": "📥 Excel लाएँ", "💾 Save": "💾 सेव करें",
+    "🛠️ Next FY AOP (work in progress)": "🛠️ अगले वित्त वर्ष का एओपी (काम चालू)", "📥 Import Excel": "📥 Excel लाएँ",
     "↩ Undo changes": "↩ बदलाव वापस लें", "✅ Move to final AOP": "✅ फ़ाइनल एओपी में डालें",
     // Element (lab)
     "Solution Preparation - Normality / Molarity": "घोल बनाना - नॉर्मलिटी / मोलरिटी", "Chemical formula": "रासायनिक सूत्र",
@@ -222,7 +222,7 @@ function uiHiDict() {
     // Moltrix Sheet
     "+ New sheet": "+ नई शीट", "Open .xlsx": ".xlsx खोलें",
     // Notes tile (27-Nov-2026)
-    "Notes": "नोट्स", "Date": "तारीख", "Today": "आज", "💾 Save note": "💾 नोट सेव करें", "All months": "सभी महीने",
+    "Notes": "नोट्स", "Today": "आज", "💾 Save note": "💾 नोट सेव करें", "All months": "सभी महीने",
     "Date-wise notes. Saved in your own OneDrive (app folder → Moltrix Notes) and on this device, so phone and PC show the same notes and they open without internet.":
       "तारीख-वार नोट्स। आपके अपने OneDrive (ऐप फ़ोल्डर → Moltrix Notes) और इस डिवाइस में सेव होते हैं, इसलिए फ़ोन और पीसी पर एक जैसे नोट्स दिखते हैं और बिना इंटरनेट के भी खुलते हैं।",
     "Downloads the notes shown": "दिख रहे नोट्स डाउनलोड होंगे", "Downloads all notes": "सभी नोट्स डाउनलोड होंगे",
