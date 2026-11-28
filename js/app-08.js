@@ -1125,18 +1125,14 @@ function erpQcPayload(d, bis) {
 function erpSendLog(m, cls) { const L = document.getElementById("erpSendLog"); if (!L) return; const d = document.createElement("div"); d.textContent = m;
   d.style.color = cls === "err" ? "#c0392b" : cls === "ok" ? "#2e9d5b" : cls === "h" ? "#b7860b" : ""; L.appendChild(d); L.scrollTop = L.scrollHeight; }
 const ERP_MODE_NOTE = {
-  full: "Production with one RM line of 0.001 MT (an item with stock) - the consumption later with Add RM to saved vouchers.",
-  cons: "Adds the missing RM lines to vouchers already saved.",
+  full: "ONE production voucher per date: the heats' billet lines (+ one RM line of 0.001 MT in a new voucher) - later heats of the date go into the same voucher; the consumption later with Add RM.",
+  cons: "The TOTAL RM consumption of all heats of the date into the date's voucher (only what is missing is added).",
   qc: "BIS Doc Final row - only after the voucher is approved. The tests the ERP has get entered and saved; run it again later and the tests still empty are added to the same QC (needs Edit rights on Production QC in the ERP).",
-  approve: "Approves the production vouchers saved from this phone for the date (✓ → Approve) - needed before Production QC.",
+  approve: "Approves the date's production voucher (✓ → Approve) - needed before Production QC.",
   m2m: "Hot charging (R) billets, series BL - one voucher per heat and length."
 };
 function erpModeNote() { const m = document.getElementById("erpSendMode"), n = document.getElementById("erpSendModeNote"); if (m && n) n.textContent = ERP_MODE_NOTE[m.value] || "";
-  const w = document.getElementById("erpVmodeWrap"); if (m && w) w.style.display = m.value === "full" ? "" : "none"; }
-// 28-Nov-2026: voucher / heat (the old way) or voucher / all heats of the date (the new ERP way) - kept on this device
-{ const v = document.getElementById("erpVmode");
-  if (v) { try { const s = localStorage.getItem("erpVmode"); if (s === "heat" || s === "day") v.value = s; } catch (e) {}
-    v.addEventListener("change", () => { try { localStorage.setItem("erpVmode", v.value); } catch (e) {} }); } }
+}
 document.getElementById("erpSendMode").addEventListener("change", erpModeNote);
 function erpSendRefresh() {
   const b = document.getElementById("erpSendBtn"), h = document.getElementById("erpSendHint");
@@ -1165,9 +1161,7 @@ async function erpBuildPayload() {
   } else {
     ({ bad, payload } = erpPayload(erpEntryData, mode));
     if (bad.length) { alert("Can't send - " + bad.join("; ")); return null; }
-    const vm = (document.getElementById("erpVmode") || {}).value === "heat" ? "heat" : "day";
-    if (mode === "full") { payload.vmode = vm; erpSendLog(vm === "heat" ? "One voucher per heat (old way)." : "One voucher for all heats of the date."); }
-    if (mode !== "m2m" && !(mode === "full" && vm === "heat")) { const dv = (await erpDayVrLoad())[payload.date]; if (dv) { payload.dayVr = dv; if (mode === "full") erpSendLog(`Voucher of ${payload.date}: ${dv} - the heats are added to it.`); } }
+    if (mode !== "m2m") { const dv = (await erpDayVrLoad())[payload.date]; if (dv) { payload.dayVr = dv; if (mode === "full") erpSendLog(`Voucher of ${payload.date}: ${dv} - the heats are added to it.`); } }
   }
   return payload;
 }
@@ -1203,29 +1197,7 @@ async function erpAppOpen(payload, logEl) {
   }
   location.href = url;
 }
-// phone (28-Nov-2026): Production + RM asks first - one voucher for all heats of the date, or one voucher per heat
-function erpVmodeAsk() {
-  return new Promise(done => {
-    const v = document.getElementById("erpVmode"); let pick = v && v.value === "heat" ? "heat" : "day";
-    let ov = document.getElementById("erpVmOv");
-    if (!ov) { ov = document.createElement("div"); ov.id = "erpVmOv"; ov.className = "langPickOv"; document.body.appendChild(ov); }
-    const opts = [["day", "One voucher / all heats", "All heats of the date in one voucher (the new ERP way)"], ["heat", "One voucher / heat", "A separate voucher for every heat (old way)"]];
-    ov.innerHTML = `<div class="langPickBox" role="dialog" aria-modal="true" aria-labelledby="erpVmT">
-      <div class="langPickHead"><div class="langPickTitle" id="erpVmT">Production voucher</div></div>
-      <div class="langPickBody"><div class="langPickList" role="radiogroup">${opts.map(([k, t, d]) => `<button type="button" class="langPickItem" data-k="${k}" role="radio"><b style="font-size:16px">${t}</b><span style="font-size:12.5px;color:#64748b">${d}</span></button>`).join("")}</div></div>
-      <div class="langPickBtns"><button type="button" class="langPickCancel" data-x="0">Cancel</button><button type="button" class="langPickGo" data-x="1">Continue</button></div></div>`;
-    const mark = () => ov.querySelectorAll(".langPickItem").forEach(b => { b.classList.toggle("on", b.dataset.k === pick); b.setAttribute("aria-checked", b.dataset.k === pick); });
-    ov.querySelectorAll(".langPickItem").forEach(b => b.onclick = () => { pick = b.dataset.k; mark(); });
-    mark();
-    const close = r => { ov.classList.remove("open"); setTimeout(() => { if (!ov.classList.contains("open")) ov.innerHTML = ""; }, 200); done(r); };
-    ov.querySelector('[data-x="0"]').onclick = () => close(null);
-    ov.querySelector('[data-x="1"]').onclick = () => { if (v) { v.value = pick; try { localStorage.setItem("erpVmode", pick); } catch (e) {} } close(pick); };
-    ov.onclick = e => { if (e.target === ov) close(null); };
-    requestAnimationFrame(() => ov.classList.add("open"));
-  });
-}
 document.querySelectorAll("[data-erpapp]").forEach(b => b.addEventListener("click", async () => {
-  if (b.dataset.erpapp === "full" && !(await erpVmodeAsk())) return;
   const sel = document.getElementById("erpSendMode");
   sel.value = b.dataset.erpapp; erpModeNote();
   const payload = await erpBuildPayload(); if (!payload) return;
