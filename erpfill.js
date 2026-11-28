@@ -23,7 +23,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.28.4";
+  const VERSION = "2026.11.28.5";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -1538,7 +1538,14 @@
     if (gC < 0) { await closeLov(); throw new Error("godown list has no Godown Code column"); }
     const rows = lovRows(L).filter(r => txt(r.children[gC]).toUpperCase() === M2M.from);
     const row = rows.find(r => rC >= 0 && txt(r.children[rC]).toUpperCase() === l.ref.toUpperCase()) || rows.find(r => bC < 0 || /^N\.?D\.?$/i.test(txt(r.children[bC])));
-    if (!row) { const seen = lovRows(L).map(r => [gC, bC, rC].map(k => k < 0 ? "" : txt(r.children[k])).join(" ")).join("; "); await closeLov(); throw new Error(`no ${M2M.from} stock row for ${l.code} (ERP list: ${seen || "empty"})`); }
+    if (!row) {   // 28-Nov-2026: only this heat's rows in the message (the whole list was hundreds of rows long)
+      const mine = lovRows(L).map(r => ({ g: gC < 0 ? "" : txt(r.children[gC]), b: bC < 0 ? "" : txt(r.children[bC]), r: rC < 0 ? "" : txt(r.children[rC]), s: sC < 0 ? "" : txt(r.children[sC]) }))
+        .filter(x => x.b.toUpperCase() === String(l.batch).toUpperCase() || x.r.toUpperCase().startsWith(String(l.batch).toUpperCase()));
+      await closeLov();
+      throw Object.assign(new Error(`no ${M2M.from} stock of ${l.code} with Ref No ${l.ref} - ` + (mine.length
+        ? `this heat has only ${mine.map(x => `${x.g} ${x.r || x.b}${x.s ? ` (${x.s})` : ""}`).join(", ")}. Already transferred by an earlier M2M voucher, or entered in the production voucher with another Ref No - check in the ERP`
+        : `no stock of this heat at all for this item. Already transferred by an earlier M2M voucher, or not in the production voucher - check in the ERP`)), { noStock: true });
+    }
     const td = [...row.children].find(t => getComputedStyle(t).display !== "none") || row.firstElementChild;
     mouse(td, "click"); mouse(td, "dblclick");
     await waitFor(() => !lov(), 15000, "godown list to close"); await sleep(800);
