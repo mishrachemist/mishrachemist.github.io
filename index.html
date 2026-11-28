@@ -3149,16 +3149,17 @@ window.mzZeroBlank = function zeroBlankTables() {   // run by js/lazy-libs.js on
   #section-marketdash .bxStrip{ display:block; max-width:1040px; margin:18px auto 4px; padding:0 14px; }
   /* gold / silver rate cards in the style of the rates page (27-Nov-2026) */
   .bxCerts{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:6px 0 10px; }   /* gold and silver side by side (28-Nov-2026) */
-  @media (max-width:640px){   /* phone: two narrow cards - everything inside scaled down */
-    .bxCerts{ gap:8px; } #section-marketdash .bxStrip{ padding:0 8px; }
-    .bxCert{ padding:5px !important; } .bxCi{ padding:8px 8px 7px !important; }
-    .bxRos{ width:15px !important; height:15px !important; }
-    .bxCk{ font-size:9.5px !important; } .bxCn{ font-size:14px !important; } .bxCs{ font-size:9.5px !important; }
-    .bxCp{ font-size:21px !important; margin-top:3px !important; } .bxCp .cur, .bxCp .dec{ font-size:12px !important; } .bxCp .cur{ vertical-align:7px !important; }
-    .bxCu{ font-size:9px !important; letter-spacing:.04em !important; } .bxCpill{ font-size:10px !important; padding:2px 6px !important; margin-top:5px !important; }
-    .bxCy{ font-size:10px !important; } .bxSeal{ width:38px !important; right:6px !important; bottom:6px !important; }
-    .bxGuil{ width:120px !important; height:120px !important; right:-30px !important; top:10px !important; }
-    .bxCt{ font-size:9px !important; max-width:72% !important; margin-top:8px !important; }
+  @media (max-width:640px){   /* phone (28-Nov-2026): one card per row as before, as wide as the four Market tiles, lower */
+    .bxCerts{ grid-template-columns:1fr; gap:10px; }
+    #section-marketdash .bxStrip{ max-width:none; margin:14px 0 4px; padding:0 16px; }
+    .bxCert{ padding:6px !important; } .bxCi{ padding:9px 12px 8px !important; }
+    .bxRos{ width:18px !important; height:18px !important; }
+    .bxCk{ font-size:10.5px !important; } .bxCn{ font-size:16px !important; margin-top:0 !important; } .bxCs{ font-size:10px !important; }
+    .bxCp{ font-size:27px !important; margin-top:2px !important; } .bxCp .cur, .bxCp .dec{ font-size:15px !important; } .bxCp .cur{ vertical-align:10px !important; }
+    .bxCu{ font-size:10px !important; } .bxCpill{ font-size:10.5px !important; padding:2px 7px !important; margin-top:4px !important; }
+    .bxCy{ font-size:10.5px !important; margin-top:2px !important; } .bxSeal{ width:52px !important; right:10px !important; bottom:8px !important; }
+    .bxGuil{ width:150px !important; height:150px !important; right:-30px !important; top:8px !important; }
+    .bxCt{ font-size:10px !important; margin-top:6px !important; }
   }
   .bxCert{ position:relative; display:block; width:100%; margin:0; padding:8px; border:1.5px solid #2f6b4f; border-radius:4px; cursor:pointer; text-align:left; color:#14281f;
     background-color:#f3eedc; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='10'%3E%3Cpath d='M0 5 Q3.5 0 7 5 T14 5' fill='none' stroke='%232f6b4f' stroke-width='.9'/%3E%3Cpath d='M0 5 Q3.5 10 7 5 T14 5' fill='none' stroke='%232f6b4f' stroke-width='.9' opacity='.6'/%3E%3C/svg%3E");
