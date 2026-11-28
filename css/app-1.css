@@ -2867,3 +2867,21 @@
 
 /* Games page (27-Nov-2026): the home-screen tile grid, without the home cards above it */
 #gamesSubNav{ position:static !important; margin:0; }
+
+/* 28-Nov-2026: the language box opens small, under the language button in the top corner */
+#langPickOv{align-items:flex-start;justify-content:flex-end;padding:var(--lpTop,64px) var(--lpRight,12px) 12px 12px;background:rgba(15,23,42,.18);backdrop-filter:none;-webkit-backdrop-filter:none}
+#langPickOv .langPickBox{width:min(290px,100%);max-height:calc(100vh - var(--lpTop,64px) - 12px);border-radius:14px;transform-origin:top right;transform:translateY(-6px) scale(.96)}
+#langPickOv.open .langPickBox{transform:none}
+#langPickOv .langPickHead{padding:12px 12px 10px}
+#langPickOv .langPickTitle{font-size:15px}
+#langPickOv .langPickBeta{margin-top:6px;padding:2px 10px;font-size:12px}
+#langPickOv .langPickBody{padding:10px 12px 4px}
+#langPickOv .langPickSearch{height:38px;border-radius:10px;padding:0 10px;margin-bottom:6px}
+#langPickOv .langPickSearch svg{width:17px;height:17px}
+#langPickOv .langPickSearch input#langPickQ{font-size:14px !important;height:34px !important}
+#langPickOv .langPickItem{padding:8px 8px;border-radius:10px}
+#langPickOv .lpNative{font-size:20px}
+#langPickOv .lpEn{font-size:13px}
+#langPickOv .langPickNote{font-size:11.5px;padding:8px 12px}
+#langPickOv .langPickBtns{gap:8px;padding:4px 12px 12px}
+#langPickOv .langPickBtns button{height:38px;border-radius:10px;font-size:14px}
