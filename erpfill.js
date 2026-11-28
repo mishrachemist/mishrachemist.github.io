@@ -23,7 +23,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.28.3";
+  const VERSION = "2026.11.28.4";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -872,9 +872,24 @@
     prodDateIs(vr, h.date);
     await openTab("Production Received");
     const pf = await waitFor(() => grid("Production Received"), 10000, "Production Received grid");
-    const before = prodRowsNow().filter(x => x.code), sig = l => `${l.code}|${l.batch}|${l.ref}`;
-    const there = new Set(before.map(sig)), add = h.lines.filter(l => !there.has(sig(l)));
-    if (h.lines.length > add.length) log(`   ${h.lines.length - add.length} billet line(s) already in ${vr} - not added again`, "h");
+    // 28-Nov-2026: the voucher may have been made by hand in the lab, with some heats in it already - every heat is looked
+    // for in it by its heat number (Batch No. / Ref No., e.g. F-A-12/345/6 or F-A-12/345/6R); a heat found there is NOT
+    // entered again (whatever its lines look like - a difference is only reported), only the heats not in it are added
+    const before = prodRowsNow().filter(x => x.code);
+    const hk = v => { const t = String(v || "").toUpperCase().replace(/\s+/g, ""), m = t.match(/(?:^|[^0-9])(\d+)\/(\d+)\/(\d+)/), f = t.match(/^F-([A-Z])-/);
+      return m ? `${f ? f[1] : ""}${+m[1]}/${+m[2]}/${+m[3]}` : t.replace(/[RC]$/, ""); };
+    const there = new Map();
+    before.forEach(g => [g.batch, g.ref].forEach(v => { const k = hk(v); if (k) { if (!there.has(k)) there.set(k, []); if (!there.get(k).includes(g)) there.get(k).push(g); } }));
+    const add = [];
+    (h.members || [h]).forEach(m => {
+      const ls = m.lines || [], k = hk(ls[0] && ls[0].batch), dg = x => x.replace(/^[A-Z](?=\d+\/)/, ""), fu = x => (x.match(/^([A-Z])(?=\d+\/)/) || [])[1] || "";
+      // the same numbers; the furnace letter must agree only when both have one (a hand entry may leave it out)
+      const hits = [...there.keys()].filter(t => dg(t) === dg(k) && (!fu(t) || !fu(k) || fu(t) === fu(k)));
+      const have = hits.length ? [...new Set([].concat(...hits.map(t => there.get(t))))] : null;
+      if (!have) { add.push(...ls); return; }
+      const pcsV = have.reduce((x, g) => x + (+g.pcs || 0), 0), pcsM = ls.reduce((x, l) => x + (+l.pcs || 0), 0);
+      log(`   heat ${m.heat} is already in ${vr} (${have.length} line(s), ${pcsV} pcs) - not entered again` + (pcsV !== pcsM ? ` ⚠ Moltrix has ${pcsM} pcs for it - check that heat in the ERP` : ""), pcsV !== pcsM ? "err" : "h");
+    });
     if (!add.length) { await backToListing(); return { vr, missing: [], inVoucher: true }; }
     for (const l of add) {
       const tr = await addRow(pf);
