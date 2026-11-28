@@ -23,7 +23,7 @@
                   No d/m/nR, voucher date = heat date. Trial box = fill one heat, don't save. Start on M2M.   */
 (() => {
   "use strict";
-  const VERSION = "2026.11.28.6";
+  const VERSION = "2026.11.28.7";
   const APP_ORIGIN = "https://mishrachemist.github.io";
   const APP_URL = APP_ORIGIN + "/?erpbridge=1";
   const DONE_KEY = "moltrixErpDone";   // date|heat -> voucher no (this browser only)
@@ -1534,7 +1534,7 @@
     await waitFor(() => lovRows(L).length, 20000, "godown rows").catch(() => {});
     const heads = [...[...L.querySelectorAll("thead tr")].find(tr => [...tr.children].some(c => txt(c))).children].map(c => txt(c).replace(/\*$/, "").toLowerCase());
     const ci = n => heads.findIndex(h => h === n.toLowerCase());
-    const [gC, bC, rC, sC] = [ci("Godown Code"), ci("Batchno"), ci("Refrence slno"), heads.findIndex(h => /^stock/.test(h))];
+    const [gC, bC, rC, sC] = [ci("Godown Code"), ci("Batchno"), ci("Refrence slno"), heads.findIndex(h => /^stock/.test(h) && !/type/.test(h))];
     if (gC < 0) { await closeLov(); throw new Error("godown list has no Godown Code column"); }
     const pick = () => { const rows = lovRows(L).filter(r => txt(r.children[gC]).toUpperCase() === M2M.from);
       return rows.find(r => rC >= 0 && txt(r.children[rC]).toUpperCase() === l.ref.toUpperCase()) || null; };
