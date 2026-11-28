@@ -12,5 +12,10 @@ const out = html.replace(/((?:src|href)=")((?:js|css)\/[\w.-]+\.(?:js|css))\?v=(
   if (h !== old) { n++; console.log(`${p}: ${old} -> ${h}`); }
   return `${pre}${p}?v=${h}"`;
 });
-if (out !== html) fs.writeFileSync(file, out);
+// 28-Nov-2026: APP_BUILD - a fingerprint of the whole page (all ?v= hashes included). The service worker compares it to
+// see that the site has a newer version (APP_VERSION only changes with the What's New note, so it can't tell).
+const blank = s => s.replace(/const APP_BUILD = "[0-9a-f]*";/, 'const APP_BUILD = "";');
+const build = crypto.createHash("sha256").update(blank(out)).digest("hex").slice(0, 10);
+const out2 = out.replace(/const APP_BUILD = "[0-9a-f]*";/, `const APP_BUILD = "${build}";`);
+if (out2 !== html) { fs.writeFileSync(file, out2); if (!n) console.log("build id -> " + build); }
 console.log(n ? `${n} file(s) re-stamped` : "all stamps up to date");

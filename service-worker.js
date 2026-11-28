@@ -97,7 +97,8 @@ async function saveShell(res, path) {
   await Promise.all(keys.map((k) => cache.put(new Request(new URL(k, self.registration.scope).href), res.clone())));
 }
 
-const versionOf = (html) => { const m = /const APP_VERSION = "([^"]+)"/.exec(html || ''); return m ? m[1] : ''; };
+// the page's build id (tools/stamp.mjs - changes with every update); older pages only had APP_VERSION
+const versionOf = (html) => { const m = /const APP_BUILD = "([0-9a-f]+)"/.exec(html || '') || /const APP_VERSION = "([^"]+)"/.exec(html || ''); return m ? m[1] : ''; };
 
 // Fetch: only this site's own GET requests are handled here. Microsoft sign-in, Graph (Excel),
 // Apps Script, CDN scripts etc. go straight to the network, untouched.
@@ -191,6 +192,25 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   const d = event.data || {};
   if (d.action === 'skipWaiting') { self.skipWaiting(); return; }
+  // updateNow (28-Nov-2026: the Refresh button) - like refreshShell, at once, and always answers the page:
+  // { type: 'update-result', newer: true } once the newest page and all its parts are saved (the page then reloads)
+  if (d.action === 'updateNow') {
+    event.waitUntil((async () => {
+      const reply = (newer, version) => { try { event.source && event.source.postMessage({ type: 'update-result', newer, version: version || '' }); } catch (e) {} };
+      try {
+        const res = await fetch(new Request(new URL('./', self.registration.scope).href, { cache: 'no-cache' }));
+        if (!res || res.status !== 200) return reply(false);
+        const html = await res.clone().text(), latest = versionOf(html);
+        if (!latest || latest === d.version) return reply(false, latest);
+        const cache = await caches.open(CACHE_NAME);
+        if (!(await cacheParts(cache, html))) return reply(false, latest);   // could not download every part - stay on this one
+        await saveShell(res, '/');
+        await pruneParts(cache, html);
+        reply(true, latest);
+      } catch (e) { reply(false); }
+    })());
+    return;
+  }
   if (d.action === 'refreshShell') {
     event.waitUntil((async () => {
       try {
